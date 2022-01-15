@@ -36,6 +36,7 @@ namespace ZeroMev.Shared
         public static string ShortenHex(string hex, int toLength)
         {
             if (hex == null) return "";
+            if (toLength > hex.Length) return hex;
             return hex.Substring(0, toLength) + "...";
         }
 

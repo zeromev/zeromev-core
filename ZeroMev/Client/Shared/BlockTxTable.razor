@@ -10,12 +10,17 @@
 else
 {
     ZV.SetOrderBy(Order);
+    bool isDisabled = (ZV.TxCount == 0);
+    string canvasStyle = null;
+    if (!isDisabled)
+        canvasStyle = "border:1px solid #000000";
+
     <div class="row">
         <div class="col">
             <div class="btn-group" role="group" aria-label="transaction filter">
-                <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Time?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Time)">Fair Order</button>
-                <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Gas?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Gas)">Gas Order</button>
-                <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Block?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Block)">Block Order</button>
+                <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Time?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Time)" disabled="@isDisabled">Fair Order</button>
+                <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Gas?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Gas)" disabled="@isDisabled">Gas Order</button>
+                <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Block?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Block)" disabled="@isDisabled">Block Order</button>
             </div>
             @if (TxIndex.HasValue)
             {
@@ -24,14 +29,14 @@ else
         </div>
         <div class="col">
             <div class="btn-group" role="group" aria-label="transaction filter">
-                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.All?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.All)"><img src="filter.svg" width="20" height="20" />All (@ZV.TxCount)</button>
-                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.MEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.MEV)"><img src="filter.svg" width="20" height="20" />MEV (@ZV.MEVCount)</button>
-                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.ToxicMEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.ToxicMEV)"><img src="filter.svg" width="20" height="20" />Toxic MEV (@ZV.MEVToxicCount)</button>
-                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.OtherMEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.OtherMEV)"><img src="filter.svg" width="20" height="20" />Other MEV (@ZV.MEVOtherCount)</button>
+                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.All?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.All)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />All (@ZV.TxCount)</button>
+                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.MEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.MEV)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />MEV (@ZV.MEVCount)</button>
+                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.ToxicMEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.ToxicMEV)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />Toxic MEV (@ZV.MEVToxicCount)</button>
+                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.OtherMEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.OtherMEV)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />Other MEV (@ZV.MEVOtherCount)</button>
             </div>
         </div>
     </div>
-    <canvas id="orderCanvas" width="@ZV.TxCount" height="8" style="border:1px solid #000000;"></canvas>
+    <canvas id="orderCanvas" width="@ZV.TxCount" height="8" style="@canvasStyle"></canvas>
 }
 
 <table name="txtable" class="table table-hover table-sm">
@@ -84,7 +89,7 @@ else
                 <tr class="@tx.TrClass(TxIndex)">
                     <td>-</td>
                     <td></td>
-                    <td></td>
+
                     <td>-</td>
                     <td>@tx.TxnHashShort</td>
                     <td>-</td>
@@ -100,7 +105,7 @@ else
     </tbody>
 </table>
 
-@if (ZV.Txs.Length == 0)
+@if (ZV.TxCount == 0)
 {
     <div class="alert alert-info" role="alert">
         no transactions in this block

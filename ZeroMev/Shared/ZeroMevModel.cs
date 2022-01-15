@@ -280,7 +280,7 @@ namespace ZeroMev.Shared
             int popCount = 0;
             foreach (PoP pop in PoPs)
             {
-                if (pop.ExtractorIndex == (int)ExtractorPoP.Inf) continue; // infura is not a real node and messes up the stats
+                if (pop.ExtractorIndex == (int)ExtractorPoP.Inf && PoPs.Count != 1) continue; // infura is not a real node and messes up the stats, so only use it if we have to
                 popCount++;
                 sum += pop.BlockTime.Ticks;
                 if (pop.BlockTime < BlockTimeMin) BlockTimeMin = pop.BlockTime;
@@ -421,7 +421,7 @@ namespace ZeroMev.Shared
             foreach (var tx in Txs)
             {
                 tx.UnfilteredIndex = i++;
-                if (tx.Filter(filter) && tx.ValidCount != 0)
+                if (tx.Filter(filter))
                     f.Add(tx);
             }
             return f;

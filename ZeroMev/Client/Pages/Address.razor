@@ -9,33 +9,32 @@
 }
 else
 {
-<table class="table table-hover table-sm">
-    <thead>
-        <tr>
-            <th scope="col">Txn Hash</th>
-            <th scope="col">Nonce</th>
-            <th scope="col">Block Number</th>
-            <th scope="col">Time</th>
-            <th scope="col">From</th>
-            <th scope="col">To</th>
-            <th scope="col">Value (Eth)</th>
-        </tr>
-    </thead>
-    <tbody>
-        @foreach(var tx in addrTxs)
-        {
-        <tr>
-            <td><a href="block?num=@tx.BlockNumber&txi=@tx.TransactionIndex">@Num.ShortenHex(tx.Hash,16)</a></td>
-            <td>@tx.Nonce</td>
-            <td>@tx.BlockNumber</td>
-            <td>@(DateTimeOffset.FromUnixTimeSeconds(long.Parse(tx.TimeStamp)).ToUniversalTime().DateTime)</td>
-            <td>@Num.ShortenHex(tx.From,16)</td>
-            <td>@Num.ShortenHex(tx.To,16)</td>
-            <td>@Num.EthToGwei(tx.Value)</td>
-        </tr>
-        }
-    </tbody>
-</table>
+    <table class="table table-hover table-sm">
+        <thead>
+            <tr>
+                <th scope="col">Txn Hash</th>
+                <th scope="col">Nonce</th>
+                <th scope="col">Block Number</th>
+                <th scope="col">Time</th>
+                <th scope="col">From</th>
+                <th scope="col">To</th>
+                <th scope="col">Value (Eth)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <Virtualize Items="@addrTxs" Context="tx">
+                <tr>
+                    <td><a href="block?num=@tx.BlockNumber&txi=@tx.TransactionIndex">@Num.ShortenHex(tx.Hash,16)</a></td>
+                    <td>@tx.Nonce</td>
+                    <td>@tx.BlockNumber</td>
+                    <td>@(DateTimeOffset.FromUnixTimeSeconds(long.Parse(tx.TimeStamp)).ToUniversalTime().DateTime)</td>
+                    <td>@Num.ShortenHex(tx.From,16)</td>
+                    <td>@Num.ShortenHex(tx.To,16)</td>
+                    <td>@Num.EthToGwei(tx.Value)</td>
+                </tr>
+            </Virtualize>
+        </tbody>
+    </table>
 }
 
 @code {
