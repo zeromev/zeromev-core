@@ -1,0 +1,53 @@
+﻿@page "/block"
+@inject HttpClient Http
+@inject ZMCache Cache
+@inject NavigationManager NavigationManager
+@inject IJSRuntime _jsRuntime
+
+@if (zv == null)
+{
+    <p><em>loading block...</em></p>
+}
+else
+{
+    <BlockTable ZV=@zv/>
+    <BlockTxTable ZV=@zv TxIndex=@TxIndex/>
+}
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "num")]
+    public long? BlockNumber { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "txh")]
+    public string? TxHash { get; set; }
+
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "txi")]
+    public int? TxIndex { get; set; }
+
+    ZMView zv;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // interpret the tx hash, which takes priority if supplied
+        if (TxHash != null)
+        {
+            var txh = await Cache.TxhCache.Get(Http, TxHash);
+            if (txh != null && txh.APIResult == APIResult.Ok)
+            {
+                BlockNumber = txh.BlockNumber;
+                TxIndex = txh.TxIndex;
+            }
+        }
+
+        // get the block view
+        if (BlockNumber.HasValue)
+            zv = await Cache.ZMViewCache.Get(Http, BlockNumber.Value);
+
+        // fail if we don't have a valid block view by now
+        if (zv == null)
+            NavigationManager.NavigateTo("searchfailed");
+    }
+}

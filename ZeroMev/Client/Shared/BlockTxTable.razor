@@ -1,0 +1,134 @@
+﻿@inject NavigationManager NavigationManager
+@inject IJSRuntime _jsRuntime
+
+@if (ZV.BlockNumber < API.EarliestZMBlock)
+{
+    <div class="alert alert-warning" role="alert">
+        no zeromev time order data available before block @API.EarliestZMBlock
+    </div>
+}
+else
+{
+    ZV.SetOrderBy(Order);
+    <div class="row">
+        <div class="col">
+            <div class="btn-group" role="group" aria-label="transaction filter">
+                <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Time?"active":"text-dark")" @onclick="() => SetOrder(OrderBy.Time)">Fair Order</button>
+                <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Gas?"active":"text-dark")" @onclick="() => SetOrder(OrderBy.Gas)">Gas Order</button>
+                <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Block?"active":"text-dark")" @onclick="() => SetOrder(OrderBy.Block)">Block Order</button>
+            </div>
+            @if (TxIndex.HasValue)
+            {
+                <button type="button" class="btn btn-outline-light text-dark ms-4" onclick="javascript:blazorHelpers.scrollToFragment('selected');"><img src="jump.svg" width="16" height="20" />  Jump To Tx</button>               
+            }
+        </div>
+        <div class="col">
+            <div class="btn-group" role="group" aria-label="transaction filter">
+                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.All?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.All)"><img src="filter.svg" width="20" height="20" />All (@ZV.TxCount)</button>
+                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.MEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.MEV)"><img src="filter.svg" width="20" height="20" />MEV (@ZV.MEVCount)</button>
+                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.ToxicMEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.ToxicMEV)"><img src="filter.svg" width="20" height="20" />Toxic MEV (@ZV.MEVToxicCount)</button>
+                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.OtherMEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.OtherMEV)"><img src="filter.svg" width="20" height="20" />Other MEV (@ZV.MEVOtherCount)</button>
+            </div>
+        </div>
+    </div>
+    <canvas id="orderCanvas" width="@ZV.TxCount" height="8" style="border:1px solid #000000;"></canvas>
+}
+
+<table name="txtable" class="table table-hover table-sm">
+    <thead>
+        <tr>
+            <th scope="col">Time</th>
+            <th scope="col" style="width: 0%"><img src="NoCol.png" /></th>
+            <th scope="col" style="width: 0%"><img src="NoCol.png" /></th>
+            <th scope="col">Delay</th>
+            <th scope="col">Txn Hash</th>
+            <th scope="col">Arrival Time</th>
+            <th scope="col">MEV</th>
+            <th scope="col"><img src="FB.png" /></th>
+            <th scope="col">From</th>
+            <th scope="col">To</th>
+            <th scope="col">Value (Eth)</th>
+            <th scope="col">Gas Price (Gwei)</th>
+        </tr>
+    </thead>
+    <tbody>
+        @if (ZV.HasZM)
+        {
+            filtered = ZV.GetFiltered(Filter);
+            <Virtualize Items="@filtered" Context="tx" OverscanCount=@(!TxIndex.HasValue||TxIndex.Value<3?3:TxIndex.Value)>
+                <tr id="@tx.TrId(TxIndex)" class="@tx.TrClass(TxIndex)">
+                    <td>@tx.TimeOrderIndex</td>
+                    <td style="background-color:@Heatmap.GetLookup(tx.UnfilteredIndex, ZV.TxCount)"></td>
+                    <td style="background-color:@tx.HeatmapRGB"></td>
+                    <td>@tx.InclusionDelayShort</td>
+                    <td>@tx.TxnHashShort</td>
+                    <td>@(tx.TimeOrder.ToString()+tx.TimeOrder.ToString(".fff"))</td>
+                    @if (MEV.Get(tx.MEVType).IsVisible)
+                    {
+                        <td><span class="badge text-light @MEV.CssClass(tx.MEVType, ZV.OrderBy)">@MEV.Get(tx.MEVType).Name</span></td>
+                    }
+                    else
+                    {
+                        <td></td>
+                    }
+                    <td>@tx.Bundle</td>
+                    <td>@tx.FromShort</td>
+                    <td>@tx.ToShort</td>
+                    <td>@tx.Value</td>
+                    <td>@tx.GasPrice</td>
+            </tr>
+        </Virtualize>
+        }
+        else
+        {
+            filtered = ZV.GetFiltered(Filter);
+            <Virtualize Items="@filtered" Context="tx" OverscanCount=@(!TxIndex.HasValue||TxIndex.Value<3?3:TxIndex.Value)>
+                <tr class="@tx.TrClass(TxIndex)">
+                    <td>-</td>
+                    <td></td>
+                    <td></td>
+                    <td>-</td>
+                    <td>@tx.TxnHashShort</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>@tx.Bundle</td>
+                    <td>@tx.FromShort</td>
+                    <td>@tx.ToShort</td>
+                    <td>@tx.Value</td>
+                    <td>@tx.GasPrice</td>
+                </tr>
+            </Virtualize>
+        }
+    </tbody>
+</table>
+
+@if (ZV.Txs.Length == 0)
+{
+    <div class="alert alert-info" role="alert">
+        no transactions in this block
+    </div>
+}
+
+@code {
+    [Parameter]
+    public ZMView? ZV { get; set; }
+
+    [Parameter]
+    public int? TxIndex { get; set; }
+
+    FilterTxsBy Filter { get; set; } = FilterTxsBy.All;
+    OrderBy Order { get; set; } = OrderBy.Block;
+    List<ZMTx> filtered = new List<ZMTx>();
+
+    private void SetOrder(OrderBy order)
+    {
+        Order = order;
+        if (ZV != null)
+            ZV.SetOrderBy(order);
+    }
+
+    private void SetFilter(FilterTxsBy filter)
+    {
+        Filter = filter;
+    }
+}

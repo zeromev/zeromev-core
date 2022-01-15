@@ -1,0 +1,76 @@
+﻿@inject NavigationManager NavigationManager
+<div class="input-group oi-vertical-align-center my-2">
+    <input type="text" class="form-control" placeholder="search for block / tx hash / account" @bind="searchStr" @onkeyup="@Enter" />
+    <button class="btn btn-outline-secondary" style="background-color:rgb(11,10,30)" @onclick="DoSearch"><img src="search-13-32.png" /></button>
+</div>
+
+@code {
+    private string searchStr;
+
+    private void DoSearch()
+    {
+        if (searchStr == null)
+            return;
+
+        int len = searchStr.Length;
+        long blockNum;
+
+        if (len == 0)
+        {
+            return;
+        }
+        else if (len == 42)
+        {
+            // 0x account
+            if (Num.IsValidHex(searchStr))
+            {
+                NavigationManager.NavigateTo("address?hash=" + searchStr);
+                return;
+            }
+        }
+        else if (len == 40)
+        {
+            // account
+            searchStr = "0x" + searchStr;
+            if (Num.IsValidHex(searchStr))
+            {
+                NavigationManager.NavigateTo("address?hash=" + searchStr);
+                return;
+            }
+        }
+        if (len == 66)
+        {
+            // 0x tx hash
+            if (Num.IsValidHex(searchStr))
+            {
+                NavigationManager.NavigateTo("block?txh=" + searchStr);
+                return;
+            }
+        }
+        else if (len == 64)
+        {
+            // tx hash
+            searchStr = "0x" + searchStr;
+            if (Num.IsValidHex(searchStr))
+            {
+                NavigationManager.NavigateTo("block?txh=" + searchStr);
+                return;
+            }
+        }
+        else if (long.TryParse(searchStr, out blockNum))
+        {
+            // block number
+            NavigationManager.NavigateTo("block?num=" + blockNum);
+            return;
+        }
+
+        // or failure
+        NavigationManager.NavigateTo("searchfailed");
+    }
+
+    public void Enter(KeyboardEventArgs e)
+    {
+        if (e.Code == "Enter" || e.Code == "NumpadEnter")
+            DoSearch();
+    }
+}

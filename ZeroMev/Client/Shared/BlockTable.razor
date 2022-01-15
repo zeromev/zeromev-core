@@ -1,0 +1,32 @@
+﻿<table class="table table-sm">
+    <thead>
+        <tr>
+            <th scope="col">Block Number</th>
+            <th scope="col">Tx Count</th>
+            <th scope="col">Arrival Time Avg</th>
+            <th scope="col">Min</th>
+            <th scope="col">Max</th>
+            <th scope="col">P2P Latency</th>
+            <th scope="col">PoPs</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>@ZV.BlockNumber
+                <a href='/block?num=@(ZV.BlockNumber-1)' title='previous block'><img src="left.svg" width="16" height="16" /></a>
+                <a href='/block?num=@(ZV.BlockNumber+1)' title='next block'><img src="right.svg" width="16" height="16" /></a>
+            </td>
+            <td>@ZV.TxCount</td>
+            <td>@(ZV.HasStats ? ZV.BlockTimeAvg.ToString()+ZV.BlockTimeAvg.ToString(".fff") : "-")</td>
+            <td>@(ZV.HasStats ? ZV.BlockTimeMin.ToString()+ZV.BlockTimeMin.ToString(".fff") : "-")</td>
+            <td>@(ZV.HasStats ? @ZV.BlockTimeMax.ToString()+ZV.BlockTimeMax.ToString(".fff") : "-")</td>
+            <td>@(ZV.HasStats ? @ZV.BlockTimeStdev.TotalMilliseconds+" ms" : "-")</td>
+            <td>@(ZV.HasStats ? @ZV.ValidPopCount : "-")</td>
+        </tr>
+    </tbody>
+</table>
+
+@code {
+    [Parameter]
+    public ZMView? ZV { get; set; }
+}

@@ -1,0 +1,61 @@
+﻿@page "/address"
+@inject HttpClient Http
+@inject ZMCache Cache
+@inject NavigationManager NavigationManager
+
+@if (addrTxs == null)
+{
+    <p><em>loading account...</em></p>
+}
+else
+{
+<table class="table table-hover table-sm">
+    <thead>
+        <tr>
+            <th scope="col">Txn Hash</th>
+            <th scope="col">Nonce</th>
+            <th scope="col">Block Number</th>
+            <th scope="col">Time</th>
+            <th scope="col">From</th>
+            <th scope="col">To</th>
+            <th scope="col">Value (Eth)</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach(var tx in addrTxs)
+        {
+        <tr>
+            <td><a href="block?num=@tx.BlockNumber&txi=@tx.TransactionIndex">@Num.ShortenHex(tx.Hash,16)</a></td>
+            <td>@tx.Nonce</td>
+            <td>@tx.BlockNumber</td>
+            <td>@(DateTimeOffset.FromUnixTimeSeconds(long.Parse(tx.TimeStamp)).ToUniversalTime().DateTime)</td>
+            <td>@Num.ShortenHex(tx.From,16)</td>
+            <td>@Num.ShortenHex(tx.To,16)</td>
+            <td>@Num.EthToGwei(tx.Value)</td>
+        </tr>
+        }
+    </tbody>
+</table>
+}
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "hash")]
+    public string? Addr { get; set; }
+
+    List<TxListResult>? addrTxs;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Addr != null)
+        {
+            var addr = await Cache.AccountCache.Get(Http, Addr);
+            if (addr != null && addr.Message == "OK")
+            {
+                addrTxs = addr.Result;
+                return;
+            }
+            NavigationManager.NavigateTo("searchfailed");
+        }
+    }
+}
