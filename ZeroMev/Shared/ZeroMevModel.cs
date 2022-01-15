@@ -320,10 +320,17 @@ namespace ZeroMev.Shared
 
             // calculate time order and heatmap
             SetOrderBy(OrderBy.Time);
+            byte r, g, b;
             for (int i = 0; i < TxCount; i++)
             {
-                Txs[i].TimeOrderIndex = i;
-                Txs[i].HeatmapRGB = Heatmap.GetLookup(i, TxCount);
+                Heatmap.GetLookup(i, TxCount, out r, out g, out b);
+                ZMTx tx = Txs[i];
+                tx.TimeOrderIndex = i;
+                tx.R = r;
+                tx.G = g;
+                tx.B = b;
+                string rgb = $"rgb({r},{g},{b})";
+                Txs[i].HeatmapRGB = rgb;
             }
             SetOrderBy(OrderBy.Block);
 
@@ -443,6 +450,9 @@ namespace ZeroMev.Shared
         public string InclusionDelay { get; private set; }
         public string InclusionDelayShort { get; private set; }
         public string HeatmapRGB { get; set; }
+        public byte R { get; set; }
+        public byte G { get; set; }
+        public byte B { get; set; }
         public bool IsMiner { get; private set; }
         public int ValidCount { get; private set; }
         public DateTime TimeOrder { get; private set; }

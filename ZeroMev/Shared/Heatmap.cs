@@ -269,7 +269,7 @@ namespace ZeroMev.Shared
         static int mapCount = _hmd.GetUpperBound(0);
         static float mapCountF = (float)mapCount;
 
-        public static string GetLookup(int index, int count)
+        public static void GetLookup(int index, int count, out byte r, out byte g, out byte b)
         {
             // TODO invert final values and convert to rbgs from percentages
             index = count - index;
@@ -288,48 +288,9 @@ namespace ZeroMev.Shared
             float bf = ((_hmd[h, 2] - _hmd[l, 2]) * m) + _hmd[l, 2];
 
             // cast to integers
-            byte r = (byte)(rf * 255);
-            byte g = (byte)(gf * 255);
-            byte b = (byte)(bf * 255);
-
-            // build rgb html string
-            return $"rgb({r},{g},{b})";
-        }
-
-        public static string GetCalc(int index, int count)
-        {
-            int ix = index;
-            double pct = ((double)ix) / count;
-            double r, g, b;
-
-            if (pct < 0.5)
-            {
-                double pct2 = pct * 2;
-                r = 0;
-                g = 255;
-                b = 255 * pct2;
-                double lighten = 230 * (1 - pct2);
-                r += lighten;
-                b += lighten;
-                if (r > 255) r = 255;
-                if (b > 255) b = 255;
-            }
-            else
-            {
-                pct -= 0.5;
-                r = 0;
-                g = 255 * (1 - (pct * 2));
-                b = 255;
-
-                double darken = 230 * (pct * 2);
-                g -= darken;
-                b -= darken;
-                if (g < 0) g = 0;
-                if (b < 0) b = 0;
-
-                if (g > 255) g = 255;
-            }
-            return $"rgb({Math.Floor(r)},{Math.Floor(g)},{Math.Floor(b)})";
+            r = (byte)(rf * 255);
+            g = (byte)(gf * 255);
+            b = (byte)(bf * 255);
         }
     }
 }
