@@ -1,5 +1,52 @@
 ﻿@page "/"
+@inject HttpClient Http
+@inject ZMCache Cache
+@inject NavigationManager NavigationManager
 
 <p>welcome to zeromev.</p>
 
 <p>(this will contain a mev summary of some recent blocks)</p>
+
+<table>
+    <thead></thead>
+    <tbody>
+        @foreach (MEVBlock mb in MEVBlocks)
+        {
+            <tr>
+                <a href="block?num=@mb.BlockNumber">@mb.BlockNumber</a>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    List<MEVBlock> MEVBlocks = null;
+    private long[,] MockBlocks = new long[,]
+                {
+                {13900798,168},
+                {13900799,414},
+                {13900800,350},
+                {13900801,367},
+                {13900802,183},
+                {13900803,84},
+                {13900804,442},
+                {13900805,286},
+                {13900806,24},
+                {13900807,11},
+                {13900808,449}
+                };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (MEVBlocks == null)
+        {
+            MEVBlocks = new List<MEVBlock>();
+            for (int i = 0; i <= MockBlocks.GetUpperBound(0); i++)
+            {
+                var mb = new MEVBlock(MockBlocks[i, 0]);
+                mb.MockMEV((int)MockBlocks[i, 1]);
+                MEVBlocks.Add(mb);
+            }
+        }
+    }
+}

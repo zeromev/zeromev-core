@@ -263,7 +263,7 @@ namespace ZeroMev.Shared
             SetFlashbotsBundles(zb.Bundles);
 
             // temporarily mock-up mev to build the front end TODO replace this
-            MEVModel mockMev = MockMEV();
+            MEVBlock mockMev = MockMEV();
             SetMEV(mockMev);
 
             // require zm block data
@@ -384,16 +384,16 @@ namespace ZeroMev.Shared
             }
         }
 
-        public MEVModel MockMEV()
+        public MEVBlock MockMEV()
         {
             // create a model instance that will in time have been returned via the api
-            MEVModel mm = new MEVModel();
-            mm.MockMEV(BlockNumber, TxCount);
+            MEVBlock mm = new MEVBlock(BlockNumber);
+            mm.MockMEV(TxCount);
             mm.BuildMEVSummaries();
             return mm;
         }
 
-        public void SetMEV(MEVModel mm)
+        public void SetMEV(MEVBlock mm)
         {
             MEVCount = mm.MEVCount;
             MEVToxicCount = mm.MEVToxicCount;

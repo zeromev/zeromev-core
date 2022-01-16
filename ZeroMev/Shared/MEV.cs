@@ -22,17 +22,23 @@ namespace ZeroMev.Shared
         FrontrunLiquidation
     }
 
-    public class MEVModel
+    public class MEVBlock
     {
-        public MEVSummary[] MEVSummaries;
-        public int MEVCount;
-        public int MEVOtherCount;
-        public int MEVToxicCount;
-        public decimal MEVAmount;
-        public decimal MEVOtherAmount;
-        public decimal MEVToxicAmount;
+        public long BlockNumber { get; private set; }
+        public MEVSummary[] MEVSummaries { get; private set; }
+        public int MEVCount { get; private set; }
+        public int MEVOtherCount { get; private set; }
+        public int MEVToxicCount { get; private set; }
+        public decimal MEVAmount { get; private set; }
+        public decimal MEVOtherAmount { get; private set; }
+        public decimal MEVToxicAmount { get; private set; }
 
         public MEVRow[] Rows;
+
+        public MEVBlock(long blockNumber)
+        {
+            this.BlockNumber = blockNumber;
+        }
 
         public void BuildMEVSummaries()
         {
@@ -76,13 +82,13 @@ namespace ZeroMev.Shared
             }
         }
 
-        public void MockMEV(long blockNumber, int txCount)
+        public void MockMEV(int txCount)
         {
             // temporarily mock-up mev types to allow for front-end development
             if (txCount < 3) return;
 
             // use the block number as the seed to the mev is reproduced for each block
-            Random r = new Random((int)blockNumber);
+            Random r = new Random((int)BlockNumber);
             const string comment = "<p>Some information about this mev attack</p><p>not sure how much</p><p>could include a list of txs</p><p>tx1...</p><p>tx2...</p><p>tx3...</p>";
             List<MEVRow> rows = new List<MEVRow>();
 
