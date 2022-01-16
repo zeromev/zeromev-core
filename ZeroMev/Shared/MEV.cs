@@ -187,7 +187,7 @@ namespace ZeroMev.Shared
 
         public static string CssClass(MEVType mevType, OrderBy orderBy)
         {
-            if (orderBy != OrderBy.Time)
+            if (orderBy != OrderBy.Time || !Rows[(int)mevType].IsToxic)
                 return Rows[(int)mevType].CssClass;
             else
                 return Rows[0].CssClass;

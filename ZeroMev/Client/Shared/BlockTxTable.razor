@@ -32,7 +32,7 @@ else
                 <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.All?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.All)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />All (@ZV.TxCount)</button>
                 <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.MEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.MEV)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />MEV (@ZV.MEVCount)</button>
                 <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.ToxicMEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.ToxicMEV)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />Toxic MEV (@ZV.MEVToxicCount)</button>
-                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.OtherMEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.OtherMEV)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />Other MEV (@ZV.MEVOtherCount)</button>
+                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.OtherMEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.OtherMEV)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />Other (@ZV.MEVOtherCount)</button>
             </div>
         </div>
     </div>
