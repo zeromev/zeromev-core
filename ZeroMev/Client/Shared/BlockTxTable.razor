@@ -18,9 +18,9 @@ else
     <div class="row">
         <div class="col">
             <div class="btn-group" role="group" aria-label="transaction filter">
-                <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Time?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Time)" disabled="@isDisabled">Fair Order</button>
-                <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Gas?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Gas)" disabled="@isDisabled">Gas Order</button>
-                <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Block?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Block)" disabled="@isDisabled">Block Order</button>
+                <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Time?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Time)" disabled="@isDisabled">fair order</button>
+                <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Gas?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Gas)" disabled="@isDisabled">gas order</button>
+                <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Block?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Block)" disabled="@isDisabled">block order</button>
             </div>
             @if (TxIndex.HasValue)
             {
@@ -29,10 +29,10 @@ else
         </div>
         <div class="col">
             <div class="btn-group" role="group" aria-label="transaction filter">
-                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.All?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.All)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />All (@ZV.TxCount)</button>
-                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.MEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.MEV)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />MEV (@ZV.MEVCount)</button>
-                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.ToxicMEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.ToxicMEV)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />Toxic MEV (@ZV.MEVToxicCount)</button>
-                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.OtherMEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.OtherMEV)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />Other (@ZV.MEVOtherCount)</button>
+                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.All?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.All)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />all (@ZV.TxCount)</button>
+                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.MEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.MEV)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />mev (@ZV.MEVCount)</button>
+                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.ToxicMEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.ToxicMEV)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />toxic mev (@ZV.MEVToxicCount)</button>
+                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.OtherMEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.OtherMEV)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />other (@ZV.MEVOtherCount)</button>
             </div>
         </div>
     </div>
@@ -42,17 +42,17 @@ else
 <table name="txtable" class="table table-hover table-sm">
     <thead>
         <tr>
-            <th scope="col">Time</th>
+            <th scope="col">time</th>
             <th scope="col" class="px-2"></th>
-            <th scope="col">Delay</th>
-            <th scope="col">Txn Hash</th>
-            <th scope="col">Arrival Time</th>
-            <th scope="col">MEV</th>
+            <th scope="col">delay</th>
+            <th scope="col">txn hash</th>
+            <th scope="col">arrival time</th>
+            <th scope="col">mev</th>
             <th scope="col"><img src="FB.png" /></th>
-            <th scope="col">From</th>
-            <th scope="col">To</th>
-            <th scope="col">Value (Eth)</th>
-            <th scope="col">Gas Price (Gwei)</th>
+            <th scope="col">from</th>
+            <th scope="col">to</th>
+            <th scope="col">value (Eth)</th>
+            <th scope="col">gas price (Gwei)</th>
         </tr>
     </thead>
     <tbody>

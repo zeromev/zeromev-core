@@ -51,7 +51,7 @@ namespace ZeroMev.Test
             Console.WriteLine();
             */
 
-            sw.WriteLine($"{blockNumber},{zv.TxCount},{zv.BlockTimeAvg},{zv.BlockTimeStdev.TotalSeconds},{(zv.TxCount == 0 ? string.Empty : zv.TxMeanStdev.TotalSeconds)}");
+            sw.WriteLine($"{blockNumber},{zv.TxCount},{zv.BlockTimeAvg},{zv.BlockTimeRangeStdev.TotalSeconds},{(zv.TxCount == 0 ? string.Empty : zv.TxMeanStdev.TotalSeconds)}");
 
             for (int i = 0; i < zv.TxCount; i++)
             {

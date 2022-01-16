@@ -28,6 +28,9 @@ namespace ZeroMev.Shared
         public int MEVCount;
         public int MEVOtherCount;
         public int MEVToxicCount;
+        public decimal MEVAmount;
+        public decimal MEVOtherAmount;
+        public decimal MEVToxicAmount;
 
         public MEVRow[] Rows;
 
@@ -37,7 +40,15 @@ namespace ZeroMev.Shared
                 return;
 
             MEVSummaries = new MEVSummary[MEV.Rows.Length];
+            
             MEVCount = 0;
+            MEVOtherCount = 0;
+            MEVToxicCount = 0;
+
+            MEVAmount = 0;
+            MEVOtherAmount = 0;
+            MEVToxicAmount = 0;
+
             foreach (var row in Rows)
             {
                 if (row.MEVType == MEVType.None) continue;
@@ -50,10 +61,17 @@ namespace ZeroMev.Shared
                 if (MEV.Rows[mi].IsVisible)
                 {
                     if (MEV.Rows[mi].IsToxic)
+                    {
                         MEVToxicCount++;
+                        MEVToxicAmount += row.MEVAmount.Value;
+                    }
                     else
+                    {
                         MEVOtherCount++;
+                        MEVOtherAmount += row.MEVAmount.Value;
+                    }
                     MEVCount++;
+                    MEVAmount += row.MEVAmount.Value;
                 }
             }
         }

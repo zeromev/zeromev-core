@@ -136,8 +136,16 @@ namespace ZeroMev.Shared
         public DateTime BlockTimeAvg;
         public DateTime BlockTimeMin;
         public DateTime BlockTimeMax;
-        public TimeSpan BlockTimeStdev;
+        public TimeSpan BlockTimeRangeStdev;
+        public TimeSpan BlockTimeRangeMin;
+        public TimeSpan BlockTimeRangeMax;
         public TimeSpan TxMeanStdev;
+        public TimeSpan InclusionDelayMean;
+        public TimeSpan InclusionDelayStdev;
+        public TimeSpan InclusionDelayMax;
+        public string InclusionDelayMeanShort;
+        public string InclusionDelayStdevShort;
+        public string InclusionDelayMaxShort;
         public int PendingCountMax;
         public int ValidPopCount;
         public ZMTx[] Txs;
@@ -145,6 +153,9 @@ namespace ZeroMev.Shared
         public int MEVCount;
         public int MEVOtherCount;
         public int MEVToxicCount;
+        public decimal MEVAmount;
+        public decimal MEVOtherAmount;
+        public decimal MEVToxicAmount;
 
         // display members
         public bool HasStats;
@@ -299,7 +310,9 @@ namespace ZeroMev.Shared
                         pow += Math.Pow((double)(pop.BlockTime.Ticks - avg), 2);
 
                 BlockTimeAvg = new DateTime(avg);
-                BlockTimeStdev = new TimeSpan((long)Math.Sqrt(pow / popCount));
+                BlockTimeRangeMin = BlockTimeMin - BlockTimeAvg;
+                BlockTimeRangeMax = BlockTimeMax - BlockTimeAvg;
+                BlockTimeRangeStdev = new TimeSpan((long)Math.Sqrt(pow / popCount));
                 HasStats = true;
             }
             ValidPopCount = popCount;
@@ -308,15 +321,26 @@ namespace ZeroMev.Shared
             long max = long.MinValue;
             long sumStDev = 0;
             int count = 0;
+            long delay = 0;
+            long maxDelay = 0;
             for (int i = 0; i < TxCount; i++)
             {
                 Txs[i].SetFromZMTx(this, PoPs, i);
                 if (!Txs[i].ArrivalStdev.HasValue) continue;
                 count++;
                 sumStDev += Txs[i].ArrivalStdev.Value.Ticks;
+                delay += Txs[i].InclusionDelay.Ticks;
+                if (Txs[i].InclusionDelay.Ticks > maxDelay)
+                    maxDelay = Txs[i].InclusionDelay.Ticks;
             }
             if (count != 0)
+            {
                 TxMeanStdev = new TimeSpan(sumStDev / count);
+                InclusionDelayMean = new TimeSpan(delay / count);
+                InclusionDelayMeanShort = ZMTx.DurationStr(InclusionDelayMean);
+                InclusionDelayMax = new TimeSpan(maxDelay);
+                InclusionDelayMaxShort = ZMTx.DurationStr(InclusionDelayMax);
+            }
 
             // calculate time order and heatmap
             SetOrderBy(OrderBy.Time);
@@ -374,6 +398,10 @@ namespace ZeroMev.Shared
             MEVCount = mm.MEVCount;
             MEVToxicCount = mm.MEVToxicCount;
             MEVOtherCount = mm.MEVOtherCount;
+
+            MEVAmount = mm.MEVAmount;
+            MEVToxicAmount = mm.MEVToxicAmount;
+            MEVOtherAmount = mm.MEVOtherAmount;
 
             if (mm.Rows == null)
                 return;
@@ -447,7 +475,7 @@ namespace ZeroMev.Shared
         public string GasPrice { get; private set; }
 
         // set from zm block data
-        public string InclusionDelay { get; private set; }
+        public TimeSpan InclusionDelay { get; private set; }
         public string InclusionDelayShort { get; private set; }
         public string HeatmapRGB { get; set; }
         public byte R { get; set; }
@@ -569,13 +597,14 @@ namespace ZeroMev.Shared
             if (IsMiner)
             {
                 TimeOrder = zv.BlockTimeAvg;
+                InclusionDelay = new TimeSpan(0);
                 InclusionDelayShort = "miner";
             }
             else
             {
                 TimeOrder = min;
-                TimeSpan diff = zv.BlockTimeAvg - TimeOrder;
-                InclusionDelayShort = DurationStr(diff);
+                InclusionDelay = zv.BlockTimeAvg - TimeOrder;
+                InclusionDelayShort = DurationStr(InclusionDelay);
             }
 
             if (ValidCount > 1)

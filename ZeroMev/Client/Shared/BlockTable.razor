@@ -1,30 +1,32 @@
 ﻿<table class="table table-sm">
     <thead>
         <tr>
-            <th scope="col">Block Number</th>
-            <th scope="col">Tx Count</th>
-            <th scope="col">Arrival Time Avg</th>
-            <th scope="col">Min</th>
-            <th scope="col">Max</th>
-            <th scope="col">P2P Latency</th>
-            <th scope="col">PoPs</th>
+            <th scope="col">block number</th>
+            <th scope="col">tx count</th>
+            <th scope="col">block time</th>
+            <th scope="col">p2p latency</th>
+            <th scope="col">toxic mev</th>
+            <th scope="col">total mev</th>
+            <th scope="col">txs delayed by avg (max)</th>
         </tr>
     </thead>
     <tbody>
         <tr>
-            <td>@ZV.BlockNumber
+            <td>
+                @ZV.BlockNumber
                 <a href='/block?num=@(ZV.BlockNumber-1)' title='previous block'><img src="left.svg" width="16" height="16" /></a>
                 <a href='/block?num=@(ZV.BlockNumber+1)' title='next block'><img src="right.svg" width="16" height="16" /></a>
             </td>
             <td>@ZV.TxCount</td>
             <td>@(ZV.HasStats ? ZV.BlockTimeAvg.ToString()+ZV.BlockTimeAvg.ToString(".fff") : "-")</td>
-            <td>@(ZV.HasStats ? ZV.BlockTimeMin.ToString()+ZV.BlockTimeMin.ToString(".fff") : "-")</td>
-            <td>@(ZV.HasStats ? @ZV.BlockTimeMax.ToString()+ZV.BlockTimeMax.ToString(".fff") : "-")</td>
-            <td>@(ZV.HasStats ? @ZV.BlockTimeStdev.TotalMilliseconds+" ms" : "-")</td>
-            <td>@(ZV.HasStats ? @ZV.ValidPopCount : "-")</td>
+            <td>@(ZV.HasStats ? @Math.Round(ZV.BlockTimeRangeStdev.TotalMilliseconds,0)+" ms" : "-") (@(ZV.HasStats ? @ZV.ValidPopCount : "-") nodes)</td>
+            <td>$@ZV.MEVToxicAmount.ToString("0.00")</td>
+            <td>$@ZV.MEVAmount.ToString("0.00")</td>
+            <td>@(ZV.HasStats && ZV.InclusionDelayMeanShort!=null ? ZV.InclusionDelayMeanShort+" ("+ZV.InclusionDelayMaxShort+")" : "-")</td>
         </tr>
     </tbody>
 </table>
+
 
 @code {
     [Parameter]
