@@ -6,7 +6,7 @@
 <p class="h3">recent mev</p>
 <p>note: mev data on this site is <b>not yet real</b> and has been mocked up for development purposes, transaction time order data is genuine.</p>
 <BlocksTable MEVBlocks=MEVBlocks/>
-
+<hr />
 <ul class="pagination">
     <li class="page-item"><a class="page-link mx-2 my-2" href="blocks?num=@(MEVBlocks[MEVBlocks.Count-1].BlockNumber-(API.BlocksPerPage+1))">more</a></li>
 </ul>
@@ -23,8 +23,7 @@
                 {13900802,183},
                 {13900803,84},
                 {13900804,442},
-                {13900805,286},
-                {13900806,24},
+                {13900805,286}
                         };
 
     protected override async Task OnParametersSetAsync()
