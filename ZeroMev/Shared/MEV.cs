@@ -46,7 +46,7 @@ namespace ZeroMev.Shared
                 return;
 
             MEVSummaries = new MEVSummary[MEV.Rows.Length];
-            
+
             MEVCount = 0;
             MEVOtherCount = 0;
             MEVToxicCount = 0;
@@ -61,23 +61,26 @@ namespace ZeroMev.Shared
                 int mi = (int)row.MEVType;
                 if (MEV.Rows[mi].Parent != 0) continue;
                 MEVSummaries[mi].Count++;
+                decimal mevAmount = 0;
                 if (row.MEVAmount.HasValue)
-                    MEVSummaries[mi].Amount += row.MEVAmount.Value;
+                    mevAmount = row.MEVAmount.Value;
+
+                MEVSummaries[mi].Amount += mevAmount;
 
                 if (MEV.Rows[mi].IsVisible)
                 {
                     if (MEV.Rows[mi].IsToxic)
                     {
                         MEVToxicCount++;
-                        MEVToxicAmount += row.MEVAmount.Value;
+                        MEVToxicAmount += mevAmount;
                     }
                     else
                     {
                         MEVOtherCount++;
-                        MEVOtherAmount += row.MEVAmount.Value;
+                        MEVOtherAmount += mevAmount;
                     }
                     MEVCount++;
-                    MEVAmount += row.MEVAmount.Value;
+                    MEVAmount += mevAmount;
                 }
             }
         }
@@ -105,7 +108,10 @@ namespace ZeroMev.Shared
                 {
                     if (MEV.MockProbs[k] != 0 && r.NextDouble() < MEV.MockProbs[k])
                     {
-                        rows.Add(new MEVRow(i, (MEVType)k, MockAmount(r), comment));
+                        decimal? amount = null;
+                        if ((MEVType)k != MEVType.Swap)
+                            amount = MockAmount(r);
+                        rows.Add(new MEVRow(i, (MEVType)k, amount, comment));
                         break;
                     }
                 }
@@ -128,12 +134,12 @@ namespace ZeroMev.Shared
 
     public class MEVRow
     {
-        public MEVRow(int index, MEVType mEVType, decimal? mEVAmount, string mEVComment)
+        public MEVRow(int index, MEVType mevType, decimal? mevAmount, string mevComment)
         {
             Index = index;
-            MEVType = mEVType;
-            MEVAmount = mEVAmount;
-            MEVComment = mEVComment;
+            MEVType = mevType;
+            MEVAmount = mevAmount;
+            MEVComment = mevComment;
         }
 
         public int Index { get; set; }

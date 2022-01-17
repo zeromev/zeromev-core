@@ -24,7 +24,7 @@ else
             </div>
             @if (TxIndex.HasValue)
             {
-                <button type="button" class="btn btn-outline-light text-dark ms-4" onclick="javascript:blazorHelpers.scrollToFragment('selected');"><img src="jump.svg" width="16" height="20" />  Jump To Tx</button>               
+                <button type="button" class="btn btn-outline-light text-dark ms-4" onclick="javascript:blazorHelpers.scrollToFragment('selected');"><img src="jump.svg" width="16" height="20" />  Jump To Tx</button>
             }
         </div>
         <div class="col">
@@ -67,18 +67,18 @@ else
                     <td>@tx.TxnHashShort</td>
                     <td>@(tx.TimeOrder.ToString()+tx.TimeOrder.ToString(".fff"))</td>
                     @if (MEV.Get(tx.MEVType).IsVisible)
-                    {
-                        <td><span class="badge text-light @MEV.CssClass(tx.MEVType, ZV.OrderBy)">@MEV.Get(tx.MEVType).Name</span></td>
-                    }
-                    else
-                    {
-                        <td></td>
-                    }
-                    <td>@tx.Bundle</td>
-                    <td>@tx.FromShort</td>
-                    <td>@tx.ToShort</td>
-                    <td>@tx.Value</td>
-                    <td>@tx.GasPrice</td>
+                {
+                    <td><span class="badge text-light @MEV.CssClass(tx.MEVType, ZV.OrderBy)">@MEV.Get(tx.MEVType).Name</span></td>
+                }
+                else
+                {
+                    <td></td>
+                }
+                <td>@tx.Bundle</td>
+                <td>@tx.FromShort</td>
+                <td>@tx.ToShort</td>
+                <td>@tx.Value</td>
+                <td>@tx.GasPrice</td>
             </tr>
         </Virtualize>
         }

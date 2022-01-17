@@ -1,0 +1,39 @@
+﻿@page "/blocks"
+@inject HttpClient Http
+@inject ZMCache Cache
+@inject NavigationManager NavigationManager
+
+@if (MEVBlocks == null)
+{
+    <p><em>loading blocks...</em></p>
+}
+else
+{
+    <p>note: these blocks are mocked up and may not exist and their mev will not match that in the block table</p>
+    <BlocksTable MEVBlocks=MEVBlocks/>
+}
+
+@code {
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "num")]
+    public long? BlockNumber { get; set; }
+
+    List<MEVBlock> MEVBlocks = null;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // mock up some blocks
+        // note: the mev will not match that in the block table because the real tx count is unknown at this point, the blocks may not even exist
+        if (BlockNumber.HasValue)
+        {
+            MEVBlocks = new List<MEVBlock>();
+            for (long blockNum = BlockNumber.Value; blockNum >= BlockNumber.Value - 10; blockNum--)
+            {
+                var mb = new MEVBlock(blockNum);
+                mb.MockMEV(500); // real tx count unknown- block table will not match this page
+                mb.BuildMEVSummaries();
+                MEVBlocks.Add(mb);
+            }
+        }
+    }
+}

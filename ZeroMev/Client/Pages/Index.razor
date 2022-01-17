@@ -3,26 +3,15 @@
 @inject ZMCache Cache
 @inject NavigationManager NavigationManager
 
-<p>welcome to zeromev.</p>
-
-<p>(this will contain a mev summary of some recent blocks)</p>
-
-<table>
-    <thead></thead>
-    <tbody>
-        @foreach (MEVBlock mb in MEVBlocks)
-        {
-            <tr>
-                <a href="block?num=@mb.BlockNumber">@mb.BlockNumber</a>
-            </tr>
-        }
-    </tbody>
-</table>
+<p class="h3">recent blocks</p>
+<p>note: mev data on this site is <b>not yet real</b> and has been mocked up for development purposes, transaction time order data is genuine.</p>
+<BlocksTable MEVBlocks=MEVBlocks/>
 
 @code {
     List<MEVBlock> MEVBlocks = null;
+
     private long[,] MockBlocks = new long[,]
-                {
+                        {
                 {13900798,168},
                 {13900799,414},
                 {13900800,350},
@@ -34,7 +23,7 @@
                 {13900806,24},
                 {13900807,11},
                 {13900808,449}
-                };
+                        };
 
     protected override async Task OnParametersSetAsync()
     {
@@ -45,6 +34,7 @@
             {
                 var mb = new MEVBlock(MockBlocks[i, 0]);
                 mb.MockMEV((int)MockBlocks[i, 1]);
+                mb.BuildMEVSummaries();
                 MEVBlocks.Add(mb);
             }
         }
