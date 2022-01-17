@@ -20,12 +20,12 @@ namespace ZeroMev.Test
             AccountCache cache = new AccountCache();
 
             // test valid get
-            var a = await cache.Get(httpClient, "0x12ea0650fF68af0f2581C9683D6ea1F353fEC343");
+            var a = await cache.Get(httpClient, "0x12ea0650fF68af0f2581C9683D6ea1F353fEC343", 1, 25);
             Assert.IsTrue(a.Status == "1");
             Assert.IsTrue(a.Result.Count >= 11);
 
             // test invalid get
-            var b = await cache.Get(httpClient, "0x12ea0650fF68af0f2581C9683D6ea1F353fEC34P");
+            var b = await cache.Get(httpClient, "0x12ea0650fF68af0f2581C9683D6ea1F353fEC34P", 5, 25);
             Assert.IsNull(b);
         }
     }

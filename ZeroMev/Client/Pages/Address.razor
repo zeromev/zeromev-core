@@ -9,6 +9,8 @@
 }
 else
 {
+    <p class="h3">address <small>@Addr</small></p>
+
     <table class="table table-hover table-sm">
         <thead>
             <tr>
@@ -35,6 +37,14 @@ else
             </Virtualize>
         </tbody>
     </table>
+
+    <nav>
+        <ul class="pagination">
+            <li class="page-item@(_isPreviousDisabled ? " disabled":"")"><a class="page-link" href="address?page=@(Page-1)&hash=@Addr" aria-disabled=@_isPreviousDisabled>previous</a></li>
+            <li class="page-item@(_isNextDisabled ? " disabled":"")"><a class="page-link" href="address?page=@(Page+1)&hash=@Addr" aria-disabled=@_isNextDisabled>next</a></li>
+            <div class="mx-2 my-2">page @Page</div>
+        </ul>
+    </nav>
 }
 
 @code {
@@ -42,16 +52,29 @@ else
     [SupplyParameterFromQuery(Name = "hash")]
     public string? Addr { get; set; }
 
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "page")]
+    public int? Page { get; set; }
+
+    private const int AddressPageSize = 25;
+    private bool _isPreviousDisabled, _isNextDisabled;
+
     List<TxListResult>? addrTxs;
 
     protected override async Task OnParametersSetAsync()
     {
+        if (!Page.HasValue || Page < 1) Page = 1;
+        _isPreviousDisabled = (Page.Value == 1);
+        _isNextDisabled = true;
+
         if (Addr != null)
         {
-            var addr = await Cache.AccountCache.Get(Http, Addr);
+            var addr = await Cache.AccountCache.Get(Http, Addr, Page.Value, AddressPageSize);
             if (addr != null && addr.Message == "OK")
             {
                 addrTxs = addr.Result;
+                if (addrTxs.Count == AddressPageSize)
+                    _isNextDisabled = false;
                 return;
             }
             NavigationManager.NavigateTo("searchfailed");

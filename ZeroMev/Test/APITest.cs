@@ -27,7 +27,7 @@ namespace ZeroMev.Test
         {
             string address = "0x006C769062F1CD5E928c5B3d6B7b64ac96e8D87b";
             HttpClient http = new HttpClient();
-            var r = await API.GetAccountByAddress(http, address);
+            var r = await API.GetAccountByAddress(http, address, 1, 25);
             Assert.AreEqual(r.Status, "1");
         }
 

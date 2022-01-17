@@ -844,28 +844,32 @@ namespace ZeroMev.Shared
     {
         // cache a single account to avoid repeated calls as users iterate each transaction in an account
         string _address;
+        int _page;
+        int _offset;
         TxList _txList;
 
-        public async Task<TxList> Get(HttpClient http, string address)
+        public async Task<TxList> Get(HttpClient http, string address, int page, int offset)
         {
             // return null on format error
             if (address.Length != 42 || !Num.IsValidHex(address))
                 return null;
 
             // return the cached value if we have it
-            if (_address == address)
+            if (_address == address && _page == page && _offset == offset)
                 return _txList;
 
             // retrieve it if we don't
             try
             {
-                var txList = await API.GetAccountByAddress(http, address);
+                var txList = await API.GetAccountByAddress(http, address, page, offset);
 
                 // cache it for next time
                 if (txList != null)
                 {
                     _txList = txList;
                     _address = address;
+                    _page = page;
+                    _offset = offset;
                 }
                 return txList;
             }

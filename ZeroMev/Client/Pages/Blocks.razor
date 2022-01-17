@@ -11,6 +11,10 @@ else
 {
     <p>note: these blocks are mocked up and may not exist and their mev will not match that in the block table</p>
     <BlocksTable MEVBlocks=MEVBlocks/>
+    <ul class="pagination mx-2 my-2">
+        <li class="page-item@(_isPreviousDisabled ? " disabled":"")"><a class="page-link" href="blocks?num=@_previousPageBlock" aria-disabled=@_isPreviousDisabled>previous</a></li>
+        <li class="page-item@(_isNextDisabled ? " disabled":"")"><a class="page-link" href="blocks?num=@_nextPageBlock" aria-disabled=@_isNextDisabled>next</a></li>
+    </ul>
 }
 
 @code {
@@ -20,17 +24,33 @@ else
 
     List<MEVBlock> MEVBlocks = null;
 
+    private bool _isPreviousDisabled, _isNextDisabled;
+    private long _nextPageBlock, _previousPageBlock;
+
     protected override async Task OnParametersSetAsync()
     {
         // mock up some blocks
         // note: the mev will not match that in the block table because the real tx count is unknown at this point, the blocks may not even exist
         if (BlockNumber.HasValue)
         {
+            // modify this logic when we have real block mev data TODO
+            _isPreviousDisabled = false;
+            _isNextDisabled = false;
+            _previousPageBlock = BlockNumber.Value - API.JumpBlocksPerPage;
+            if (_previousPageBlock < API.BlocksPerPage) 
+                _previousPageBlock = API.BlocksPerPage;
+            if (BlockNumber.Value <= API.BlocksPerPage)
+            {
+                _isPreviousDisabled = true;
+                BlockNumber = API.BlocksPerPage;
+            }
+            _nextPageBlock = BlockNumber.Value + API.JumpBlocksPerPage;
+
             MEVBlocks = new List<MEVBlock>();
-            for (long blockNum = BlockNumber.Value; blockNum >= BlockNumber.Value - 10; blockNum--)
+            for (long blockNum = BlockNumber.Value; blockNum >= BlockNumber.Value - API.BlocksPerPage; blockNum--)
             {
                 var mb = new MEVBlock(blockNum);
-                mb.MockMEV(500); // real tx count unknown- block table will not match this page
+                mb.MockMEV(100); // real tx count unknown- block table will not match this page
                 mb.BuildMEVSummaries();
                 MEVBlocks.Add(mb);
             }
