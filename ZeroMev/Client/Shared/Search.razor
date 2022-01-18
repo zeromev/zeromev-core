@@ -60,7 +60,7 @@
         else if (long.TryParse(searchStr, out blockNum))
         {
             // block number
-            NavigationManager.NavigateTo("blocks?num=" + blockNum);
+            NavigationManager.NavigateTo("block?num=" + blockNum);
             return;
         }
 
