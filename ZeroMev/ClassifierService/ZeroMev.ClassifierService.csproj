@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>dotnet-ZeroMev.ClassifierService-3FD13AF9-1438-42B9-A82B-784A197CB09C</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MevEFC\ZeroMev.MevEFC.csproj" />
+    <ProjectReference Include="..\SharedServer\ZeroMev.SharedServer.csproj" />
+    <ProjectReference Include="..\Shared\ZeroMev.Shared.csproj" />
+  </ItemGroup>
+</Project>

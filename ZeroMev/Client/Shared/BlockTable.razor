@@ -19,7 +19,14 @@
             </td>
             <td>@ZV.TxCount</td>
             <td>@(ZV.HasStats ? ZV.BlockTimeAvg.ToString()+ZV.BlockTimeAvg.ToString(".fff") : "-")</td>
-            <td>@(ZV.HasStats ? @Math.Round(ZV.BlockTimeRangeStdev.TotalMilliseconds,0)+" ms" : "-") (@(ZV.HasStats ? @ZV.ValidPopCount : "-") nodes)</td>
+            @if (ZV.HasStats && ZV.ValidPopCount > 1)
+            {
+                <td>@Math.Round(ZV.BlockTimeRangeStdev.TotalMilliseconds,0) ms (@ZV.ValidPopCount nodes)</td>
+            }
+            else
+            {
+                <td>-</td>
+            }
             <td>$@ZV.MEVToxicAmount.ToString("0.00")</td>
             <td>$@ZV.MEVAmount.ToString("0.00")</td>
             <td>@(ZV.HasStats && ZV.InclusionDelayMeanShort!=null ? ZV.InclusionDelayMeanShort+" ("+ZV.InclusionDelayMaxShort+")" : "-")</td>

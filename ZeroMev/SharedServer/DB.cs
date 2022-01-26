@@ -18,8 +18,12 @@ namespace ZeroMev.SharedServer
     {
         static IConfiguration _config;
 
+        // DB environment
+        const string ZM_DB = "ZM_DB";
+        const string ZM_MEV_DB = "ZM_MEV_DB";
+
         // sql
-        static string WriteExtractorBlockSQL = @"INSERT INTO public.extractor_block(" +
+        const string WriteExtractorBlockSQL = @"INSERT INTO public.extractor_block(" +
         "block_number, extractor_index, block_time, extractor_start_time, arrival_count, pending_count, tx_data) " +
         "VALUES (@block_number, @extractor_index, @block_time, @extractor_start_time, @arrival_count, @pending_count, @tx_data) " +
         "ON CONFLICT (block_number, extractor_index, block_time) DO UPDATE SET " +
@@ -28,18 +32,18 @@ namespace ZeroMev.SharedServer
         "pending_count = EXCLUDED.pending_count," +
         "tx_data = EXCLUDED.tx_data;";
 
-        static string ReadExtractorBlockSQL = @"SELECT extractor_index, block_time, extractor_start_time, arrival_count, pending_count, tx_data " +
+        const string ReadExtractorBlockSQL = @"SELECT extractor_index, block_time, extractor_start_time, arrival_count, pending_count, tx_data " +
         "FROM public.extractor_block " +
         "WHERE block_number = @block_number " +
         "ORDER BY extractor_index asc, block_time desc;";
 
-        static string WriteFlashbotsBlockSQL = @"INSERT INTO public.fb_block(" +
+        const string WriteFlashbotsBlockSQL = @"INSERT INTO public.fb_block(" +
         "block_number, bundle_data) " +
         "VALUES (@block_number, @bundle_data) " +
         "ON CONFLICT (block_number) DO UPDATE SET " +
         "bundle_data = EXCLUDED.bundle_data;";
 
-        static string ReadFlashbotsBundleSQL = @"SELECT bundle_data " +
+        const string ReadFlashbotsBundleSQL = @"SELECT bundle_data " +
         "FROM public.fb_block " +
         "WHERE block_number = @block_number;";
 
@@ -101,7 +105,7 @@ namespace ZeroMev.SharedServer
             byte[] txData = Binary.WriteTxData(eb.TxTimes);
             byte[] txDataComp = Binary.Compress(txData);
 
-            using (NpgsqlConnection conn = new NpgsqlConnection(DB.GetConfig("ZM_DB")))
+            using (NpgsqlConnection conn = new NpgsqlConnection(DB.GetConfig(ZM_DB)))
             {
                 conn.Open();
                 using (var cmd = new NpgsqlCommand(WriteExtractorBlockSQL, conn))
@@ -125,7 +129,7 @@ namespace ZeroMev.SharedServer
         {
             List<ExtractorBlock> ebs = null;
 
-            using (NpgsqlConnection conn = new NpgsqlConnection(DB.GetConfig("ZM_DB")))
+            using (NpgsqlConnection conn = new NpgsqlConnection(DB.GetConfig(ZM_DB)))
             {
                 conn.Open();
                 using (var cmd = new NpgsqlCommand(ReadExtractorBlockSQL, conn))
@@ -197,7 +201,7 @@ namespace ZeroMev.SharedServer
             BitArray bundles = FlashbotsAPI.ConvertBundlesToBitArray(fb);
             if (bundles == null) return; // don't write missing/bad data
 
-            using (NpgsqlConnection conn = new NpgsqlConnection(DB.GetConfig("ZM_DB")))
+            using (NpgsqlConnection conn = new NpgsqlConnection(DB.GetConfig(ZM_DB)))
             {
                 conn.Open();
                 using (var cmd = new NpgsqlCommand(WriteFlashbotsBlockSQL, conn))
@@ -216,7 +220,7 @@ namespace ZeroMev.SharedServer
         {
             BitArray bundle = null;
 
-            using (NpgsqlConnection conn = new NpgsqlConnection(DB.GetConfig("ZM_DB")))
+            using (NpgsqlConnection conn = new NpgsqlConnection(DB.GetConfig(ZM_DB)))
             {
                 conn.Open();
                 using (var cmd = new NpgsqlCommand(ReadFlashbotsBundleSQL, conn))
@@ -263,6 +267,12 @@ namespace ZeroMev.SharedServer
         {
             var blocks = DB.ReadExtractorBlocks(blockNumber);
             return DB.BuildZMBlock(blocks);
+        }
+
+        public static long GetLastMEVBlockProcessed()
+        {
+            // TODO
+            return 0;
         }
     }
 }

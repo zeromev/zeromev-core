@@ -93,6 +93,17 @@ namespace ZeroMev.Shared
         {
             return JsonSerializer.Serialize(this, ZMSerializeOptions.Default);
         }
+
+        public int UniquePoPCount()
+        {
+            if (PoPs == null || PoPs.Count == 0)
+                return 0;
+
+            HashSet<int> indexes = new HashSet<int>();
+            foreach (PoP pop in PoPs)
+                indexes.Add(pop.ExtractorIndex);
+            return indexes.Count;
+        }
     }
 
     public class PoP
