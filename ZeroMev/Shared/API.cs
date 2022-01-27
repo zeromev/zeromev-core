@@ -12,10 +12,8 @@ namespace ZeroMev.Shared
 {
     public class API
     {
-        public const string EtherscanAPIKey = @"W4RX5RB6WEVZPTZ6YPP8MFVWU7WCVM2TY2";
-        public const string UrlInfura = @"https://mainnet.infura.io/v3/0a619b80a59e4a838d37fbf4e8df5681";
-        public const string UrlGetTransactionByHash = @"https://api.etherscan.io/api?module=proxy&action=eth_getTransactionByHash&txhash={0}&apikey=" + EtherscanAPIKey;
-        public const string UrlGetAccountByAddress = @"https://api.etherscan.io/api?module=account&action=txlist&address={0}&startblock=0&endblock=99999999&sort=desc&page={1}&offset={2}&apikey=" + EtherscanAPIKey;
+        public const string UrlGetTransactionByHash = @"https://api.etherscan.io/api?module=proxy&action=eth_getTransactionByHash&txhash={0}&apikey={1}";
+        public const string UrlGetAccountByAddress = @"https://api.etherscan.io/api?module=account&action=txlist&address={0}&startblock=0&endblock=99999999&sort=desc&page={1}&offset={2}&apikey={3}";
         public const string JsonEthGetBlockByNumber = "{\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"eth_getBlockByNumber\",\"params\":[\"{0}\",true]}";
         public const int BlocksPerPage = 9;
         public const int JumpBlocksPerPage = BlocksPerPage + 1;
@@ -31,12 +29,12 @@ namespace ZeroMev.Shared
 
         public static async Task<GetTxnByHash?> GetTxByHash(HttpClient http, string fromTxh)
         {
-            return await http.GetFromJsonAsync<GetTxnByHash>(string.Format(API.UrlGetTransactionByHash, fromTxh));
+            return await http.GetFromJsonAsync<GetTxnByHash>(string.Format(API.UrlGetTransactionByHash, fromTxh, APIConfig.EtherscanAPIKey));
         }
 
         public static async Task<TxList?> GetAccountByAddress(HttpClient http, string address, int page, int offset)
         {
-            return await http.GetFromJsonAsync<TxList>(string.Format(API.UrlGetAccountByAddress, address, page, offset));
+            return await http.GetFromJsonAsync<TxList>(string.Format(API.UrlGetAccountByAddress, address, page, offset, APIConfig.EtherscanAPIKey));
         }
 
         public static async Task<GetBlockByNumber?> GetBlockByNumber(HttpClient http, long blockNumber)
@@ -50,7 +48,7 @@ namespace ZeroMev.Shared
             string jsonReq = JsonEthGetBlockByNumber.Replace("{0}", hexBlockNumber);
             var httpContent = new StringContent(jsonReq, System.Text.Encoding.UTF8, "application/json");
 
-            var getBlockTask = await http.PostAsync(UrlInfura, httpContent);
+            var getBlockTask = await http.PostAsync(APIConfig.EthereumRPC, httpContent);
             string? result = await getBlockTask.Content.ReadAsStringAsync();
             return System.Text.Json.JsonSerializer.Deserialize<GetBlockByNumber>(result);
         }

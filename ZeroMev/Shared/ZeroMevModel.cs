@@ -184,7 +184,8 @@ namespace ZeroMev.Shared
             BlockNumber = blockNumber;
         }
 
-        public async Task<bool> Refresh(HttpClient http)
+        // offline processes such as the mev classifier can supply a zm block straight from the database to avoid using the REST api
+        public async Task<bool> Refresh(HttpClient http, ZMBlock zmBlock = null)
         {
             Task<GetBlockByNumber?> blockTask = null;
             Task<ZMBlock?> zbTask = null;
@@ -198,7 +199,7 @@ namespace ZeroMev.Shared
 
             // request all async
             if (BlockResult == APIResult.Retry) blockTask = API.GetBlockByNumber(http, BlockNumber);
-            if (ZMBlockResult == APIResult.Retry)
+            if (ZMBlockResult == APIResult.Retry && zmBlock == null)
             {
                 if (BlockNumber < API.EarliestFlashbotsBlock)
                     ZMBlockResult = APIResult.NoData;
@@ -218,9 +219,12 @@ namespace ZeroMev.Shared
             // await zm block result
             if (ZMBlockResult == APIResult.Retry)
             {
-                ZMBlockResult = APIResult.NoData;
-                var zb = await zbTask;
-                if (SetZMBlock(zb))
+                if (zmBlock == null)
+                {
+                    ZMBlockResult = APIResult.NoData;
+                    zmBlock = await zbTask;
+                }
+                if (SetZMBlock(zmBlock))
                 {
                     ZMBlockResult = APIResult.Ok;
                     HasZM = true;
