@@ -10,10 +10,8 @@ using ZeroMev.MevEFC;
 namespace ZeroMev.ClassifierService
 {
     // a root object of a data structure for handling swaps
-    public class DEXs
+    public class DEXs : Dictionary<string, DEX>
     {
-        Dictionary<string, DEX> _dexs = new Dictionary<string, DEX>();
-
         public void Add(Swap swap, DateTime arrivalTime)
         {
             if (swap == null) return;
@@ -24,10 +22,10 @@ namespace ZeroMev.ClassifierService
 
             // add new or get existing
             DEX? dex;
-            if (!_dexs.TryGetValue(key, out dex))
+            if (!this.TryGetValue(key, out dex))
             {
                 dex = new DEX(swap.AbiName, swap.Protocol);
-                _dexs.Add(key, dex);
+                this.Add(key, dex);
             }
 
             // add the swap to the dex
@@ -36,17 +34,15 @@ namespace ZeroMev.ClassifierService
         }
     }
 
-    public class DEX
+    public class DEX: Dictionary<string, Pair>
     {
-        string? _abiName;
-        string? _protocol;
-
-        Dictionary<string, Pair> _pairs = new Dictionary<string, Pair>();
+        public string? AbiName { get; private set; }
+        public string? Protocol { get; private set; }
 
         public DEX(string? abiName, string? protocol)
         {
-            _abiName = abiName;
-            _protocol = protocol;
+            AbiName = abiName;
+            Protocol = protocol;
         }
 
         public void Add(Swap swap, DateTime arrivalTime)
@@ -67,10 +63,10 @@ namespace ZeroMev.ClassifierService
             // create and add if required, then return
             Pair? pair;
             string key = tokenA + tokenB;
-            if (!_pairs.TryGetValue(key, out pair))
+            if (!this.TryGetValue(key, out pair))
             {
                 pair = new Pair(tokenA, tokenB);
-                _pairs.Add(key, pair);
+                this.Add(key, pair);
             }
             return pair;
         }
@@ -95,8 +91,8 @@ namespace ZeroMev.ClassifierService
         public string TokenB;
         public BigInteger? LastExchangeRate = null; // we use latest exchange rate for each pair by block/index time to calculate MEV impacts in dollar terms at the moment they executed
 
-        SortedList<BlockOrder, ZMSwap> BlockOrder = new SortedList<BlockOrder, ZMSwap>();
-        SortedList<long, ZMSwap> TimeOrder = new SortedList<long, ZMSwap>();
+        public readonly SortedList<BlockOrder, ZMSwap> BlockOrder = new SortedList<BlockOrder, ZMSwap>();
+        public readonly SortedList<long, ZMSwap> TimeOrder = new SortedList<long, ZMSwap>();
 
         private static string[] USDtokens = new string[]
         {
@@ -133,6 +129,10 @@ namespace ZeroMev.ClassifierService
 
         private void UpdateExchangeRate(ZMSwap swap)
         {
+            // avoid div by zero and save cpu
+            if (swap.AmountIn == 0 || swap.AmountOut == 0)
+                return;
+
             // take any conversion to or from a USD stable coin as our last exchange rate
             if (USDtokens.Contains<string>(TokenB))
             {
@@ -201,8 +201,8 @@ namespace ZeroMev.ClassifierService
             bool noTrace = (this.TraceAddress == null || this.TraceAddress.Length == 0);
             bool noOtherTrace = (other.TraceAddress == null || other.TraceAddress.Length == 0);
             if (noTrace && noOtherTrace) return 0;
-            if (!noTrace && noOtherTrace) return -1;
-            if (noTrace && !noOtherTrace) return 1;
+            if (!noTrace && noOtherTrace) return 1;
+            if (noTrace && !noOtherTrace) return -1;
 
             // compare trace address arrays directly now we know they both exist
             for (int i = 0; i < this.TraceAddress.Length; i++)
