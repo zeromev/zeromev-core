@@ -15,6 +15,7 @@ namespace ZeroMev.Shared
         public const string UrlGetTransactionByHash = @"https://api.etherscan.io/api?module=proxy&action=eth_getTransactionByHash&txhash={0}&apikey={1}";
         public const string UrlGetAccountByAddress = @"https://api.etherscan.io/api?module=account&action=txlist&address={0}&startblock=0&endblock=99999999&sort=desc&page={1}&offset={2}&apikey={3}";
         public const string JsonEthGetBlockByNumber = "{\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"eth_getBlockByNumber\",\"params\":[\"{0}\",true]}";
+        public const string JsonEthGetBlockTransactionCountByNumber = "{\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"eth_getBlockTransactionCountByNumber\",\"params\":[\"{0}\"]}";
         public const int BlocksPerPage = 9;
         public const int JumpBlocksPerPage = BlocksPerPage + 1;
         public const long EarliestZMBlock = 13359564;
@@ -51,6 +52,23 @@ namespace ZeroMev.Shared
             var getBlockTask = await http.PostAsync(APIConfig.EthereumRPC, httpContent);
             string? result = await getBlockTask.Content.ReadAsStringAsync();
             return System.Text.Json.JsonSerializer.Deserialize<GetBlockByNumber>(result);
+        }
+
+        public static async Task<int?> GetBlockTransactionCountByNumber(HttpClient http, long blockNumber)
+        {
+            string hexBlock = Num.LongToHex(blockNumber).ToLower();
+            return await GetBlockTransactionCountByNumber(http, hexBlock);
+        }
+
+        public static async Task<int?> GetBlockTransactionCountByNumber(HttpClient http, string hexBlockNumber)
+        {
+            string jsonReq = JsonEthGetBlockTransactionCountByNumber.Replace("{0}", hexBlockNumber);
+            var httpContent = new StringContent(jsonReq, System.Text.Encoding.UTF8, "application/json");
+
+            var getBlockTask = await http.PostAsync(APIConfig.EthereumRPC, httpContent);
+            string? result = await getBlockTask.Content.ReadAsStringAsync();
+            var r = System.Text.Json.JsonSerializer.Deserialize<GetBlockTransactionCountByNumber>(result);
+            return Num.HexToInt(r.Result);
         }
     }
 }

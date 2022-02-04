@@ -185,7 +185,7 @@ namespace ZeroMev.Shared
         }
 
         // offline processes such as the mev classifier can supply a zm block straight from the database to avoid using the REST api
-        public async Task<bool> Refresh(HttpClient http, ZMBlock zmBlock = null)
+        public async Task<bool> Refresh(HttpClient http)
         {
             Task<GetBlockByNumber?> blockTask = null;
             Task<ZMBlock?> zbTask = null;
@@ -199,7 +199,7 @@ namespace ZeroMev.Shared
 
             // request all async
             if (BlockResult == APIResult.Retry) blockTask = API.GetBlockByNumber(http, BlockNumber);
-            if (ZMBlockResult == APIResult.Retry && zmBlock == null)
+            if (ZMBlockResult == APIResult.Retry)
             {
                 if (BlockNumber < API.EarliestFlashbotsBlock)
                     ZMBlockResult = APIResult.NoData;
@@ -219,11 +219,8 @@ namespace ZeroMev.Shared
             // await zm block result
             if (ZMBlockResult == APIResult.Retry)
             {
-                if (zmBlock == null)
-                {
-                    ZMBlockResult = APIResult.NoData;
-                    zmBlock = await zbTask;
-                }
+                ZMBlockResult = APIResult.NoData;
+                var zmBlock = await zbTask;
                 if (SetZMBlock(zmBlock))
                 {
                     ZMBlockResult = APIResult.Ok;
@@ -234,6 +231,29 @@ namespace ZeroMev.Shared
             }
 
             return true;
+        }
+
+        // an offline version of Refresh that does not require http
+        public bool RefreshOffline(ZMBlock zmBlock, GetBlockByNumber block)
+        {
+            if (!SetBlock(block)) return false;
+            return SetZMBlock(zmBlock);
+        }
+
+        // an offline version of Refresh that does not require http and requires only a block transaction count rather than full data
+        public bool RefreshOffline(ZMBlock zmBlock, int txCount)
+        {
+            // build transactions without any details
+            // supply a GetBlockByNumber to the other overload if details are required
+            Txs = new ZMTx[txCount];
+            for (int i = 0; i < txCount; i++)
+            {
+                ZMTx zmtx = new ZMTx();
+                zmtx.TxIndex = i;
+                Txs[i] = zmtx;
+            }
+            TxCount = txCount;
+            return SetZMBlock(zmBlock);
         }
 
         public bool SetBlock(GetBlockByNumber block)
@@ -476,7 +496,7 @@ namespace ZeroMev.Shared
         // display members are stored as strings for speed of render
 
         // set from block data (currently Infura)
-        public int TxIndex { get; private set; }
+        public int TxIndex { get; set; }
         public string TxnHash { get; private set; }
         public string TxnHashShort { get; private set; }
         public string From { get; private set; }

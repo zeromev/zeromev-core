@@ -290,4 +290,16 @@ namespace ZeroMev.Shared
         [JsonPropertyName("result")]
         public GetBlockByNumberResult Result { get; set; }
     }
+
+    public class GetBlockTransactionCountByNumber
+    {
+        [JsonPropertyName("jsonrpc")]
+        public string Jsonrpc { get; set; }
+
+        [JsonPropertyName("id")]
+        public int Id { get; set; }
+
+        [JsonPropertyName("result")]
+        public string Result { get; set; }
+    }
 }

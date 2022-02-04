@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Numerics;
 
 namespace ZeroMev.MevEFC
 {
@@ -14,9 +15,9 @@ namespace ZeroMev.MevEFC
         public string FromAddress { get; set; } = null!;
         public string ToAddress { get; set; } = null!;
         public string TokenInAddress { get; set; } = null!;
-        public decimal TokenInAmount { get; set; }
+        public BigInteger TokenInAmount { get; set; }
         public string TokenOutAddress { get; set; } = null!;
-        public decimal TokenOutAmount { get; set; }
+        public BigInteger TokenOutAmount { get; set; }
         public int[] TraceAddress { get; set; } = null!;
         public string? Error { get; set; }
         public decimal? TransactionPosition { get; set; }

@@ -39,5 +39,14 @@ namespace ZeroMev.Test
             var r = await API.GetBlockByNumber(http, blockNumber);
             Assert.AreEqual(Num.HexToLong(r.Result.Number), blockNumber);
         }
+
+        [TestMethod]
+        public async Task GetBlockTransactionCountByNumber()
+        {
+            long blockNumber = 13850536;
+            HttpClient http = new HttpClient();
+            var txCount = await API.GetBlockTransactionCountByNumber(http, blockNumber);
+            Assert.AreEqual(txCount.Value, 282);
+        }
     }
 }

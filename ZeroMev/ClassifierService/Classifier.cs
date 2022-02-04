@@ -64,8 +64,12 @@ namespace ZeroMev.ClassifierService
                         ZMView zv = null;
                         if (zb != null) // only bother the rpc node if we have arrival data
                         {
-                            zv = new ZMView(nextBlockNumber);
-                            await zv.Refresh(_http, zb);
+                            int? txCount = await API.GetBlockTransactionCountByNumber(_http, nextBlockNumber);
+                            if (txCount != null && txCount.HasValue)
+                            {
+                                zv = new ZMView(nextBlockNumber);
+                                zv.RefreshOffline(zb, txCount.Value);
+                            }
                         }
 
                         bool doMoveOn;
@@ -166,6 +170,7 @@ namespace ZeroMev.ClassifierService
 
         public static async Task ClassifyMEV(long blockNumber, zeromevContext db)
         {
+            /*
             // get every swap in the passed block with time data
             var attackers = from a in db.Swaps
                             join at in db.ZmTimes on a.TransactionHash equals at.TransactionHash
@@ -203,6 +208,7 @@ namespace ZeroMev.ClassifierService
             {
                 Console.WriteLine(f.ToString());
             }
+            */
         }
 
         private static decimal Price(decimal inAmount, decimal outAmount, bool tradesWith)
