@@ -81,7 +81,7 @@ namespace ZeroMev.Shared
         {
             try
             {
-                // quick and dirty conversion without requiring a BigDecimal class
+                // quick and dirty conversion without requiring the heavier BigDecimal class
                 if (hex == null) return "";
                 BigInteger bi = HexToBigInt(hex);
                 decimal d = (decimal)(bi / DivBeforeValueHex);
@@ -99,7 +99,7 @@ namespace ZeroMev.Shared
         {
             try
             {
-                // quick and dirty conversion without requiring a BigDecimal class
+                // quick and dirty conversion without requiring the heavier BigDecimal class
                 if (hex == null) return "";
                 BigInteger bi = HexToBigInt(hex);
                 decimal d = (decimal)(bi);
@@ -117,7 +117,7 @@ namespace ZeroMev.Shared
         {
             try
             {
-                // quick and dirty conversion without requiring a BigDecimal class
+                // quick and dirty conversion without requiring the heavier BigDecimal class
                 decimal d = (decimal)(bi);
                 d /= DivAfterGasPriceHex;
                 return d.ToString();

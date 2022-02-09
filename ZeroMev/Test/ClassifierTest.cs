@@ -1,5 +1,6 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.Numerics;
 using System.Text.Json;
 using System.Collections;
 using System.Linq;
@@ -13,15 +14,6 @@ namespace ZeroMev.Test
     public class ClassifierTest
     {
         [TestMethod]
-        public async Task ClassifyTest()
-        {
-            using (var db = new zeromevContext())
-            {
-                await Classifier.ClassifyMEV(13377043, db);
-            }
-        }
-
-        [TestMethod]
         public async Task BuildDEXsTest()
         {
             DEXs dexs = new DEXs();
@@ -29,7 +21,7 @@ namespace ZeroMev.Test
             using (var db = new zeromevContext())
             {
                 var swaps = from s in db.Swaps
-                            where s.BlockNumber >= 13358564 && s.BlockNumber <= 13368564
+                            where s.BlockNumber >= 13358564 && s.BlockNumber <= 13359564
                             orderby s.BlockNumber, s.TransactionPosition, s.TraceAddress
                             select s;
 
@@ -54,14 +46,14 @@ namespace ZeroMev.Test
                     int sameBlockCount = 0;
                     foreach (var s in pair.BlockOrder.Values)
                     {
-                        if (s.BlockOrder.Blocknum == blockNumber)
+                        if (s.Order.BlockOrder.Blocknum == blockNumber)
                             sameBlockCount++;
                         else
-                            blockNumber = s.BlockOrder.Blocknum;
+                            blockNumber = s.Order.BlockOrder.Blocknum;
                     }
                     dexCount += pair.BlockOrder.Count;
                     dexSameBlockCount += sameBlockCount;
-                    Console.WriteLine($"pair {pair.TokenA} {pair.TokenB} {sameBlockCount} / {pair.BlockOrder.Count} = {(double)sameBlockCount / (double)pair.BlockOrder.Count} rate: {pair.LastExchangeRate}");
+                    Console.WriteLine($"pair {pair.TokenA} {pair.TokenB} {sameBlockCount} / {pair.BlockOrder.Count} = {(double)sameBlockCount / (double)pair.BlockOrder.Count} USD {pair.LastXRate(Currency.USD)} ETH {pair.LastXRate(Currency.ETH)} BTC {pair.LastXRate(Currency.BTC)}");
                 }
                 Console.WriteLine($"dex {dexSameBlockCount} / {dexCount} = {(double)dexSameBlockCount / (double)dexCount}");
 
@@ -69,6 +61,21 @@ namespace ZeroMev.Test
                 allSameBlockCount += dexSameBlockCount;
             }
             Console.WriteLine($"all {allSameBlockCount} / {allCount} = {(double)allSameBlockCount / (double)allCount}");
+        }
+
+        [TestMethod]
+        public void TokensTest()
+        {
+            Tokens.Load();
+            var usdc = Tokens.GetFromAddress("0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48");
+            var dai = Tokens.GetFromAddress("0x6b175474e89094c44da98b954eedeac495271d0f");
+            var usdt = Tokens.GetFromAddress("0xdac17f958d2ee523a2206206994597c13d831ec7");
+            var error = Tokens.GetFromAddress("null error");
+
+            Assert.AreEqual(usdc.Symbol, "USDC");
+            Assert.AreEqual(dai.Symbol, "DAI");
+            Assert.AreEqual(usdt.Symbol, "USDT");
+            Assert.AreEqual(error, null);
         }
     }
 }

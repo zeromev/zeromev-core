@@ -44,11 +44,38 @@ namespace ZeroMev.Shared
     public class ZMSerializeOptions
     {
         static public JsonSerializerOptions Default;
+        static public JsonSerializerOptions StringToInt;
 
         static ZMSerializeOptions()
         {
             Default = new JsonSerializerOptions { IncludeFields = true, PropertyNameCaseInsensitive = true };
             Default.Converters.Add(new BitArrayConverter());
+
+            StringToInt = new JsonSerializerOptions { IncludeFields = true, PropertyNameCaseInsensitive = true };
+            StringToInt.Converters.Add(new StringToIntJsonConverter());
+        }
+    }
+
+    public class StringToIntJsonConverter : JsonConverter<int?>
+    {
+        public override int? Read(
+            ref Utf8JsonReader reader,
+            Type typeToConvert,
+            JsonSerializerOptions options)
+        {
+            int r;
+            if (int.TryParse(reader.GetString()!, out r))
+                return r;
+            return null;
+        }
+
+
+        public override void Write(
+            Utf8JsonWriter writer,
+            int? value,
+            JsonSerializerOptions options)
+        {
+            writer.WriteStringValue(value.ToString() ?? null);
         }
     }
 
@@ -720,6 +747,8 @@ namespace ZeroMev.Shared
 
         public static int CompareByTimeOrder(ZMTx a, ZMTx b)
         {
+            if (a.TimeOrder == b.TimeOrder)
+                return a.TxIndex.CompareTo(b.TxIndex);
             return a.TimeOrder.CompareTo(b.TimeOrder);
         }
 

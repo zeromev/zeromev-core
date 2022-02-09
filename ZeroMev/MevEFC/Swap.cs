@@ -1,6 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Numerics;
+using System.Collections.Generic;
 
 namespace ZeroMev.MevEFC
 {
@@ -9,7 +9,7 @@ namespace ZeroMev.MevEFC
         public DateTime? CreatedAt { get; set; }
         public string AbiName { get; set; } = null!;
         public string TransactionHash { get; set; } = null!;
-        public decimal BlockNumber { get; set; }
+        public long BlockNumber { get; set; }
         public string? Protocol { get; set; }
         public string ContractAddress { get; set; } = null!;
         public string FromAddress { get; set; } = null!;
@@ -20,6 +20,6 @@ namespace ZeroMev.MevEFC
         public BigInteger TokenOutAmount { get; set; }
         public int[] TraceAddress { get; set; } = null!;
         public string? Error { get; set; }
-        public decimal? TransactionPosition { get; set; }
+        public int? TransactionPosition { get; set; }
     }
 }

@@ -13,14 +13,13 @@ namespace ZeroMev.ClassifierService
 {
     public class Classifier : BackgroundService
     {
-        const int PollEverySecs = 6;
+        const int PollEverySecs = 5; // same assumptions as mev-inspect
         const int PollTimeoutSecs = 180;
-        const int MinimumTimeSinceLastBlockTimestampSecs = 24; // give our extractors time to return data
+        const bool DoBlockTxCountImport = true;
 
         readonly ILogger<Classifier> _logger;
 
         bool _isStopped = false;
-        DateTime _classifierStartTime;
         static HttpClient _http = new HttpClient();
 
         public Classifier(ILogger<Classifier> logger)
@@ -31,9 +30,8 @@ namespace ZeroMev.ClassifierService
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             // initialize
-            _classifierStartTime = DateTime.Now;
-            DateTime _lastProcessedBlockAt = DateTime.Now;
-            DateTime _lastProcessedBlockTimestamp = DateTime.MinValue;
+            DateTime classifierStartTime = DateTime.Now;
+            DateTime lastProcessedBlockAt = DateTime.Now;
 
             try
             {
@@ -41,7 +39,7 @@ namespace ZeroMev.ClassifierService
                 long nextBlockNumber;
                 using (var db = new zeromevContext())
                 {
-                    nextBlockNumber = await db.GetLastProcessedBlock();
+                    nextBlockNumber = db.GetLastProcessedBlock();
                 }
                 if (nextBlockNumber < 0)
                 {
@@ -51,28 +49,70 @@ namespace ZeroMev.ClassifierService
 
                 // start from one after the last processed
                 nextBlockNumber++;
-
-                _logger.LogInformation($"zm classifier starting at {_classifierStartTime} from block {nextBlockNumber}");
+                _logger.LogInformation($"zm classifier starting at {classifierStartTime} from block {nextBlockNumber}");
 
                 // classification loop- run until the service is stopped
+                long miLastBlockNumber = 0;
+                int delaySecs = 0;
                 while (!_isStopped)
                 {
                     try
                     {
-                        // poll extractor results for the next block we want to process
-                        var zb = DB.GetZMBlock(nextBlockNumber);
-                        ZMView zv = null;
-                        if (zb != null) // only bother the rpc node if we have arrival data
+                        // optionally pause between cycles
+                        await Task.Delay(TimeSpan.FromSeconds(delaySecs));
+                        if (_isStopped)
+                            break;
+
+                        // default to poll time
+                        delaySecs = PollEverySecs;
+
+                        // mev-inspect uses a 5 block lag to ensure blocks are settled
+                        // there is no point processing quicker than this, as we need the mev data
+                        // we must not progress past mev-inspect or we will miss data
+                        // it is also good to use the same safety assumptions as mev-inspect
+
+                        // so, wait on mev-inspect
+                        if (nextBlockNumber > miLastBlockNumber && !DoBlockTxCountImport)
                         {
-                            int? txCount = await API.GetBlockTransactionCountByNumber(_http, nextBlockNumber);
-                            if (txCount != null && txCount.HasValue)
+                            using (var db = new zeromevContext())
                             {
-                                zv = new ZMView(nextBlockNumber);
-                                zv.RefreshOffline(zb, txCount.Value);
+                                miLastBlockNumber = db.GetLastProcessedMevInspectBlock();
+                            }
+                            if (nextBlockNumber > miLastBlockNumber)
+                            {
+                                _logger.LogInformation($"waiting {delaySecs} secs for mev-inspect {nextBlockNumber}");
+                                continue;
                             }
                         }
 
-                        bool doMoveOn;
+                        // once we have those, RPC the block tx count (by now considered trustworthy) and write to the db (useful for later bulk reprocessing)
+                        int? txCount = null;
+                        txCount = await API.GetBlockTransactionCountByNumber(_http, nextBlockNumber);
+                        if (!txCount.HasValue)
+                        {
+                            _logger.LogInformation($"waiting {delaySecs} secs for rpc tx count {nextBlockNumber}");
+                            continue;
+                        }
+
+                        // TODO write txCount to db
+
+                        // if we are only importing tx count, this is as far as we need to go
+                        if (DoBlockTxCountImport)
+                        {
+                            delaySecs = 0; // import as fast as possible
+                            continue;
+                        }
+
+                        // filter out invalid tx length rows before processing ZmView
+                        var zb = DB.GetZMBlock(nextBlockNumber);
+                        ZMView? zv = null;
+                        if (zb != null)
+                        {
+                            zv = new ZMView(nextBlockNumber);
+                            zv.RefreshOffline(zb, txCount.Value);
+                        }
+
+                        // if we don’t have enough zm blocks to process by now, wait up until the longer PollTimeoutSecs (it will likely mean the zeromevdb is down or something)
                         if (zb == null || zv == null || zb.UniquePoPCount() < 2)
                         {
                             string reason;
@@ -84,56 +124,37 @@ namespace ZeroMev.ClassifierService
                             // a successful attempt is at least 2 PoPs (extractors) providing data
                             // pause between polling if this criteria is not met
                             // or after a longer timeout period, move on anyway
-                            doMoveOn = (DateTime.Now > _lastProcessedBlockAt.AddSeconds(PollTimeoutSecs));
-                            if (doMoveOn)
-                                _logger.LogInformation($"timeout {nextBlockNumber} " + reason);
-                            else
-                                _logger.LogInformation($"polling {nextBlockNumber} " + reason);
-                        }
-                        else
-                        {
-                            doMoveOn = true;
-                        }
-
-                        // move onto the next block
-                        if (doMoveOn)
-                        {
-                            // classify mev if we can (use a single PoP if that is all we have after the timeout period)
-                            using (var db = new zeromevContext())
+                            if (DateTime.Now < lastProcessedBlockAt.AddSeconds(PollTimeoutSecs))
                             {
-                                if (zb != null && zv != null && zv.PoPs != null && zv.PoPs.Count != 0)
-                                {
-                                    await WriteTxTimes(zv, db);
-                                    _logger.LogInformation($"classified {nextBlockNumber} PoPs {zv.PoPs.Count}");
-                                }
-
-                                await db.SetLastProcessedBlock(nextBlockNumber);
+                                _logger.LogInformation($"polling {reason} {delaySecs} secs {nextBlockNumber}");
+                                continue;
                             }
 
-                            _lastProcessedBlockAt = DateTime.Now;
-                            nextBlockNumber++;
-                            if (zv != null)
-                                _lastProcessedBlockTimestamp = zv.BlockTimeAvg;
+                            _logger.LogInformation($"timeout {reason} {delaySecs} secs {nextBlockNumber}");
                         }
 
-                        // give sufficient time for the next block to arrive and our extractors to return data
-                        int delaySecs = 0;
-                        TimeSpan diff = _lastProcessedBlockTimestamp.AddSeconds(MinimumTimeSinceLastBlockTimestampSecs) - DateTime.Now.ToUniversalTime(); // utc because we are comparing to db block data
-                        if (diff.Ticks > 0)
-                            delaySecs = (int)diff.TotalSeconds;
-
-                        if (!doMoveOn)
+                        // TODO
+                        // classify mev if we can (use a single PoP if that is all we have after the timeout period)
+                        /*
+                        using (var db = new zeromevContext())
                         {
-                            // delay for at least the polling time between unsuccessful attempts
-                            if (delaySecs < PollEverySecs)
-                                delaySecs = PollEverySecs;
-                        }
+                            if (zb != null && zv != null && zv.PoPs != null && zv.PoPs.Count != 0)
+                            {
+                                await WriteTxTimes(zv, db);
+                                _logger.LogInformation($"classified {nextBlockNumber} PoPs {zv.PoPs.Count}");
+                            }
 
-                        if (delaySecs != 0)
-                        {
-                            _logger.LogInformation($"waiting {delaySecs} secs for {nextBlockNumber}");
-                            await Task.Delay(TimeSpan.FromSeconds(delaySecs));
+                            await db.SetLastProcessedBlock(nextBlockNumber);
                         }
+                        */
+
+                        // update progress
+                        lastProcessedBlockAt = DateTime.Now;
+                        nextBlockNumber++;
+
+                        // don't pause if we need to catch up
+                        if (nextBlockNumber < miLastBlockNumber)
+                            delaySecs = 0;
                     }
                     catch (Exception ex)
                     {
@@ -144,7 +165,6 @@ namespace ZeroMev.ClassifierService
                         if (ex != null && ex.InnerException != null && ex.InnerException.Message.Contains("duplicate key"))
                             nextBlockNumber++;
 
-                        await Task.Delay(TimeSpan.FromSeconds(PollEverySecs));
                         continue;
                     }
                 }
@@ -155,67 +175,7 @@ namespace ZeroMev.ClassifierService
                 _logger.LogInformation($"error: " + e.ToString());
             }
 
-            _logger.LogInformation($"zm classifier stopping (started {_classifierStartTime})");
-        }
-
-        public static async Task WriteTxTimes(ZMView zv, zeromevContext db)
-        {
-            foreach (var tx in zv.Txs)
-            {
-                DateTime dt = DateTime.SpecifyKind(tx.ArrivalMin, DateTimeKind.Unspecified);
-                db.ZmTimes.Add(new ZmTime() { ArrivalTime = dt, BlockNumber = zv.BlockNumber, TransactionHash = tx.TxnHash, TransactionPosition = tx.TxIndex });
-            }
-            db.SaveChanges();
-        }
-
-        public static async Task ClassifyMEV(long blockNumber, zeromevContext db)
-        {
-            /*
-            // get every swap in the passed block with time data
-            var attackers = from a in db.Swaps
-                            join at in db.ZmTimes on a.TransactionHash equals at.TransactionHash
-                            where a.BlockNumber == blockNumber
-                            orderby a.AbiName, a.Protocol, a.TokenInAddress, a.TokenOutAddress, a.BlockNumber, a.TransactionPosition
-                            select new { a.TransactionHash, a.TraceAddress, a.AbiName, a.Protocol, a.TokenInAddress, a.TokenOutAddress, a.TokenInAmount, a.TokenOutAmount, a.BlockNumber, a.TransactionPosition, at.ArrivalTime };
-
-            // find swaps of the same kind
-            var frontruns = from v in db.Swaps
-                            from vt in db.ZmTimes.Where(vt => v.TransactionHash == vt.TransactionHash)
-                            from a in attackers.Where(
-                                  // where the victim arrived before the attacker
-                                  sw => vt.ArrivalTime < sw.ArrivalTime
-
-                                  // but was included after them in the chain
-                                  && (
-                                      vt.BlockNumber > sw.BlockNumber ||
-                                      (vt.BlockNumber == sw.BlockNumber && vt.TransactionPosition > sw.TransactionPosition)
-                                     )
-
-                                  // for the same pair (buys and sells)
-                                  && (
-                                      (v.TokenInAddress == sw.TokenInAddress && v.TokenOutAddress == sw.TokenOutAddress)
-                                      ||
-                                      (v.TokenInAddress == sw.TokenOutAddress && v.TokenOutAddress == sw.TokenInAddress)
-                                     )
-
-                                  // and on the same DEX
-                                  && (v.AbiName == sw.AbiName && v.Protocol == sw.Protocol)
-                              )
-                            orderby v.AbiName, v.Protocol, a.TokenInAddress, a.TokenOutAddress, vt.ArrivalTime, a.BlockNumber, a.TransactionPosition
-                            select new { a.TransactionHash, a.TokenInAddress, a.TokenOutAddress, vTokenInAddress = v.TokenInAddress, vTokenOutAddress = v.TokenOutAddress, TradesWith = (v.TokenInAddress == a.TokenInAddress), a.TokenInAmount, a.TokenOutAmount, vTokenInAmount = v.TokenInAmount, vTokenOutAmount = v.TokenOutAmount, Price = Price(a.TokenInAmount, a.TokenOutAmount, true), vPrice = Price(v.TokenInAmount, v.TokenOutAmount, (v.TokenInAddress == a.TokenInAddress)), a.ArrivalTime, vArrivalTime = vt.ArrivalTime, a.BlockNumber, vBlockNumber = v.BlockNumber, a.TransactionPosition, vTransactionPosition = v.TransactionPosition, TxHash = v.TransactionHash, a.TraceAddress, vTxHash = v.TransactionHash, vTraceAddress = v.TraceAddress, a.AbiName, a.Protocol };
-
-            foreach (var f in frontruns)
-            {
-                Console.WriteLine(f.ToString());
-            }
-            */
-        }
-
-        private static decimal Price(decimal inAmount, decimal outAmount, bool tradesWith)
-        {
-            if (tradesWith)
-                return inAmount / outAmount;
-            return outAmount / inAmount;
+            _logger.LogInformation($"zm classifier stopping (started {classifierStartTime})");
         }
     }
 }

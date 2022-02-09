@@ -26,6 +26,7 @@ namespace ZeroMev.MevEFC
         public virtual DbSet<MinerPayment> MinerPayments { get; set; } = null!;
         public virtual DbSet<NftTrade> NftTrades { get; set; } = null!;
         public virtual DbSet<Price> Prices { get; set; } = null!;
+        public virtual DbSet<PricesToken> PricesTokens { get; set; } = null!;
         public virtual DbSet<PunkBid> PunkBids { get; set; } = null!;
         public virtual DbSet<PunkBidAcceptance> PunkBidAcceptances { get; set; } = null!;
         public virtual DbSet<PunkSnipe> PunkSnipes { get; set; } = null!;
@@ -34,8 +35,9 @@ namespace ZeroMev.MevEFC
         public virtual DbSet<Swap> Swaps { get; set; } = null!;
         public virtual DbSet<Token> Tokens { get; set; } = null!;
         public virtual DbSet<Transfer> Transfers { get; set; } = null!;
+        public virtual DbSet<ZmBlock> ZmBlocks { get; set; } = null!;
         public virtual DbSet<ZmLatestBlockUpdate> ZmLatestBlockUpdates { get; set; } = null!;
-        public virtual DbSet<ZmTime> ZmTimes { get; set; } = null!;
+        public virtual DbSet<ZmToken> ZmTokens { get; set; } = null!;
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
@@ -394,6 +396,17 @@ namespace ZeroMev.MevEFC
                 entity.Property(e => e.UsdPrice).HasColumnName("usd_price");
             });
 
+            modelBuilder.Entity<PricesToken>(entity =>
+            {
+                entity.HasNoKey();
+
+                entity.ToTable("prices_tokens");
+
+                entity.Property(e => e.TokenAddress)
+                    .HasMaxLength(256)
+                    .HasColumnName("token_address");
+            });
+
             modelBuilder.Entity<PunkBid>(entity =>
             {
                 entity.HasKey(e => new { e.BlockNumber, e.TransactionHash, e.TraceAddress })
@@ -673,6 +686,18 @@ namespace ZeroMev.MevEFC
                     .HasColumnName("token_address");
             });
 
+            modelBuilder.Entity<ZmBlock>(entity =>
+            {
+                entity.HasKey(e => e.BlockNumber)
+                    .HasName("zm_blocks_pkey");
+
+                entity.ToTable("zm_blocks");
+
+                entity.Property(e => e.BlockNumber).HasColumnName("block_number");
+
+                entity.Property(e => e.TransactionCount).HasColumnName("transaction_count");
+            });
+
             modelBuilder.Entity<ZmLatestBlockUpdate>(entity =>
             {
                 entity.HasKey(e => e.BlockNumber)
@@ -688,26 +713,58 @@ namespace ZeroMev.MevEFC
                     .HasDefaultValueSql("now()");
             });
 
-            modelBuilder.Entity<ZmTime>(entity =>
+            modelBuilder.Entity<ZmToken>(entity =>
             {
-                entity.HasKey(e => new { e.TransactionHash, e.BlockNumber, e.TransactionPosition })
-                    .HasName("zm_time_pkey");
+                entity.HasKey(e => e.Address)
+                    .HasName("zm_tokens_pkey");
 
-                entity.ToTable("zm_time");
+                entity.ToTable("zm_tokens");
 
-                entity.HasIndex(e => e.ArrivalTime, "zm_arrival_time_idx");
+                entity.Property(e => e.Address)
+                    .HasMaxLength(256)
+                    .HasColumnName("address");
 
-                entity.Property(e => e.TransactionHash)
-                    .HasMaxLength(66)
-                    .HasColumnName("transaction_hash");
+                entity.Property(e => e.Coingecko)
+                    .HasMaxLength(256)
+                    .HasColumnName("coingecko");
 
-                entity.Property(e => e.BlockNumber).HasColumnName("block_number");
+                entity.Property(e => e.Decimals).HasColumnName("decimals");
 
-                entity.Property(e => e.TransactionPosition).HasColumnName("transaction_position");
+                entity.Property(e => e.Facebook)
+                    .HasMaxLength(256)
+                    .HasColumnName("facebook");
 
-                entity.Property(e => e.ArrivalTime)
-                    .HasColumnType("timestamp without time zone")
-                    .HasColumnName("arrival_time");
+                entity.Property(e => e.Image)
+                    .HasMaxLength(256)
+                    .HasColumnName("image");
+
+                entity.Property(e => e.Name)
+                    .HasMaxLength(256)
+                    .HasColumnName("name");
+
+                entity.Property(e => e.Owner)
+                    .HasMaxLength(256)
+                    .HasColumnName("owner");
+
+                entity.Property(e => e.Reddit)
+                    .HasMaxLength(256)
+                    .HasColumnName("reddit");
+
+                entity.Property(e => e.Symbol)
+                    .HasMaxLength(256)
+                    .HasColumnName("symbol");
+
+                entity.Property(e => e.Telegram)
+                    .HasMaxLength(256)
+                    .HasColumnName("telegram");
+
+                entity.Property(e => e.Twitter)
+                    .HasMaxLength(256)
+                    .HasColumnName("twitter");
+
+                entity.Property(e => e.Website)
+                    .HasMaxLength(256)
+                    .HasColumnName("website");
             });
 
             OnModelCreatingPartial(modelBuilder);

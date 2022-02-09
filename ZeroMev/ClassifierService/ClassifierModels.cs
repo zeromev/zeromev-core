@@ -6,9 +6,45 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using ZeroMev.MevEFC;
+using ZeroMev.Shared;
 
 namespace ZeroMev.ClassifierService
 {
+    // not threadsafe (by design)
+    public static class Tokens
+    {
+        private static Dictionary<string, ZmToken> _tokens = null;
+
+        public static void Load()
+        {
+            Dictionary<string, ZmToken> newTokens = new Dictionary<string, ZmToken>();
+
+            using (var db = new zeromevContext())
+            {
+                var tokens = (from t in db.ZmTokens
+                              where (t.Symbol != null && t.Symbol != "???")
+                              select t).ToList();
+
+                foreach (var t in tokens)
+                    newTokens.Add(t.Address, t);
+            }
+            _tokens = newTokens;
+        }
+
+        public static void Add(List<ZmToken> addTokens)
+        {
+            foreach (var t in addTokens)
+                _tokens.TryAdd(t.Address, t);
+        }
+
+        public static ZmToken? GetFromAddress(string tokenAddress)
+        {
+            if (_tokens.TryGetValue(tokenAddress, out ZmToken? token))
+                return token;
+            return null;
+        }
+    }
+
     // a root object of a data structure for handling swaps
     public class DEXs : Dictionary<string, DEX>
     {
@@ -34,7 +70,7 @@ namespace ZeroMev.ClassifierService
         }
     }
 
-    public class DEX: Dictionary<string, Pair>
+    public class DEX : Dictionary<string, Pair>
     {
         public string? AbiName { get; private set; }
         public string? Protocol { get; private set; }
@@ -65,7 +101,7 @@ namespace ZeroMev.ClassifierService
             string key = tokenA + tokenB;
             if (!this.TryGetValue(key, out pair))
             {
-                pair = new Pair(tokenA, tokenB);
+                pair = new Pair(this, tokenA, tokenB);
                 this.Add(key, pair);
             }
             return pair;
@@ -85,27 +121,46 @@ namespace ZeroMev.ClassifierService
         }
     }
 
+    public enum Currency
+    {
+        USD,
+        ETH,
+        BTC
+    }
+
     public class Pair
     {
-        public string TokenA;
-        public string TokenB;
-        public BigInteger? LastExchangeRate = null; // we use latest exchange rate for each pair by block/index time to calculate MEV impacts in dollar terms at the moment they executed
+        public DEX Parent { get; private set; }
+        public string TokenA { get; private set; }
+        public string TokenB { get; private set; }
 
         public readonly SortedList<BlockOrder, ZMSwap> BlockOrder = new SortedList<BlockOrder, ZMSwap>();
-        public readonly SortedList<long, ZMSwap> TimeOrder = new SortedList<long, ZMSwap>();
+        public readonly SortedList<Order, ZMSwap> TimeOrder = new SortedList<Order, ZMSwap>();
 
-        private static string[] USDtokens = new string[]
+        // use latest exchange rates for each pair by block/index time to calculate MEV impacts in dollar terms at the moment they executed
+        public ZMDecimal[] XRate = new ZMDecimal[Enum.GetValues(typeof(Currency)).Length];
+
+        private static Dictionary<string, Currency> XRateTokens = new Dictionary<string, Currency>
         {
-            "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48", // USDC
-            "0x6B175474E89094C44Da98b954EedeAC495271d0F", // DAI
-            "0xdac17f958d2ee523a2206206994597c13d831ec7", // TUSD
-            "0x4fabb145d64652a948d72533023f6e7a623c7c53", // BUSD
-            "0x0000000000085d4780B73119b644AE5ecd22b376", // TrueUSD
-            "0x056fd409e1d7a124bd7017459dfea2f387b6d5cd"  // GUSD
+            // USD
+            {"0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" , Currency.USD },  // USDC
+            {"0x6b175474e89094c44da98b954eedeac495271d0f" , Currency.USD },  // DAI
+            {"0xdac17f958d2ee523a2206206994597c13d831ec7" , Currency.USD },  // TUSD
+            {"0x4fabb145d64652a948d72533023f6e7a623c7c53" , Currency.USD },  // BUSD
+            {"0x0000000000085d4780B73119b644AE5ecd22b376" , Currency.USD },  // TrueUSD
+            {"0x056fd409e1d7a124bd7017459dfea2f387b6d5cd" , Currency.USD },  // GUSD
+
+            // ETH
+            {"0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2" , Currency.ETH },  // wETH
+
+            // BTC
+            {"0x2260fac5e5542a773aa44fbcfedf7c193bc2c599" , Currency.BTC },  // wBTC
+            {"0xeb4c2781e4eba804ce9a9803c67d0893436bb27d" , Currency.BTC }  // renBTC
         };
 
-        public Pair(string tokenA, string tokenB)
+        public Pair(DEX parent, string tokenA, string tokenB)
         {
+            Parent = parent;
             TokenA = tokenA;
             TokenB = tokenB;
         }
@@ -113,13 +168,51 @@ namespace ZeroMev.ClassifierService
         // add must be called in block order for 
         public void Add(Swap swap, BlockOrder blockOrder, DateTime arrivalTime, bool isSell)
         {
+            ZMDecimal tokenIn = (ZMDecimal)swap.TokenInAmount;
+            ZMDecimal tokenOut = (ZMDecimal)swap.TokenOutAmount;
+
+            // TODO store decimals as PoW ZMDecimal that I can divide by
+
+            // USDC
+            if (swap.TokenInAddress == "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48") tokenIn /= ZMDecimal.Pow(10, 6);
+            if (swap.TokenOutAddress == "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48") tokenOut /= ZMDecimal.Pow(10, 6);
+
+            // WETH
+            if (swap.TokenInAddress == "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2") tokenIn /= ZMDecimal.Pow(10, 18);
+            if (swap.TokenOutAddress == "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2") tokenOut /= ZMDecimal.Pow(10, 18);
+
+            // hex
+            if (swap.TokenInAddress == "0x2b591e99afe9f32eaa6214f7b7629768c40eeb39") tokenIn /= ZMDecimal.Pow(10, 8);
+            if (swap.TokenOutAddress == "0x2b591e99afe9f32eaa6214f7b7629768c40eeb39") tokenOut /= ZMDecimal.Pow(10, 8);
+
+            // link
+            if (swap.TokenInAddress == "0x514910771af9ca656af840dff83e8264ecf986ca") tokenIn /= ZMDecimal.Pow(10, 18);
+            if (swap.TokenOutAddress == "0x514910771af9ca656af840dff83e8264ecf986ca") tokenOut /= ZMDecimal.Pow(10, 18);
+
+            // uni
+            if (swap.TokenInAddress == "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984") tokenIn /= ZMDecimal.Pow(10, 18);
+            if (swap.TokenOutAddress == "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984") tokenOut /= ZMDecimal.Pow(10, 18);
+
+            // LINK -> USDC
+            if (swap.TokenInAddress == "0x514910771af9ca656af840dff83e8264ecf986ca" && swap.TokenOutAddress == "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48")
+            {
+                Console.WriteLine("");
+            }
+
+            // USDC -> LINK
+            if (swap.TokenInAddress == "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" && swap.TokenOutAddress == "0x514910771af9ca656af840dff83e8264ecf986ca")
+            {
+                Console.WriteLine("");
+            }
+
+            // TODO if the tokenIn/Out are outside the decimal integer range (or x100 close to being), we will need to skip them
+
             // create a smaller footprint zeromev swap with our timing data
-            ZMSwap zmSwap = new ZMSwap(blockOrder, arrivalTime, isSell, swap.TokenInAmount, swap.TokenOutAmount);
-            zmSwap.BlockOrder = blockOrder;
+            ZMSwap zmSwap = new ZMSwap(blockOrder, arrivalTime, isSell, tokenIn, tokenOut);
 
             // add it to both the block and time ordered lists
-            BlockOrder.TryAdd(blockOrder, zmSwap);
-            TimeOrder.TryAdd(arrivalTime.Ticks, zmSwap);
+            BlockOrder.TryAdd(zmSwap.Order.BlockOrder, zmSwap);
+            TimeOrder.TryAdd(zmSwap.Order, zmSwap);
 
             // usually we will add swaps in block/index order and so can calculate the latest exchange rate as we go
             // if for some reason we go back and add swaps, do not update the exchange rate as it will be out of date
@@ -133,17 +226,38 @@ namespace ZeroMev.ClassifierService
             if (swap.AmountIn == 0 || swap.AmountOut == 0)
                 return;
 
-            // take any conversion to or from a USD stable coin as our last exchange rate
-            if (USDtokens.Contains<string>(TokenB))
+            Currency currency;
+            if (XRateTokens.TryGetValue(TokenB, out currency))
             {
-                // Other:USD
-                LastExchangeRate = swap.ExchangeRate();
+                // take any conversion as our last exchange rate
+                XRate[(int)currency] = swap.ExchangeRate();
             }
-            else if (USDtokens.Contains<string>(TokenA))
+            else if (XRateTokens.TryGetValue(TokenA, out currency))
             {
-                // invert the rate for USD:Other pairs
-                LastExchangeRate = swap.InverseExchangeRate();
+                // invert the rate when the tokens are reversed
+                XRate[(int)currency] = swap.InverseExchangeRate();
             }
+
+            //if (TokenA == "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48") Console.WriteLine($"USDC {currency} {swap.IsSell} {XRate[(int)currency]}");
+            //if (TokenA == "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2") Console.WriteLine($"WETH {currency} {swap.IsSell} {XRate[(int)currency]}");
+
+            if (TokenA == "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" || TokenB == "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
+                return;
+
+            string dex = this.Parent.AbiName + this.Parent.Protocol;
+            if (TokenA == "0x2b591e99afe9f32eaa6214f7b7629768c40eeb39") Console.WriteLine($"HEX {currency} {swap.IsSell} {XRate[(int)currency]} {dex}");
+            if (TokenA == "0x514910771af9ca656af840dff83e8264ecf986ca")
+            {
+                Console.WriteLine($"LINK {currency} {swap.IsSell} {XRate[(int)currency]} {dex}");
+                if (dex == "BancorNetworkbancor") Console.Write("");
+                if (XRate[(int)currency] > 20000) Console.Write("");
+            }
+            if (TokenA == "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984") Console.WriteLine($"UNI {currency} {swap.IsSell} {XRate[(int)currency]} {dex}");
+        }
+
+        public ZMDecimal LastXRate(Currency currency)
+        {
+            return XRate[(int)currency];
         }
 
         // sort in/out tokens to get a single pair which can contain both buys and sells
@@ -161,111 +275,6 @@ namespace ZeroMev.ClassifierService
                 tokenB = tokenIn;
                 IsSell = true;
             }
-        }
-
-        public override string ToString()
-        {
-            return JsonSerializer.Serialize(this);
-        }
-    }
-
-    public class BlockOrder : IComparable<BlockOrder>
-    {
-        public long Blocknum;
-        public int TxIndex;
-        public int[] TraceAddress;
-
-        public BlockOrder(long blocknum, int txIndex, int[] traceAddress)
-        {
-            Blocknum = blocknum;
-            TxIndex = txIndex;
-            TraceAddress = traceAddress;
-        }
-
-        int IComparable<BlockOrder>.CompareTo(BlockOrder? other)
-        {
-            if (other == null) return -1;
-
-            // compare by block number
-            int r;
-            r = this.Blocknum.CompareTo(other.Blocknum);
-            if (r != 0) return r;
-
-            // then by transaction index
-            r = this.TxIndex.CompareTo(other.TxIndex);
-            if (r != 0) return r;
-
-            // and finally by trace address
-
-            // handle null and empty trace address values
-            bool noTrace = (this.TraceAddress == null || this.TraceAddress.Length == 0);
-            bool noOtherTrace = (other.TraceAddress == null || other.TraceAddress.Length == 0);
-            if (noTrace && noOtherTrace) return 0;
-            if (!noTrace && noOtherTrace) return 1;
-            if (noTrace && !noOtherTrace) return -1;
-
-            // compare trace address arrays directly now we know they both exist
-            for (int i = 0; i < this.TraceAddress.Length; i++)
-            {
-                if (other.TraceAddress.Length < i) break;
-                r = this.TraceAddress[i].CompareTo(other.TraceAddress[i]);
-                if (r != 0) return r;
-            }
-
-            // if the are both equivalent as far as they go, the shorter one takes priority
-            return this.TraceAddress.Length.CompareTo(other.TraceAddress.Length);
-        }
-
-        public override string ToString()
-        {
-            return JsonSerializer.Serialize(this);
-        }
-    }
-
-    public class ZMSwap
-    {
-        public BlockOrder BlockOrder;
-        public DateTime ArrivalTime;
-        public bool IsSell;
-        public BigInteger AmountIn; // ensure in/outs are never 0, the div by zero errors we will get are appropriate if not
-        public BigInteger AmountOut;
-
-        public ZMSwap(BlockOrder blockOrder, DateTime arrivalTime, bool isSell, BigInteger amountIn, BigInteger amountOut)
-        {
-            BlockOrder = blockOrder;
-            ArrivalTime = arrivalTime;
-            IsSell = isSell;
-            AmountIn = amountIn;
-            AmountOut = amountOut;
-        }
-
-        public long TimeOrderKey()
-        {
-            return ArrivalTime.Ticks;
-        }
-
-        public BigInteger ExchangeRate()
-        {
-            if (IsSell)
-                return AmountIn / AmountOut;
-            return AmountOut / AmountIn;
-        }
-
-        public BigInteger InverseExchangeRate()
-        {
-            if (IsSell)
-                return AmountOut / AmountIn;
-            return AmountIn / AmountOut;
-        }
-
-        public BigInteger ImpactDelta(ZMSwap previous)
-        {
-            return ExchangeRate() - previous.ExchangeRate();
-        }
-
-        public BigInteger ImpactPercent(ZMSwap previous)
-        {
-            return ImpactDelta(previous) / ExchangeRate();
         }
 
         public override string ToString()

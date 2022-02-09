@@ -9,16 +9,14 @@ namespace ZeroMev.MevEFC
 {
     public static class ExtensionMethods
     {
-        public static async Task<long> GetLastProcessedBlock(this zeromevContext db)
+        public static long GetLastProcessedMevInspectBlock(this zeromevContext db)
         {
-            var lastProcessed = await db.ZmLatestBlockUpdates.ToListAsync();
-            if (lastProcessed.Count > 0)
-            {
-                var row = lastProcessed.Max();
-                if (row != null)
-                    return (long)row.BlockNumber;
-            }
-            return -1;
+            return (long)db.LatestBlockUpdates.Max(x => x.BlockNumber);
+        }
+
+        public static long GetLastProcessedBlock(this zeromevContext db)
+        {
+            return (long)db.ZmLatestBlockUpdates.Max(x => x.BlockNumber);
         }
 
         public static async Task SetLastProcessedBlock(this zeromevContext db, long blockNumber)
