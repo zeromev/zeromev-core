@@ -19,6 +19,26 @@ namespace ZeroMev.MevEFC
             return (long)db.ZmLatestBlockUpdates.Max(x => x.BlockNumber);
         }
 
+        public static bool AddBlockTransactionCount(this zeromevContext db, long blockNumber, int txCount)
+        {
+            try
+            {
+                db.ZmBlocks.Add(new ZmBlock() { BlockNumber = blockNumber, TransactionCount = txCount });
+                db.SaveChanges();
+                return true;
+            }
+            catch (Exception ex)
+            {
+                if (ex.InnerException != null)
+                {
+                    // allow failure if we're trying to add a duplicate
+                    if (ex.InnerException.Message.Contains("duplicate key"))
+                        return true;
+                }
+                return false;
+            }
+        }
+
         public static async Task SetLastProcessedBlock(this zeromevContext db, long blockNumber)
         {
             // remove any previous rows

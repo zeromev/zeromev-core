@@ -82,8 +82,8 @@ namespace ZeroMev.ExtractorService
             try
             {
                 // get connection strings
-                string httpsUri = DB.GetConfig("ZM_HTTPS");
-                string wssUri = DB.GetConfig("ZM_WSS");
+                string httpsUri = Config.Settings.EthereumRPC;
+                string wssUri = Config.Settings.EthereumWSS;
                 _logger.LogInformation($"https connection {httpsUri}");
                 _logger.LogInformation($"wss connection {wssUri}");
 
@@ -103,7 +103,7 @@ namespace ZeroMev.ExtractorService
                 // configure streaming
                 _client = new StreamingWebSocketClient(wssUri);
                 _client.Error += Client_Error;
-                _extractorIndex = short.Parse(DB.GetConfig("ExtractorIndex"));
+                _extractorIndex = Config.Settings.ExtractorIndex;
 
                 // subscribe blocks
                 _blockSub = new EthNewBlockHeadersObservableSubscription(_client);
@@ -283,7 +283,7 @@ namespace ZeroMev.ExtractorService
                 tts));
 
             // non blocking collection and write of flashbots data (if this is a new block)
-            if (block.Number != _lastFlashbotsBlock && bool.Parse(DB.GetConfig("DoExtractFlashbots")))
+            if (block.Number != _lastFlashbotsBlock && Config.Settings.DoExtractFlashbots)
             {
                 _ = FlashbotsAPI.Collect(_http, 4000); // delay by a few seconds to give them a chance to update the api with the new block
                 _lastFlashbotsBlock = block.Number;
@@ -312,7 +312,7 @@ namespace ZeroMev.ExtractorService
 
         private void PurgePending()
         {
-            DateTime purgeBefore = DateTime.Now.AddDays(-int.Parse(DB.GetConfig("PurgeAfterDays")));
+            DateTime purgeBefore = DateTime.Now.AddDays(-Config.Settings.PurgeAfterDays);
             List<string> purge = new List<string>();
 
             Stopwatch sw = new Stopwatch();

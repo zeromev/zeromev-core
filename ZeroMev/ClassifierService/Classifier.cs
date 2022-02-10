@@ -85,7 +85,7 @@ namespace ZeroMev.ClassifierService
                             }
                         }
 
-                        // once we have those, RPC the block tx count (by now considered trustworthy) and write to the db (useful for later bulk reprocessing)
+                        // once we have those, RPC the block tx count (by now considered trustworthy)
                         int? txCount = null;
                         txCount = await API.GetBlockTransactionCountByNumber(_http, nextBlockNumber);
                         if (!txCount.HasValue)
@@ -94,16 +94,29 @@ namespace ZeroMev.ClassifierService
                             continue;
                         }
 
-                        // TODO write txCount to db
+                        // write the count to the db (useful for later bulk reprocessing)
+                        using (var db = new zeromevContext())
+                        {
+                            db.AddBlockTransactionCount(nextBlockNumber, txCount.Value);
+                        }
 
                         // if we are only importing tx count, this is as far as we need to go
                         if (DoBlockTxCountImport)
                         {
+                            // save work
+                            if (nextBlockNumber % 10 == 0)
+                            {
+                                using (var db = new zeromevContext())
+                                {
+                                    await db.SetLastProcessedBlock(nextBlockNumber);
+                                }
+                            }
+                            nextBlockNumber++;
                             delaySecs = 0; // import as fast as possible
                             continue;
                         }
 
-                        // filter out invalid tx length rows before processing ZmView
+                        // filter out invalid tx length extractor rows
                         var zb = DB.GetZMBlock(nextBlockNumber);
                         ZMView? zv = null;
                         if (zb != null)
@@ -133,20 +146,16 @@ namespace ZeroMev.ClassifierService
                             _logger.LogInformation($"timeout {reason} {delaySecs} secs {nextBlockNumber}");
                         }
 
-                        // TODO
-                        // classify mev if we can (use a single PoP if that is all we have after the timeout period)
-                        /*
+                        // classify mev 
                         using (var db = new zeromevContext())
                         {
                             if (zb != null && zv != null && zv.PoPs != null && zv.PoPs.Count != 0)
                             {
-                                await WriteTxTimes(zv, db);
-                                _logger.LogInformation($"classified {nextBlockNumber} PoPs {zv.PoPs.Count}");
+                                //_logger.LogInformation($"classified {nextBlockNumber} PoPs {zv.PoPs.Count}");
                             }
 
                             await db.SetLastProcessedBlock(nextBlockNumber);
                         }
-                        */
 
                         // update progress
                         lastProcessedBlockAt = DateTime.Now;
@@ -165,6 +174,7 @@ namespace ZeroMev.ClassifierService
                         if (ex != null && ex.InnerException != null && ex.InnerException.Message.Contains("duplicate key"))
                             nextBlockNumber++;
 
+                        delaySecs = PollEverySecs;
                         continue;
                     }
                 }

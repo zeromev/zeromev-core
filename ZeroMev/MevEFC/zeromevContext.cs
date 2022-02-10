@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
+using ZeroMev.Shared;
 
 namespace ZeroMev.MevEFC
 {
@@ -43,7 +44,7 @@ namespace ZeroMev.MevEFC
         {
             if (!optionsBuilder.IsConfigured)
             {
-                optionsBuilder.UseNpgsql(Config.Get("ZM_MEV_DB"));
+                optionsBuilder.UseNpgsql(Config.Settings.MevDB);
             }
         }
 

@@ -15,9 +15,7 @@ using ZeroMev.Shared;
 namespace ZeroMev.SharedServer
 {
     public class DB
-    {
-        static IConfiguration _config;
-
+    {      
         // DB environment
         const string ZM_DB = "ZM_DB";
         const string ZM_MEV_DB = "ZM_MEV_DB";
@@ -50,17 +48,6 @@ namespace ZeroMev.SharedServer
         // write cache
         static List<ExtractorBlock> _extractorBlocks = new List<ExtractorBlock>();
         static List<FBBlock> _fbBlocks = new List<FBBlock>();
-
-        public static string GetConfig(string key)
-        {
-            if (_config == null)
-                _config = new ConfigurationBuilder()
-                    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                    .AddEnvironmentVariables()
-                    .Build();
-
-            return _config[key];
-        }
 
         public static void QueueWriteExtractorBlockAsync(ExtractorBlock extractorBlock)
         {
@@ -105,7 +92,7 @@ namespace ZeroMev.SharedServer
             byte[] txData = Binary.WriteTxData(eb.TxTimes);
             byte[] txDataComp = Binary.Compress(txData);
 
-            using (NpgsqlConnection conn = new NpgsqlConnection(DB.GetConfig(ZM_DB)))
+            using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.DB))
             {
                 conn.Open();
                 using (var cmd = new NpgsqlCommand(WriteExtractorBlockSQL, conn))
@@ -129,7 +116,7 @@ namespace ZeroMev.SharedServer
         {
             List<ExtractorBlock> ebs = null;
 
-            using (NpgsqlConnection conn = new NpgsqlConnection(DB.GetConfig(ZM_DB)))
+            using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.DB))
             {
                 conn.Open();
                 using (var cmd = new NpgsqlCommand(ReadExtractorBlockSQL, conn))
@@ -201,7 +188,7 @@ namespace ZeroMev.SharedServer
             BitArray bundles = FlashbotsAPI.ConvertBundlesToBitArray(fb);
             if (bundles == null) return; // don't write missing/bad data
 
-            using (NpgsqlConnection conn = new NpgsqlConnection(DB.GetConfig(ZM_DB)))
+            using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.DB))
             {
                 conn.Open();
                 using (var cmd = new NpgsqlCommand(WriteFlashbotsBlockSQL, conn))
@@ -220,7 +207,7 @@ namespace ZeroMev.SharedServer
         {
             BitArray bundle = null;
 
-            using (NpgsqlConnection conn = new NpgsqlConnection(DB.GetConfig(ZM_DB)))
+            using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.DB))
             {
                 conn.Open();
                 using (var cmd = new NpgsqlCommand(ReadFlashbotsBundleSQL, conn))

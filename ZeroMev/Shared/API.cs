@@ -30,12 +30,12 @@ namespace ZeroMev.Shared
 
         public static async Task<GetTxnByHash?> GetTxByHash(HttpClient http, string fromTxh)
         {
-            return await http.GetFromJsonAsync<GetTxnByHash>(string.Format(API.UrlGetTransactionByHash, fromTxh, APIConfig.EtherscanAPIKey));
+            return await http.GetFromJsonAsync<GetTxnByHash>(string.Format(API.UrlGetTransactionByHash, fromTxh, Config.Settings.EtherscanAPIKey));
         }
 
         public static async Task<TxList?> GetAccountByAddress(HttpClient http, string address, int page, int offset)
         {
-            return await http.GetFromJsonAsync<TxList>(string.Format(API.UrlGetAccountByAddress, address, page, offset, APIConfig.EtherscanAPIKey));
+            return await http.GetFromJsonAsync<TxList>(string.Format(API.UrlGetAccountByAddress, address, page, offset, Config.Settings.EtherscanAPIKey));
         }
 
         public static async Task<GetBlockByNumber?> GetBlockByNumber(HttpClient http, long blockNumber)
@@ -49,7 +49,7 @@ namespace ZeroMev.Shared
             string jsonReq = JsonEthGetBlockByNumber.Replace("{0}", hexBlockNumber);
             var httpContent = new StringContent(jsonReq, System.Text.Encoding.UTF8, "application/json");
 
-            var getBlockTask = await http.PostAsync(APIConfig.EthereumRPC, httpContent);
+            var getBlockTask = await http.PostAsync(Config.Settings.EthereumRPC, httpContent);
             string? result = await getBlockTask.Content.ReadAsStringAsync();
             return System.Text.Json.JsonSerializer.Deserialize<GetBlockByNumber>(result);
         }
@@ -65,7 +65,7 @@ namespace ZeroMev.Shared
             string jsonReq = JsonEthGetBlockTransactionCountByNumber.Replace("{0}", hexBlockNumber);
             var httpContent = new StringContent(jsonReq, System.Text.Encoding.UTF8, "application/json");
 
-            var getBlockTask = await http.PostAsync(APIConfig.EthereumRPC, httpContent);
+            var getBlockTask = await http.PostAsync(Config.Settings.EthereumRPC, httpContent);
             string? result = await getBlockTask.Content.ReadAsStringAsync();
             var r = System.Text.Json.JsonSerializer.Deserialize<GetBlockTransactionCountByNumber>(result);
             return Num.HexToInt(r.Result);

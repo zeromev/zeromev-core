@@ -15,12 +15,12 @@ namespace ZeroMev.SharedServer
 
         public static async Task<ZmToken?> GetTokenInfo(HttpClient http, string tokenAddress)
         {
-            return await http.GetFromJsonAsync<ZmToken>(string.Format(UrlGetTokenInfo, tokenAddress, DB.GetConfig("ZM_ETHPLORER")), ZMSerializeOptions.StringToInt);
+            return await http.GetFromJsonAsync<ZmToken>(string.Format(UrlGetTokenInfo, tokenAddress, Config.Settings.EthplorerAPIKey), ZMSerializeOptions.StringToInt);
         }
 
         public static async Task<ZmToken[]?> GetTokensNew(HttpClient http)
         {
-            return await http.GetFromJsonAsync<ZmToken[]>(string.Format(UrlGetTokensNew, DB.GetConfig("ZM_ETHPLORER")), ZMSerializeOptions.StringToInt);
+            return await http.GetFromJsonAsync<ZmToken[]>(string.Format(UrlGetTokensNew, Config.Settings.EthplorerAPIKey), ZMSerializeOptions.StringToInt);
         }
     }
 }

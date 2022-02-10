@@ -77,5 +77,19 @@ namespace ZeroMev.Test
             Assert.AreEqual(usdt.Symbol, "USDT");
             Assert.AreEqual(error, null);
         }
+
+        [TestMethod]
+        public void UpdateZmBlock()
+        {
+            using (var db = new zeromevContext())
+            {
+                db.AddBlockTransactionCount(0, 8893);
+            }
+
+            using (var db = new zeromevContext())
+            {
+                db.AddBlockTransactionCount(0, 8893);
+            }
+        }
     }
 }

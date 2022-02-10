@@ -3,6 +3,8 @@ using System.Collections;
 using ZeroMev.Shared;
 using ZeroMev.SharedServer;
 
+ConfigBuilder.Build();
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.

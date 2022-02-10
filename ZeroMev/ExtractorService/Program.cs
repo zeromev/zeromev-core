@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using ZeroMev.SharedServer;
 
 namespace ZeroMev.ExtractorService
 {
@@ -11,6 +12,7 @@ namespace ZeroMev.ExtractorService
     {
         public static void Main(string[] args)
         {
+            ConfigBuilder.Build();
             CreateHostBuilder(args).Build().Run();
         }
 
