@@ -13,7 +13,6 @@ namespace ZeroMev.SharedServer
             byte[] txData = new byte[tts.Count * 16];
 
             int index = 0;
-
             if (BitConverter.IsLittleEndian)
             {
                 // use little endian for binary data
@@ -67,13 +66,76 @@ namespace ZeroMev.SharedServer
                 while (i < txData.Length)
                 {
                     TxTime tt = new TxTime();
+                    Array.Reverse(txData, i, 8);
                     tt.ArrivalTime = DateTime.FromBinary(BitConverter.ToInt64(txData, i));
-                    Array.Reverse(txData, i, 8);
                     i += 8;
-                    tt.ArrivalBlockNumber = BitConverter.ToInt64(txData, i);
                     Array.Reverse(txData, i, 8);
+                    tt.ArrivalBlockNumber = BitConverter.ToInt64(txData, i);
                     i += 8;
                     tts.Add(tt);
+                }
+            }
+
+            return tts;
+        }
+
+        public static byte[] WriteFirstSeenTxData(ZMView zv)
+        {
+            if (zv == null || zv.Txs == null)
+                return null;
+
+            if (zv.Txs.Length == 0)
+                return new byte[] { };
+
+            byte[] txData = new byte[zv.Txs.Length * 8];
+
+            int index = 0;
+            if (BitConverter.IsLittleEndian)
+            {
+                // use little endian for binary data
+                foreach (var t in zv.Txs)
+                {
+                    ToBytes(t.ArrivalMin.Ticks, txData, index);
+                    index += 8;
+                }
+            }
+            else
+            {
+                // convert big endian to little endian
+                foreach (var t in zv.Txs)
+                {
+                    ToBytes(t.ArrivalMin.Ticks, txData, index);
+                    Array.Reverse(txData, index, 8);
+                    index += 8;
+                }
+            }
+
+            return txData;
+        }
+
+        public static List<DateTime> ReadFirstSeenTxData(byte[] txData)
+        {
+            int len = txData.Length / 8;
+            List<DateTime> tts = new List<DateTime>(len);
+            int i = 0;
+
+            if (BitConverter.IsLittleEndian)
+            {
+                // use little endian for binary data
+                while (i < txData.Length)
+                {
+                    tts.Add(DateTime.FromBinary(BitConverter.ToInt64(txData, i)));
+                    i += 8;
+                }
+            }
+            else
+            {
+                // convert big endian to little endian
+                while (i < txData.Length)
+                {
+                    Array.Reverse(txData, i, 8);
+                    tts.Add(DateTime.FromBinary(BitConverter.ToInt64(txData, i)));
+                    i += 8;
                 }
             }
 

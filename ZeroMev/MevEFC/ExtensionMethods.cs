@@ -19,12 +19,12 @@ namespace ZeroMev.MevEFC
             return (long)db.ZmLatestBlockUpdates.Max(x => x.BlockNumber);
         }
 
-        public static bool AddBlockTransactionCount(this zeromevContext db, long blockNumber, int txCount)
+        public static async Task<bool> AddZmBlock(this zeromevContext db, long blockNumber, int txCount, DateTime blockTime, byte[] txData)
         {
             try
             {
-                db.ZmBlocks.Add(new ZmBlock() { BlockNumber = blockNumber, TransactionCount = txCount });
-                db.SaveChanges();
+                db.ZmBlocks.Add(new ZmBlock() { BlockNumber = blockNumber, TransactionCount = txCount, BlockTime = blockTime, TxData = txData });
+                await db.SaveChangesAsync();
                 return true;
             }
             catch (Exception ex)
@@ -54,7 +54,7 @@ namespace ZeroMev.MevEFC
                 UpdatedAt = DateTime.Now
             };
             db.ZmLatestBlockUpdates.Add(lastUpdate);
-            db.SaveChanges();
+            await db.SaveChangesAsync();
         }
     }
 }

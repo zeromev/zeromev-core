@@ -31,6 +31,13 @@ namespace ZeroMev.Test
         }
 
         [TestMethod]
+        public async Task UpdateNewTokens()
+        {
+            HttpClient http = new HttpClient();
+            await EthplorerAPI.UpdateNewTokens(http);
+        }
+
+        [TestMethod]
         public async Task ImportAllTokens()
         {
             // not a test- this is a one off batch process to import all known tokens into the db
@@ -67,7 +74,7 @@ namespace ZeroMev.Test
                         using (var db = new zeromevContext())
                         {
                             db.ZmTokens.Update(zt);
-                            db.SaveChanges();
+                            await db.SaveChangesAsync();
                         }
                         Debug.WriteLine($"{t.Address} {zt.Name} {zt.Symbol} {zt.Decimals}");
                     }
@@ -81,7 +88,7 @@ namespace ZeroMev.Test
                     using (var db = new zeromevContext())
                     {
                         db.ZmTokens.Update(zt);
-                        db.SaveChanges();
+                        await db.SaveChangesAsync();
                     }
                 }
                 catch (Exception e)

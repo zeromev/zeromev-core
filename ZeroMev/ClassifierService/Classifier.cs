@@ -1,10 +1,12 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Diagnostics;
 using ZeroMev.Shared;
 using ZeroMev.SharedServer;
 using ZeroMev.MevEFC;
@@ -15,7 +17,8 @@ namespace ZeroMev.ClassifierService
     {
         const int PollEverySecs = 5; // same assumptions as mev-inspect
         const int PollTimeoutSecs = 180;
-        const bool DoBlockTxCountImport = true;
+        const int LogEvery = 100;
+        const int GetNewTokensEverySecs = 240;
 
         readonly ILogger<Classifier> _logger;
 
@@ -32,6 +35,9 @@ namespace ZeroMev.ClassifierService
             // initialize
             DateTime classifierStartTime = DateTime.Now;
             DateTime lastProcessedBlockAt = DateTime.Now;
+
+            // start up the get new tokens loop
+            GetNewTokens(GetNewTokensEverySecs, stoppingToken);
 
             try
             {
@@ -54,6 +60,9 @@ namespace ZeroMev.ClassifierService
                 // classification loop- run until the service is stopped
                 long miLastBlockNumber = 0;
                 int delaySecs = 0;
+                long count = 0;
+                long? importToBlock = Config.Settings.ImportZmBlocksTo;
+
                 while (!_isStopped)
                 {
                     try
@@ -67,12 +76,8 @@ namespace ZeroMev.ClassifierService
                         delaySecs = PollEverySecs;
 
                         // mev-inspect uses a 5 block lag to ensure blocks are settled
-                        // there is no point processing quicker than this, as we need the mev data
-                        // we must not progress past mev-inspect or we will miss data
-                        // it is also good to use the same safety assumptions as mev-inspect
-
-                        // so, wait on mev-inspect
-                        if (nextBlockNumber > miLastBlockNumber && !DoBlockTxCountImport)
+                        // wait on mev-inspect, there is no point processing quicker than this as we need the mev data and the chain to be settled
+                        if (nextBlockNumber > miLastBlockNumber && !importToBlock.HasValue)
                         {
                             using (var db = new zeromevContext())
                             {
@@ -85,7 +90,7 @@ namespace ZeroMev.ClassifierService
                             }
                         }
 
-                        // once we have those, RPC the block tx count (by now considered trustworthy)
+                        // once we have those, get the block transaction count (by now considered trustworthy)
                         int? txCount = null;
                         txCount = await API.GetBlockTransactionCountByNumber(_http, nextBlockNumber);
                         if (!txCount.HasValue)
@@ -94,29 +99,7 @@ namespace ZeroMev.ClassifierService
                             continue;
                         }
 
-                        // write the count to the db (useful for later bulk reprocessing)
-                        using (var db = new zeromevContext())
-                        {
-                            db.AddBlockTransactionCount(nextBlockNumber, txCount.Value);
-                        }
-
-                        // if we are only importing tx count, this is as far as we need to go
-                        if (DoBlockTxCountImport)
-                        {
-                            // save work
-                            if (nextBlockNumber % 10 == 0)
-                            {
-                                using (var db = new zeromevContext())
-                                {
-                                    await db.SetLastProcessedBlock(nextBlockNumber);
-                                }
-                            }
-                            nextBlockNumber++;
-                            delaySecs = 0; // import as fast as possible
-                            continue;
-                        }
-
-                        // filter out invalid tx length extractor rows
+                        // filter out invalid tx length extractor rows and calculate arrival times
                         var zb = DB.GetZMBlock(nextBlockNumber);
                         ZMView? zv = null;
                         if (zb != null)
@@ -136,7 +119,7 @@ namespace ZeroMev.ClassifierService
 
                             // a successful attempt is at least 2 PoPs (extractors) providing data
                             // pause between polling if this criteria is not met
-                            // or after a longer timeout period, move on anyway
+                            // or after a longer timeout period, move on anyway so we don't get stuck
                             if (DateTime.Now < lastProcessedBlockAt.AddSeconds(PollTimeoutSecs))
                             {
                                 _logger.LogInformation($"polling {reason} {delaySecs} secs {nextBlockNumber}");
@@ -151,10 +134,21 @@ namespace ZeroMev.ClassifierService
                         {
                             if (zb != null && zv != null && zv.PoPs != null && zv.PoPs.Count != 0)
                             {
-                                //_logger.LogInformation($"classified {nextBlockNumber} PoPs {zv.PoPs.Count}");
+                                // write the count to the db (useful for later bulk reprocessing/restarts)
+                                var txDataComp = Binary.Compress(Binary.WriteFirstSeenTxData(zv));
+                                await db.AddZmBlock(nextBlockNumber, txCount.Value, zv.BlockTimeAvg, txDataComp);
+
+                                // paranoid integrity checks
+                                var txData = Binary.Decompress(txDataComp);
+                                var arrivals = Binary.ReadFirstSeenTxData(txData);
+                                Debug.Assert(arrivals.Count == zv.Txs.Length);
+                                for (int i = 0; i < arrivals.Count; i++)
+                                    Debug.Assert(arrivals[i] == zv.Txs[i].ArrivalMin);
                             }
 
                             await db.SetLastProcessedBlock(nextBlockNumber);
+                            if (count++ % LogEvery == 0)
+                                _logger.LogInformation($"processed {nextBlockNumber} (log every {LogEvery})");
                         }
 
                         // update progress
@@ -162,18 +156,22 @@ namespace ZeroMev.ClassifierService
                         nextBlockNumber++;
 
                         // don't pause if we need to catch up
-                        if (nextBlockNumber < miLastBlockNumber)
+                        if (nextBlockNumber < miLastBlockNumber || (importToBlock.HasValue && nextBlockNumber < importToBlock.Value))
                             delaySecs = 0;
                     }
                     catch (Exception ex)
                     {
+                        // if this block has already written to the db, just skip it
+                        if (ex != null && ex.InnerException != null && ex.InnerException.Message.Contains("duplicate key"))
+                        {
+                            _logger.LogInformation($"duplicate key {nextBlockNumber}, skipping");
+                            nextBlockNumber++;
+                            delaySecs = 0;
+                            continue;
+                        }
+
                         // an unexpected error likely means a database or network failure, and we must not progress onto a new block until this is rectified
                         _logger.LogInformation($"error block {nextBlockNumber}: {ex.ToString()}");
-
-                        // unless this block has already written to the db, in which case skip
-                        if (ex != null && ex.InnerException != null && ex.InnerException.Message.Contains("duplicate key"))
-                            nextBlockNumber++;
-
                         delaySecs = PollEverySecs;
                         continue;
                     }
@@ -186,6 +184,21 @@ namespace ZeroMev.ClassifierService
             }
 
             _logger.LogInformation($"zm classifier stopping (started {classifierStartTime})");
+        }
+
+        private void GetNewTokens(int seconds, CancellationToken token)
+        {
+            Task.Run(async () =>
+            {
+                while (!token.IsCancellationRequested)
+                {
+                    if (!await EthplorerAPI.UpdateNewTokens(_http))
+                        _logger.LogInformation($"failed to get new tokens");
+                    else
+                        _logger.LogInformation($"got new tokens");
+                    await Task.Delay(TimeSpan.FromSeconds(seconds), token);
+                }
+            }, token);
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using ZeroMev.Shared;
@@ -696,7 +697,13 @@ namespace ZeroMev.MevEFC
 
                 entity.Property(e => e.BlockNumber).HasColumnName("block_number");
 
+                entity.Property(e => e.BlockTime)
+                    .HasColumnType("timestamp without time zone")
+                    .HasColumnName("block_time");
+
                 entity.Property(e => e.TransactionCount).HasColumnName("transaction_count");
+
+                entity.Property(e => e.TxData).HasColumnName("tx_data");
             });
 
             modelBuilder.Entity<ZmLatestBlockUpdate>(entity =>

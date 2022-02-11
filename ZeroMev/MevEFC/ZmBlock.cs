@@ -7,5 +7,7 @@ namespace ZeroMev.MevEFC
     {
         public decimal BlockNumber { get; set; }
         public int TransactionCount { get; set; }
+        public DateTime? BlockTime { get; set; }
+        public byte[]? TxData { get; set; }
     }
 }

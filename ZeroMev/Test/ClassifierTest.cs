@@ -79,16 +79,16 @@ namespace ZeroMev.Test
         }
 
         [TestMethod]
-        public void UpdateZmBlock()
+        public async Task UpdateZmBlock()
         {
             using (var db = new zeromevContext())
             {
-                db.AddBlockTransactionCount(0, 8893);
+                await db.AddZmBlock(1, 0, new DateTime(2015, 7, 30), new byte[] { });
             }
 
             using (var db = new zeromevContext())
             {
-                db.AddBlockTransactionCount(0, 8893);
+                await db.AddZmBlock(1, 0, new DateTime(2015, 7, 30), new byte[] { });
             }
         }
     }
