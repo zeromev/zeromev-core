@@ -16,10 +16,6 @@ namespace ZeroMev.SharedServer
 {
     public class DB
     {      
-        // DB environment
-        const string ZM_DB = "ZM_DB";
-        const string ZM_MEV_DB = "ZM_MEV_DB";
-
         // sql
         const string WriteExtractorBlockSQL = @"INSERT INTO public.extractor_block(" +
         "block_number, extractor_index, block_time, extractor_start_time, arrival_count, pending_count, tx_data) " +
@@ -254,12 +250,6 @@ namespace ZeroMev.SharedServer
         {
             var blocks = DB.ReadExtractorBlocks(blockNumber);
             return DB.BuildZMBlock(blocks);
-        }
-
-        public static long GetLastMEVBlockProcessed()
-        {
-            // TODO
-            return 0;
         }
     }
 }

@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Numerics;
 using System.Collections.Generic;
+using ZeroMev.Shared;
 
 namespace ZeroMev.MevEFC
 {
@@ -8,6 +10,21 @@ namespace ZeroMev.MevEFC
         public string Address { get; set; } = null!;
         public string? Name { get; set; }
         public int? Decimals { get; set; }
+        private ZMDecimal? _divisor;
+        public ZMDecimal Divisor
+        {
+            get
+            {
+                if (_divisor == null)
+                {
+                    if (!Decimals.HasValue)
+                        _divisor = BigInteger.Pow(10, 18);
+                    else
+                        _divisor = BigInteger.Pow(10, Decimals.Value);
+                }
+                return _divisor.Value;
+            }
+        }
         public string? Symbol { get; set; }
         public string? Owner { get; set; }
         public string? Image { get; set; }

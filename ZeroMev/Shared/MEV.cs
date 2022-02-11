@@ -22,6 +22,20 @@ namespace ZeroMev.Shared
         FrontrunLiquidation
     }
 
+    // this will replace MEVBlock when fully developed
+    public class MEVBlock2
+    {
+        long BlockNumber;
+        public ZMSwap[] Swaps { get; set; }
+
+        public int MEVCount { get; private set; }
+        public int MEVOtherCount { get; private set; }
+        public int MEVToxicCount { get; private set; }
+        public decimal MEVAmount { get; private set; }
+        public decimal MEVOtherAmount { get; private set; }
+        public decimal MEVToxicAmount { get; private set; }
+    }
+
     public class MEVBlock
     {
         public long BlockNumber { get; private set; }

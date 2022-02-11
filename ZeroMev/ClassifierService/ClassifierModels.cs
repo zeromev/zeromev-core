@@ -10,19 +10,50 @@ using ZeroMev.Shared;
 
 namespace ZeroMev.ClassifierService
 {
-    // not threadsafe (by design)
+    // a circular buffer of blocks within range of updates when calculating mev
+    public static class BlockBuffer
+    {
+        static MEVBlock2[] _buffer = new MEVBlock2[Config.Settings.BlockBufferSize.Value];
+
+        // TODO code circular buffer
+    }
+
+    // load mev-inspect data for a chosen block range to be passed to the zm classifier
+    public class BlockInput
+    {
+        public IEnumerable<ZmBlock> ZmBlocks { get; set; } // TODO consider different input types, batch/startup + realtime
+
+        public IEnumerable<Swap> Swaps { get; set; }
+        public IEnumerable<Arbitrage> Arbitrages { get; set; }
+        public IEnumerable<Sandwich> Sandwiches { get; set; }
+        public IEnumerable<Liquidation> Liquidations { get; set; }
+        public IEnumerable<NftTrade> NftTrades { get; set; }
+        public IEnumerable<PunkSnipe> PunkSnipes { get; set; }
+
+        public static BlockInput Build(long fromBlockNumber, long toBlockNumber)
+        {
+            // TODO 
+            return null;
+        }
+    }
+
+    // not threadsafe
     public static class Tokens
     {
+        public const string Unknown = "???";
+        public static readonly BigInteger Pow18 = new BigInteger(1000000000000000000);
         private static Dictionary<string, ZmToken> _tokens = null;
 
         public static void Load()
         {
-            Dictionary<string, ZmToken> newTokens = new Dictionary<string, ZmToken>();
+            if (_tokens != null)
+                return;
 
+            Dictionary<string, ZmToken> newTokens = new Dictionary<string, ZmToken>();
             using (var db = new zeromevContext())
             {
                 var tokens = (from t in db.ZmTokens
-                              where (t.Symbol != null && t.Symbol != "???")
+                              where (t.Symbol != null && t.Symbol != Unknown)
                               select t).ToList();
 
                 foreach (var t in tokens)
@@ -39,9 +70,34 @@ namespace ZeroMev.ClassifierService
 
         public static ZmToken? GetFromAddress(string tokenAddress)
         {
+            if (tokenAddress == null) return null;
             if (_tokens.TryGetValue(tokenAddress, out ZmToken? token))
                 return token;
             return null;
+        }
+
+        public static string GetPairName(string tokenA, string tokenB)
+        {
+            string a = GetSymbol(tokenA);
+            string b = GetSymbol(tokenB);
+            return a + ":" + b;
+        }
+
+        public static string GetSymbol(string token)
+        {
+            var t = Tokens.GetFromAddress(token);
+            if (t == null || t.Symbol == null || t.Symbol == Unknown) return token;
+            return t.Symbol;
+        }
+
+        public static string GetSymbol(string token, out ZMDecimal divisor)
+        {
+            divisor = Pow18; // default to 18 decimals
+            var t = Tokens.GetFromAddress(token);
+            if (t == null || t.Symbol == null || t.Symbol == Unknown) return token;
+            if (t.Decimals.HasValue)
+                divisor = t.Divisor;
+            return t.Symbol;
         }
     }
 
@@ -134,10 +190,15 @@ namespace ZeroMev.ClassifierService
         public string TokenA { get; private set; }
         public string TokenB { get; private set; }
 
-        public readonly SortedList<BlockOrder, ZMSwap> BlockOrder = new SortedList<BlockOrder, ZMSwap>();
+        // we always progress by block time, so don't need a list
+        public ZMSwap? CurrentSwap = null;
+        public ZMSwap? PreviousSwap = null;
+
+        // we need to hop around in arrival time order, so need a sorted collection
         public readonly SortedList<Order, ZMSwap> TimeOrder = new SortedList<Order, ZMSwap>();
 
         // use latest exchange rates for each pair by block/index time to calculate MEV impacts in dollar terms at the moment they executed
+        // TODO xrates need looking at again
         public ZMDecimal[] XRate = new ZMDecimal[Enum.GetValues(typeof(Currency)).Length];
 
         private static Dictionary<string, Currency> XRateTokens = new Dictionary<string, Currency>
@@ -168,62 +229,33 @@ namespace ZeroMev.ClassifierService
         // add must be called in block order for 
         public void Add(Swap swap, BlockOrder blockOrder, DateTime arrivalTime, bool isSell)
         {
-            ZMDecimal tokenIn = (ZMDecimal)swap.TokenInAmount;
-            ZMDecimal tokenOut = (ZMDecimal)swap.TokenOutAmount;
+            // get symbol and decimals for each token
+            ZMDecimal inDivisor, outDivisor;
+            string symbolIn = Tokens.GetSymbol(swap.TokenInAddress, out inDivisor);
+            string symbolOut = Tokens.GetSymbol(swap.TokenOutAddress, out outDivisor);
 
-            // TODO store decimals as PoW ZMDecimal that I can divide by
+            // apply the decimal divisor
+            ZMDecimal tokenIn = (ZMDecimal)(swap.TokenInAmount / inDivisor);
+            ZMDecimal tokenOut = (ZMDecimal)(swap.TokenOutAmount / outDivisor);
 
-            // USDC
-            if (swap.TokenInAddress == "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48") tokenIn /= ZMDecimal.Pow(10, 6);
-            if (swap.TokenOutAddress == "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48") tokenOut /= ZMDecimal.Pow(10, 6);
+            // create a smaller footprint zeromev swap which includes our timing data
+            ZMSwap zmSwap = new ZMSwap(blockOrder, arrivalTime, isSell, tokenIn, tokenOut, symbolIn, symbolOut);
 
-            // WETH
-            if (swap.TokenInAddress == "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2") tokenIn /= ZMDecimal.Pow(10, 18);
-            if (swap.TokenOutAddress == "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2") tokenOut /= ZMDecimal.Pow(10, 18);
+            // update block order (represented as current and previous swaps)
+            PreviousSwap = CurrentSwap;
+            CurrentSwap = zmSwap;
 
-            // hex
-            if (swap.TokenInAddress == "0x2b591e99afe9f32eaa6214f7b7629768c40eeb39") tokenIn /= ZMDecimal.Pow(10, 8);
-            if (swap.TokenOutAddress == "0x2b591e99afe9f32eaa6214f7b7629768c40eeb39") tokenOut /= ZMDecimal.Pow(10, 8);
-
-            // link
-            if (swap.TokenInAddress == "0x514910771af9ca656af840dff83e8264ecf986ca") tokenIn /= ZMDecimal.Pow(10, 18);
-            if (swap.TokenOutAddress == "0x514910771af9ca656af840dff83e8264ecf986ca") tokenOut /= ZMDecimal.Pow(10, 18);
-
-            // uni
-            if (swap.TokenInAddress == "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984") tokenIn /= ZMDecimal.Pow(10, 18);
-            if (swap.TokenOutAddress == "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984") tokenOut /= ZMDecimal.Pow(10, 18);
-
-            // LINK -> USDC
-            if (swap.TokenInAddress == "0x514910771af9ca656af840dff83e8264ecf986ca" && swap.TokenOutAddress == "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48")
-            {
-                Console.WriteLine("");
-            }
-
-            // USDC -> LINK
-            if (swap.TokenInAddress == "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48" && swap.TokenOutAddress == "0x514910771af9ca656af840dff83e8264ecf986ca")
-            {
-                Console.WriteLine("");
-            }
-
-            // TODO if the tokenIn/Out are outside the decimal integer range (or x100 close to being), we will need to skip them
-
-            // create a smaller footprint zeromev swap with our timing data
-            ZMSwap zmSwap = new ZMSwap(blockOrder, arrivalTime, isSell, tokenIn, tokenOut);
-
-            // add it to both the block and time ordered lists
-            BlockOrder.TryAdd(zmSwap.Order.BlockOrder, zmSwap);
+            // update time order (a sorted collection)
             TimeOrder.TryAdd(zmSwap.Order, zmSwap);
 
-            // usually we will add swaps in block/index order and so can calculate the latest exchange rate as we go
-            // if for some reason we go back and add swaps, do not update the exchange rate as it will be out of date
-            if (object.ReferenceEquals(BlockOrder.Values[BlockOrder.Count - 1], zmSwap))
-                UpdateExchangeRate(zmSwap);
+            // TODO update to use Tokens static
+            UpdateExchangeRate(zmSwap);
         }
 
         private void UpdateExchangeRate(ZMSwap swap)
         {
             // avoid div by zero and save cpu
-            if (swap.AmountIn == 0 || swap.AmountOut == 0)
+            if (swap.AmountA == 0 || swap.AmountB == 0)
                 return;
 
             Currency currency;
@@ -237,22 +269,6 @@ namespace ZeroMev.ClassifierService
                 // invert the rate when the tokens are reversed
                 XRate[(int)currency] = swap.InverseExchangeRate();
             }
-
-            //if (TokenA == "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48") Console.WriteLine($"USDC {currency} {swap.IsSell} {XRate[(int)currency]}");
-            //if (TokenA == "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2") Console.WriteLine($"WETH {currency} {swap.IsSell} {XRate[(int)currency]}");
-
-            if (TokenA == "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" || TokenB == "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee")
-                return;
-
-            string dex = this.Parent.AbiName + this.Parent.Protocol;
-            if (TokenA == "0x2b591e99afe9f32eaa6214f7b7629768c40eeb39") Console.WriteLine($"HEX {currency} {swap.IsSell} {XRate[(int)currency]} {dex}");
-            if (TokenA == "0x514910771af9ca656af840dff83e8264ecf986ca")
-            {
-                Console.WriteLine($"LINK {currency} {swap.IsSell} {XRate[(int)currency]} {dex}");
-                if (dex == "BancorNetworkbancor") Console.Write("");
-                if (XRate[(int)currency] > 20000) Console.Write("");
-            }
-            if (TokenA == "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984") Console.WriteLine($"UNI {currency} {swap.IsSell} {XRate[(int)currency]} {dex}");
         }
 
         public ZMDecimal LastXRate(Currency currency)
@@ -279,7 +295,7 @@ namespace ZeroMev.ClassifierService
 
         public override string ToString()
         {
-            return JsonSerializer.Serialize(this);
+            return Tokens.GetPairName(TokenA, TokenB);
         }
     }
 }

@@ -84,7 +84,7 @@ namespace ZeroMev.Test
                     // probably doesn't exist- update the symbol to 'unknown' so we don't keep asking for it
                     ZmToken zt = new ZmToken();
                     zt.Address = t.Address;
-                    zt.Symbol = "???";
+                    zt.Symbol = ZmToken.Unknown;
                     using (var db = new zeromevContext())
                     {
                         db.ZmTokens.Update(zt);

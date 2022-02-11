@@ -81,57 +81,69 @@ namespace ZeroMev.Shared
         // buy or sell
         public bool IsSell;
 
-        // indexes not references so they can be easily stored
-        // when these change compared to the time ordered list, we know the time order has changed based on new arrivals
-        public BlockOrder NextByTime;
-        public BlockOrder PrevByTime;
+        // token symbols are smaller and easier to read than addresses (but they are not guaranteed to be unique, and should not be used as keys)
+        public string SymbolA;
+        public string SymbolB;
 
         // set if this swap is counted as contributing to another mev type (eg: arb or sandwich - if so, its MEV amount belongs to the parent)
         public MEVType ParentType;
         public BlockOrder? Parent;
 
+        // we can calculate delta and percentage price impacts from the just exchange rates
+        public ZMDecimal PreviousExchangeRateByBlock;
+        public ZMDecimal PreviousExchangeRateByTime;
+
         // amounts are already adjusted by the token divisor, so rate calculations are reliable
         // ensure in/outs are never zero, the div by zero errors we will get if not are appropriate
-        public ZMDecimal AmountIn;
-        public ZMDecimal AmountOut;
+        public ZMDecimal AmountA;
+        public ZMDecimal AmountB;
         public ZMDecimal? MEVAmount; // 0 = neutral, >0 = positive <0 = negative, null = unclassified
 
         // determined directly from a USD stable-coin, or via ETH to a USD stable-coin. Determined within block order, so does not change. Set to 1 if it is already in USD, and null if unknown
         public ZMDecimal? InRateUSD;
         public ZMDecimal? OutRateUSD;
 
-        public ZMSwap(BlockOrder blockOrder, DateTime arrivalTime, bool isSell, ZMDecimal amountIn, ZMDecimal amountOut)
+        public ZMSwap(BlockOrder blockOrder, DateTime arrivalTime, bool isSell, ZMDecimal amountIn, ZMDecimal amountOut, string symbolIn, string symbolOut)
         {
             Order = new Order();
             Order.TimeOrder = arrivalTime;
             Order.BlockOrder = blockOrder;
             IsSell = isSell;
-            AmountIn = amountIn;
-            AmountOut = amountOut;
+
+            if (isSell)
+            {
+                AmountA = amountIn;
+                AmountB = amountOut;
+                SymbolA = symbolIn;
+                SymbolB = symbolOut;
+            }
+            else
+            {
+                AmountA = amountOut;
+                AmountB = amountIn;
+                SymbolA = symbolOut;
+                SymbolB = symbolIn;
+            }
         }
 
         public ZMDecimal ExchangeRate()
         {
-            if (IsSell)
-                return AmountIn / AmountOut;
-            return AmountOut / AmountIn;
+            return AmountB / AmountA;
         }
 
         public ZMDecimal InverseExchangeRate()
         {
-            if (IsSell)
-                return AmountOut / AmountIn;
-            return AmountIn / AmountOut;
+            return AmountA / AmountB;
         }
 
-        public ZMDecimal ImpactDelta(ZMSwap previous)
+        public ZMDecimal ImpactDelta(ZMDecimal previousExchangeRate)
         {
-            return ExchangeRate() - previous.ExchangeRate();
+            return ExchangeRate() - previousExchangeRate;
         }
 
-        public ZMDecimal ImpactPercent(ZMSwap previous)
+        public ZMDecimal ImpactPercent(ZMDecimal previousExchangeRate)
         {
-            return ImpactDelta(previous) / ExchangeRate();
+            return ImpactDelta(previousExchangeRate) / ExchangeRate();
         }
 
         public override string ToString()

@@ -35,9 +35,7 @@ namespace ZeroMev.ClassifierService
             // initialize
             DateTime classifierStartTime = DateTime.Now;
             DateTime lastProcessedBlockAt = DateTime.Now;
-
-            // start up the get new tokens loop
-            GetNewTokens(GetNewTokensEverySecs, stoppingToken);
+            DateTime lastGotTokens = DateTime.Now;
 
             try
             {
@@ -151,6 +149,17 @@ namespace ZeroMev.ClassifierService
                                 _logger.LogInformation($"processed {nextBlockNumber} (log every {LogEvery})");
                         }
 
+                        // update tokens periodically (do within the cycle as Tokens are not threadsafe)
+                        if (DateTime.Now > lastGotTokens.AddSeconds(GetNewTokensEverySecs))
+                        {
+                            if (!await EthplorerAPI.UpdateNewTokens(_http))
+                                _logger.LogInformation($"get new tokens failed");
+                            else
+                                _logger.LogInformation($"got new tokens");
+
+                            lastGotTokens = DateTime.Now;
+                        }
+
                         // update progress
                         lastProcessedBlockAt = DateTime.Now;
                         nextBlockNumber++;
@@ -184,21 +193,6 @@ namespace ZeroMev.ClassifierService
             }
 
             _logger.LogInformation($"zm classifier stopping (started {classifierStartTime})");
-        }
-
-        private void GetNewTokens(int seconds, CancellationToken token)
-        {
-            Task.Run(async () =>
-            {
-                while (!token.IsCancellationRequested)
-                {
-                    if (!await EthplorerAPI.UpdateNewTokens(_http))
-                        _logger.LogInformation($"failed to get new tokens");
-                    else
-                        _logger.LogInformation($"got new tokens");
-                    await Task.Delay(TimeSpan.FromSeconds(seconds), token);
-                }
-            }, token);
         }
     }
 }
