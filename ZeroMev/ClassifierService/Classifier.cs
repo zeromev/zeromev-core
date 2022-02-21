@@ -10,6 +10,7 @@ using System.Diagnostics;
 using ZeroMev.Shared;
 using ZeroMev.SharedServer;
 using ZeroMev.MevEFC;
+using EFCore.BulkExtensions;
 
 namespace ZeroMev.ClassifierService
 {
@@ -33,6 +34,7 @@ namespace ZeroMev.ClassifierService
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             // initialize
+            Tokens.Load();
             DateTime classifierStartTime = DateTime.Now;
             DateTime lastProcessedBlockAt = DateTime.Now;
             DateTime lastGotTokens = DateTime.Now;
@@ -152,7 +154,7 @@ namespace ZeroMev.ClassifierService
                         // update tokens periodically (do within the cycle as Tokens are not threadsafe)
                         if (DateTime.Now > lastGotTokens.AddSeconds(GetNewTokensEverySecs))
                         {
-                            if (!await EthplorerAPI.UpdateNewTokens(_http))
+                            if (!await UpdateNewTokens(_http))
                                 _logger.LogInformation($"get new tokens failed");
                             else
                                 _logger.LogInformation($"got new tokens");
@@ -193,6 +195,39 @@ namespace ZeroMev.ClassifierService
             }
 
             _logger.LogInformation($"zm classifier stopping (started {classifierStartTime})");
+        }
+
+        public static async Task<bool> UpdateNewTokens(HttpClient http)
+        {
+            try
+            {
+                // get recently added tokens
+                var tokens = await EthplorerAPI.GetTokensNew(http);
+                if (tokens == null)
+                    return false;
+
+                // add any new tokens internally
+                List<ZmToken> newtokens = new List<ZmToken>();
+                foreach (var t in tokens)
+                {
+                    if (Tokens.Add(t))
+                        newtokens.Add(t);
+                }
+
+                // then update the db with them
+                if (newtokens.Count != 0)
+                {
+                    using (var db = new zeromevContext())
+                    {
+                        await db.BulkInsertOrUpdateAsync<ZmToken>(newtokens);
+                    }
+                }
+                return true;
+            }
+            catch (Exception e)
+            {
+                return false;
+            }
         }
     }
 }

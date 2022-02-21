@@ -1,12 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Net.Http;
 using System.Net.Http.Json;
-using ZeroMev.Shared;
-
 
 namespace ZeroMev.Shared
 {
@@ -68,6 +64,7 @@ namespace ZeroMev.Shared
             var getBlockTask = await http.PostAsync(Config.Settings.EthereumRPC, httpContent);
             string? result = await getBlockTask.Content.ReadAsStringAsync();
             var r = System.Text.Json.JsonSerializer.Deserialize<GetBlockTransactionCountByNumber>(result);
+            if (r == null || r.Result == null) return null;
             return Num.HexToInt(r.Result);
         }
     }

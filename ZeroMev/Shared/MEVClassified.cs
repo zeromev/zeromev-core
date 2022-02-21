@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace ZeroMev.Shared
 {
@@ -99,9 +96,9 @@ namespace ZeroMev.Shared
         public ZMDecimal AmountB;
         public ZMDecimal? MEVAmount; // 0 = neutral, >0 = positive <0 = negative, null = unclassified
 
-        // determined directly from a USD stable-coin, or via ETH to a USD stable-coin. Determined within block order, so does not change. Set to 1 if it is already in USD, and null if unknown
-        public ZMDecimal? InRateUSD;
-        public ZMDecimal? OutRateUSD;
+        // determined directly from a USD stable-coin, or via ETH to a USD stable-coin after the swap. Determined within block order, so does not change. Set to 1 if it is already in USD, and null if unknown
+        public ZMDecimal? ARateUSD;
+        public ZMDecimal? BRateUSD;
 
         public ZMSwap(BlockOrder blockOrder, DateTime arrivalTime, bool isSell, ZMDecimal amountIn, ZMDecimal amountOut, string symbolIn, string symbolOut)
         {
@@ -110,7 +107,7 @@ namespace ZeroMev.Shared
             Order.BlockOrder = blockOrder;
             IsSell = isSell;
 
-            if (isSell)
+            if (!isSell)
             {
                 AmountA = amountIn;
                 AmountB = amountOut;

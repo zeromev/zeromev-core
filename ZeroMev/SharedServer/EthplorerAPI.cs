@@ -6,7 +6,6 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using ZeroMev.Shared;
 using ZeroMev.MevEFC;
-using EFCore.BulkExtensions;
 
 namespace ZeroMev.SharedServer
 {
@@ -23,23 +22,6 @@ namespace ZeroMev.SharedServer
         public static async Task<ZmToken[]?> GetTokensNew(HttpClient http)
         {
             return await http.GetFromJsonAsync<ZmToken[]>(string.Format(UrlGetTokensNew, Config.Settings.EthplorerAPIKey), ZMSerializeOptions.StringToInt);
-        }
-
-        public static async Task<bool> UpdateNewTokens(HttpClient http)
-        {
-            try
-            {
-                var tokens = await GetTokensNew(http);
-                using (var db = new zeromevContext())
-                {
-                    await db.BulkInsertOrUpdateAsync<ZmToken>(tokens);
-                }
-                return true;
-            }
-            catch (Exception e)
-            {
-                return false;
-            }
         }
     }
 }

@@ -7,6 +7,7 @@ using System.Linq;
 using ZeroMev.SharedServer;
 using System.Diagnostics;
 using ZeroMev.MevEFC;
+using ZeroMev.ClassifierService;
 
 namespace ZeroMev.Test
 {
@@ -34,7 +35,7 @@ namespace ZeroMev.Test
         public async Task UpdateNewTokens()
         {
             HttpClient http = new HttpClient();
-            await EthplorerAPI.UpdateNewTokens(http);
+            await Classifier.UpdateNewTokens(http);
         }
 
         [TestMethod]
@@ -84,7 +85,7 @@ namespace ZeroMev.Test
                     // probably doesn't exist- update the symbol to 'unknown' so we don't keep asking for it
                     ZmToken zt = new ZmToken();
                     zt.Address = t.Address;
-                    zt.Symbol = ZmToken.Unknown;
+                    zt.Symbol = Tokens.Unknown;
                     using (var db = new zeromevContext())
                     {
                         db.ZmTokens.Update(zt);

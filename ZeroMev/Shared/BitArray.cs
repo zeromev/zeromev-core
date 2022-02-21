@@ -1,5 +1,4 @@
 ﻿using M5.BitArraySerialization.Json;
-using System;
 using System.Collections;
 
 namespace System.Text.Json.Serialization

@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Numerics;
 using System.Text.Json;
 using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using ZeroMev.ClassifierService;
@@ -24,28 +25,38 @@ namespace ZeroMev.Test
             Tokens.Load();
             DEXs dexs = new DEXs();
 
+            Stopwatch sw = Stopwatch.StartNew();
+            List<Swap> swaps;
             using (var db = new zeromevContext())
             {
-                var swaps = from s in db.Swaps
-                            where s.BlockNumber >= fromBlock && s.BlockNumber <= toBlock
-                            orderby s.BlockNumber, s.TransactionPosition, s.TraceAddress
-                            select s;
-
-                Stopwatch sw = Stopwatch.StartNew();
-                int count = 0;
-                foreach (var swap in swaps)
-                    dexs.Add(swap, DateTime.Now.AddMinutes(count++));
-                sw.Stop();
-                double ms = (double)sw.ElapsedMilliseconds;
-                Debug.WriteLine(sw.ElapsedMilliseconds + " ms");
-                Debug.WriteLine((ms / (toBlock - fromBlock)) + " ms per block");
+                swaps = (from s in db.Swaps
+                         where s.BlockNumber >= fromBlock && s.BlockNumber <= toBlock
+                         orderby s.BlockNumber, s.TransactionPosition, s.TraceAddress
+                         select s).ToList();
             }
+            int count = 0;
+            foreach (var swap in swaps)
+            {
+                var s = dexs.Add(swap, DateTime.Now.AddMinutes(count++));
+                /*
+                ZMDecimal rateA = s.ARateUSD ??= new ZMDecimal();
+                ZMDecimal usdA = s.AmountA * (s.ARateUSD ??= 1);
+                ZMDecimal rateB = s.BRateUSD ??= new ZMDecimal();
+                ZMDecimal usdB = s.AmountB * (s.BRateUSD ??= 1);
+                Debug.WriteLine($"A {s.SymbolA} amount {s.AmountA} usd {usdA.RoundAwayFromZero(2)} rate {rateA.RoundAwayFromZero(5)}, B {s.SymbolB} amount {s.AmountB} usd {usdB.RoundAwayFromZero(2)} rate {rateB.RoundAwayFromZero(5)}");
+                */
+            }
+            sw.Stop();
+
+            double ms = (double)sw.ElapsedMilliseconds;
+            Debug.WriteLine(sw.ElapsedMilliseconds + " ms");
+            Debug.WriteLine((ms / (toBlock - fromBlock)) + " ms per block");
 
             foreach (var dex in dexs.Values)
             {
                 foreach (var pair in dex.Values)
                 {
-                    Debug.WriteLine($"{pair.ToString()} ${pair.LastXRate(Currency.USD)} {pair.LastXRate(Currency.ETH)} eth");
+                    //Debug.WriteLine($"{pair.ToString()}");
                 }
             }
         }
