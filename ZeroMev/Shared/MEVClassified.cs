@@ -13,7 +13,12 @@ namespace ZeroMev.Shared
         {
             int r = this.TimeOrder.CompareTo(other.TimeOrder);
             if (r != 0) return r;
-            return ((IComparable)this.BlockOrder).CompareTo(other.BlockOrder);
+            return this.BlockOrder.Compare(other.BlockOrder);
+        }
+
+        public override string ToString()
+        {
+            return TimeOrder.ToString() + " " + BlockOrder.ToString();
         }
     }
 
@@ -30,7 +35,7 @@ namespace ZeroMev.Shared
             TraceAddress = traceAddress;
         }
 
-        int IComparable<BlockOrder>.CompareTo(BlockOrder? other)
+        public int Compare(BlockOrder? other)
         {
             if (other == null) return -1;
 
@@ -64,9 +69,14 @@ namespace ZeroMev.Shared
             return this.TraceAddress.Length.CompareTo(other.TraceAddress.Length);
         }
 
+        int IComparable<BlockOrder>.CompareTo(BlockOrder? other)
+        {
+            return Compare(other);
+        }
+
         public override string ToString()
         {
-            return JsonSerializer.Serialize(this);
+            return $"{Blocknum} {TxIndex} [{string.Join(",", TraceAddress)}]";
         }
     }
 
@@ -86,9 +96,7 @@ namespace ZeroMev.Shared
         public MEVType ParentType;
         public BlockOrder? Parent;
 
-        // we can calculate delta and percentage price impacts from the just exchange rates
-        public ZMDecimal PreviousExchangeRateByBlock;
-        public ZMDecimal PreviousExchangeRateByTime;
+        public ZMDecimal? ImpactDelta;
 
         // amounts are already adjusted by the token divisor, so rate calculations are reliable
         // ensure in/outs are never zero, the div by zero errors we will get if not are appropriate
@@ -133,19 +141,41 @@ namespace ZeroMev.Shared
             return AmountA / AmountB;
         }
 
-        public ZMDecimal ImpactDelta(ZMDecimal previousExchangeRate)
-        {
-            return ExchangeRate() - previousExchangeRate;
-        }
-
-        public ZMDecimal ImpactPercent(ZMDecimal previousExchangeRate)
-        {
-            return ImpactDelta(previousExchangeRate) / ExchangeRate();
-        }
-
         public override string ToString()
         {
             return JsonSerializer.Serialize(this);
+        }
+
+        public ZMDecimal InAmount
+        {
+            get
+            {
+                return IsSell ? AmountB : AmountA;
+            }
+        }
+
+        public ZMDecimal OutAmount
+        {
+            get
+            {
+                return IsSell ? AmountA : AmountB;
+            }
+        }
+
+        public ZMDecimal? InRateUSD
+        {
+            get
+            {
+                return IsSell ? BRateUSD : ARateUSD;
+            }
+        }
+
+        public ZMDecimal? OutRateUSD
+        {
+            get
+            {
+                return IsSell ? ARateUSD : BRateUSD;
+            }
         }
     }
 }

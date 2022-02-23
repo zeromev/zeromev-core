@@ -17,15 +17,25 @@ namespace ZeroMev.Test
     public class ClassifierTest
     {
         [TestMethod]
-        public async Task BuildDEXsTest()
+        public void BuildDEXsTest()
         {
             const int fromBlock = 13358564;
-            const int toBlock = 13358564 + 1000;
+            const int toBlock = 13358564 + 7200;
+
+            Stopwatch sw = Stopwatch.StartNew();
+            BlockInput bi = BlockInput.Build(fromBlock, toBlock);
+            bi.Process();
+            sw.Stop();
+
+            double ms = (double)sw.ElapsedMilliseconds;
+            Debug.WriteLine(sw.ElapsedMilliseconds + " ms");
+            Debug.WriteLine((ms / (toBlock - fromBlock)) + " ms per block");
+            return;
 
             Tokens.Load();
             DEXs dexs = new DEXs();
 
-            Stopwatch sw = Stopwatch.StartNew();
+            sw = Stopwatch.StartNew();
             List<Swap> swaps;
             using (var db = new zeromevContext())
             {
@@ -37,7 +47,7 @@ namespace ZeroMev.Test
             int count = 0;
             foreach (var swap in swaps)
             {
-                var s = dexs.Add(swap, DateTime.Now.AddMinutes(count++));
+                var s = dexs.Add(swap, DateTime.Now.AddMinutes(count++), out var pair);
                 /*
                 ZMDecimal rateA = s.ARateUSD ??= new ZMDecimal();
                 ZMDecimal usdA = s.AmountA * (s.ARateUSD ??= 1);
@@ -48,7 +58,7 @@ namespace ZeroMev.Test
             }
             sw.Stop();
 
-            double ms = (double)sw.ElapsedMilliseconds;
+            ms = (double)sw.ElapsedMilliseconds;
             Debug.WriteLine(sw.ElapsedMilliseconds + " ms");
             Debug.WriteLine((ms / (toBlock - fromBlock)) + " ms per block");
 

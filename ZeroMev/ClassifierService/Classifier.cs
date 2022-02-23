@@ -137,13 +137,6 @@ namespace ZeroMev.ClassifierService
                                 // write the count to the db (useful for later bulk reprocessing/restarts)
                                 var txDataComp = Binary.Compress(Binary.WriteFirstSeenTxData(zv));
                                 await db.AddZmBlock(nextBlockNumber, txCount.Value, zv.BlockTimeAvg, txDataComp);
-
-                                // paranoid integrity checks
-                                var txData = Binary.Decompress(txDataComp);
-                                var arrivals = Binary.ReadFirstSeenTxData(txData);
-                                Debug.Assert(arrivals.Count == zv.Txs.Length);
-                                for (int i = 0; i < arrivals.Count; i++)
-                                    Debug.Assert(arrivals[i] == zv.Txs[i].ArrivalMin);
                             }
 
                             await db.SetLastProcessedBlock(nextBlockNumber);

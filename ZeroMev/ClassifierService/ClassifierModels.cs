@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Numerics;
 using System.Collections.Generic;
 using System.Linq;
@@ -7,6 +8,8 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using ZeroMev.MevEFC;
 using ZeroMev.Shared;
+using ZeroMev.SharedServer;
+using C5;
 
 namespace ZeroMev.ClassifierService
 {
@@ -26,14 +29,151 @@ namespace ZeroMev.ClassifierService
         public IEnumerable<Swap> Swaps { get; set; }
         public IEnumerable<Arbitrage> Arbitrages { get; set; }
         public IEnumerable<Sandwich> Sandwiches { get; set; }
+        public IEnumerable<SandwichedSwap> SandwichedSwaps { get; set; }
         public IEnumerable<Liquidation> Liquidations { get; set; }
         public IEnumerable<NftTrade> NftTrades { get; set; }
         public IEnumerable<PunkSnipe> PunkSnipes { get; set; }
+        private long _blockNumber = 0;
+        private List<DateTime>? _arrivals = null;
 
         public static BlockInput Build(long fromBlockNumber, long toBlockNumber)
         {
-            // TODO 
-            return null;
+            BlockInput bi = new BlockInput();
+
+            using (var db = new zeromevContext())
+            {
+                bi.Swaps = (from s in db.Swaps
+                            where s.BlockNumber >= fromBlockNumber && s.BlockNumber <= toBlockNumber
+                            orderby s.BlockNumber, s.TransactionPosition, s.TraceAddress
+                            select s).ToList();
+
+                bi.Sandwiches = (from sw in db.Sandwiches
+                                 where sw.BlockNumber >= fromBlockNumber && sw.BlockNumber <= toBlockNumber
+                                 select sw).ToList();
+
+                bi.SandwichedSwaps = (from ss in db.SandwichedSwaps
+                                      where ss.BlockNumber >= fromBlockNumber && ss.BlockNumber <= toBlockNumber
+                                      select ss).ToList();
+
+                bi.Arbitrages = (from a in db.Arbitrages
+                                 where a.BlockNumber >= fromBlockNumber && a.BlockNumber <= toBlockNumber
+                                 select a).ToList();
+
+                bi.ZmBlocks = (from zb in db.ZmBlocks
+                               where zb.BlockNumber >= fromBlockNumber && zb.BlockNumber <= toBlockNumber
+                               orderby zb.BlockNumber
+                               select zb).ToList();
+            }
+
+            return bi;
+        }
+
+        public void Process()
+        {
+            Tokens.Load();
+
+            Sandwich? sandwich = null;
+            ZMSwap? frontrun = null;
+            string lastArbHash = null;
+
+            DEXs dexs = new DEXs();
+            ZMDecimal? sandwichTotalUSD = 0;
+            ZMDecimal? arbTotalUSD = 0;
+
+            foreach (Swap s in Swaps)
+            {
+                // add swap
+                List<DateTime>? arrivals = GetArrivalTimes(s.BlockNumber);
+                if (arrivals == null) continue;
+                if (s.TransactionPosition == null || s.Error != null) continue;
+                var zmSwap = dexs.Add(s, arrivals[s.TransactionPosition.Value], out var pair);
+
+                // sandwiches
+                if (sandwich == null)
+                {
+                    sandwich = this.Sandwiches.FirstOrDefault<Sandwich>(x => { return x.FrontrunSwapTransactionHash == s.TransactionHash && Enumerable.SequenceEqual(x.FrontrunSwapTraceAddress, s.TraceAddress); });
+                    if (sandwich != null)
+                    {
+                        // sandwich frontrun
+                        frontrun = zmSwap;
+                    }
+                    else
+                    {
+                        // arbitrages
+                        var arb = this.Arbitrages.FirstOrDefault<Arbitrage>(x => { return x.TransactionHash == s.TransactionHash; });
+                        if (arb != null && arb.TransactionHash != lastArbHash)
+                        {
+                            ZMDecimal? xrate = XRates.GetUSDRate(arb.ProfitTokenAddress);
+                            Tokens.GetSymbol(arb.ProfitTokenAddress, out var divisor);
+
+                            if (xrate != null)
+                            {
+                                ZMDecimal? victimLoss = -((arb.ProfitAmount / divisor) * xrate);
+                                Debug.WriteLine($"arbitrage {victimLoss} usd");
+                                arbTotalUSD += victimLoss;
+                            }
+                            lastArbHash = arb.TransactionHash;
+                        }
+                    }
+                }
+                else if (s.TransactionHash == sandwich.BackrunSwapTransactionHash && Enumerable.SequenceEqual(s.TraceAddress, sandwich.BackrunSwapTraceAddress))
+                {
+                    // sandwich backrun
+
+                    // in/out tokens should be the same, but use distinct rates to be sure
+                    ZMDecimal? victimLoss = (frontrun.InAmount * frontrun.InRateUSD) - (zmSwap.OutAmount * zmSwap.OutRateUSD);
+                    Debug.WriteLine($"sandwich {victimLoss} usd");
+                    sandwichTotalUSD += victimLoss;
+
+                    // look for the next
+                    sandwich = null;
+                    frontrun = null;
+                }
+
+                // victim impact - not yet developed
+                /*
+                ZMSwap zmSwapPrevByTime;
+                if (zmSwap != null && pair != null && zmSwap.ImpactDelta != null && pair.PreviousSwap != null && zmSwap.BRateUSD != null && pair.PreviousSwap.ImpactDelta != null)
+                {
+                    if (pair.TimeOrder.TryPredecessor(zmSwap.Order, out var prevEntry))
+                    {
+                        // if the prev swap is of the same sign, it acts against the current swap
+                        // if the prev swap is of a different sign, it benefits the current swap
+                        // victim impact is expressed as positive when good for the current swap, and negative when bad (frontrun)
+                        zmSwapPrevByTime = prevEntry.Value;
+                        if (zmSwapPrevByTime.ImpactDelta != null)
+                        {
+                            ZMDecimal? victimImpact = -(pair.PreviousSwap.ImpactDelta - zmSwapPrevByTime.ImpactDelta);
+                            ZMDecimal? victimImpactUSD = victimImpact * zmSwap.BRateUSD;
+                            if (zmSwap.ImpactDelta < 0) victimImpact = -victimImpact; // switch sells to give a consistent victim impact
+                            if (pair.ToString() == "WETH:USDC")
+                                Debug.WriteLine($"{pair} {zmSwap.Order} victim impact ${victimImpactUSD.Value.RoundAwayFromZero(4)} {victimImpact} prev block {pair.PreviousSwap.ImpactDelta} prev time {zmSwapPrevByTime.ImpactDelta} current {zmSwap.ImpactDelta} {zmSwap.IsSell}");
+                        }
+                    }
+                }
+                */
+                _blockNumber = s.BlockNumber;
+            }
+            Debug.WriteLine($"{sandwichTotalUSD} sandwich victim loss");
+            Debug.WriteLine($"{arbTotalUSD} arb victim loss");
+        }
+
+        public List<DateTime>? GetArrivalTimes(long blockNumber)
+        {
+            if (blockNumber != _blockNumber)
+            {
+                List<DateTime>? arrivals = null;
+                ZmBlock zb = ZmBlocks.First<ZmBlock>(x => x.BlockNumber == blockNumber);
+                if (zb != null)
+                {
+                    var txData = Binary.Decompress(zb.TxData);
+                    arrivals = Binary.ReadFirstSeenTxData(txData);
+                    Debug.Assert(arrivals.Count == zb.TransactionCount);
+                }
+                _blockNumber = blockNumber;
+                _arrivals = arrivals;
+            }
+            return _arrivals;
         }
     }
 
@@ -185,8 +325,9 @@ namespace ZeroMev.ClassifierService
     // a root object of a data structure for handling swaps
     public class DEXs : Dictionary<string, DEX>
     {
-        public ZMSwap Add(Swap swap, DateTime arrivalTime)
+        public ZMSwap? Add(Swap swap, DateTime arrivalTime, out Pair? pair)
         {
+            pair = null;
             if (swap == null) return null;
 
             // build dex key
@@ -202,7 +343,7 @@ namespace ZeroMev.ClassifierService
             }
 
             // add the swap to the dex
-            return dex.Add(swap, arrivalTime);
+            return dex.Add(swap, arrivalTime, out pair);
         }
     }
 
@@ -217,13 +358,13 @@ namespace ZeroMev.ClassifierService
             Protocol = protocol;
         }
 
-        public ZMSwap Add(Swap swap, DateTime arrivalTime)
+        public ZMSwap Add(Swap swap, DateTime arrivalTime, out Pair pair)
         {
             XRates.GetCurrency(swap.TokenInAddress, out var currencyIn);
             XRates.GetCurrency(swap.TokenOutAddress, out var currencyOut);
 
             bool isSell;
-            var pair = GetOrAddPair(swap.TokenInAddress, swap.TokenOutAddress, currencyIn, currencyOut, out isSell);
+            pair = GetOrAddPair(swap.TokenInAddress, swap.TokenOutAddress, currencyIn, currencyOut, out isSell);
             BlockOrder blockOrder = new BlockOrder((long)swap.BlockNumber, (int)swap.TransactionPosition.Value, swap.TraceAddress); // if transaction position is ever null, we want it to raise an exception
             return pair.Add(swap, blockOrder, arrivalTime, isSell);
         }
@@ -284,7 +425,7 @@ namespace ZeroMev.ClassifierService
         public ZMSwap? PreviousSwap = null;
 
         // we need to hop around in arrival time order, so need a sorted collection
-        public readonly SortedList<Order, ZMSwap> TimeOrder = new SortedList<Order, ZMSwap>();
+        public readonly TreeDictionary<Order, ZMSwap> TimeOrder = new TreeDictionary<Order, ZMSwap>();
 
         public Pair(DEX parent, string key, string tokenA, string tokenB, BaseCurrency? currencyA, BaseCurrency? currencyB, bool doSetXRates)
         {
@@ -312,12 +453,16 @@ namespace ZeroMev.ClassifierService
             // create a smaller footprint zeromev swap which includes our timing data
             ZMSwap zmSwap = new ZMSwap(blockOrder, arrivalTime, isSell, tokenIn, tokenOut, symbolIn, symbolOut);
 
+            /* TODO victim impact - not yet developed
             // update block order (represented as current and previous swaps)
             PreviousSwap = CurrentSwap;
             CurrentSwap = zmSwap;
+            if (PreviousSwap != null)
+                CurrentSwap.ImpactDelta = CurrentSwap.ExchangeRate() - PreviousSwap.ExchangeRate();
 
             // update time order (a sorted collection)
-            TimeOrder.TryAdd(zmSwap.Order, zmSwap);
+            TimeOrder.Add(zmSwap.Order, zmSwap);
+            */
 
             // some dexs are responsible for setting base rates
             if (DoSetXRates)
