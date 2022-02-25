@@ -7,7 +7,7 @@ namespace ZeroMev.MevEFC
     {
         public DateTime? CreatedAt { get; set; }
         public string SandwichId { get; set; } = null!;
-        public decimal BlockNumber { get; set; }
+        public long BlockNumber { get; set; }
         public string TransactionHash { get; set; } = null!;
         public int[] TraceAddress { get; set; } = null!;
 

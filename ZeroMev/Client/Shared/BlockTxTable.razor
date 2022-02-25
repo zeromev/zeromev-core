@@ -18,7 +18,7 @@ else
     <div class="row">
         <div class="col">
             <div class="btn-group" role="group" aria-label="transaction filter">
-                <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Time?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Time)" disabled="@isDisabled">fair order</button>
+                <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Time?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Time)" disabled="@isDisabled">time order</button>
                 <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Gas?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Gas)" disabled="@isDisabled">gas order</button>
                 <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Block?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Block)" disabled="@isDisabled">block order</button>
             </div>

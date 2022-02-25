@@ -1,20 +1,21 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Numerics;
 
 namespace ZeroMev.MevEFC
 {
     public partial class MinerPayment
     {
         public DateTime? CreatedAt { get; set; }
-        public decimal BlockNumber { get; set; }
+        public long BlockNumber { get; set; }
         public string TransactionHash { get; set; } = null!;
-        public decimal TransactionIndex { get; set; }
+        public int TransactionIndex { get; set; }
         public string MinerAddress { get; set; } = null!;
-        public decimal CoinbaseTransfer { get; set; }
-        public decimal BaseFeePerGas { get; set; }
-        public decimal GasPrice { get; set; }
-        public decimal GasPriceWithCoinbaseTransfer { get; set; }
-        public decimal GasUsed { get; set; }
+        public BigInteger CoinbaseTransfer { get; set; }
+        public BigInteger BaseFeePerGas { get; set; }
+        public BigInteger GasPrice { get; set; }
+        public BigInteger GasPriceWithCoinbaseTransfer { get; set; }
+        public BigInteger GasUsed { get; set; }
         public string? TransactionToAddress { get; set; }
         public string? TransactionFromAddress { get; set; }
     }

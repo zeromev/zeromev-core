@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Numerics;
 using System.Collections.Generic;
 
 namespace ZeroMev.MevEFC
@@ -14,7 +15,7 @@ namespace ZeroMev.MevEFC
         public DateTime? CreatedAt { get; set; }
         public string AccountAddress { get; set; } = null!;
         public string ProfitTokenAddress { get; set; } = null!;
-        public decimal BlockNumber { get; set; }
+        public long BlockNumber { get; set; }
         public string TransactionHash { get; set; } = null!;
         public decimal StartAmount { get; set; }
         public decimal EndAmount { get; set; }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Numerics;
 
 namespace ZeroMev.MevEFC
 {
@@ -9,12 +10,12 @@ namespace ZeroMev.MevEFC
         public string LiquidatedUser { get; set; } = null!;
         public string LiquidatorUser { get; set; } = null!;
         public string DebtTokenAddress { get; set; } = null!;
-        public decimal DebtPurchaseAmount { get; set; }
-        public decimal ReceivedAmount { get; set; }
+        public BigInteger DebtPurchaseAmount { get; set; }
+        public BigInteger ReceivedAmount { get; set; }
         public string? Protocol { get; set; }
         public string TransactionHash { get; set; } = null!;
         public string TraceAddress { get; set; } = null!;
-        public decimal BlockNumber { get; set; }
+        public long BlockNumber { get; set; }
         public string? ReceivedTokenAddress { get; set; }
         public string? Error { get; set; }
     }

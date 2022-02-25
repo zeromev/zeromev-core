@@ -4,6 +4,24 @@ using System.Numerics;
 
 namespace ZeroMev.Shared
 {
+    public static class ZMDecimalExtensions
+    {
+        public static decimal ToUSD(this ZMDecimal value)
+        {
+            return Math.Round((decimal)value, 2);
+        }
+
+        public static ZMDecimal Shorten(this ZMDecimal value)
+        {
+            if (value < 1)
+                return Math.Round((decimal)value, 7);
+            else if (value < 10)
+                return Math.Round((decimal)value, 5);
+            else
+                return Math.Round((decimal)value, 2);
+        }
+    }
+
     /// sourced from the BigDecimal classes in the Netherum .net integrtion library https://github.com/Nethereum/Nethereum under the MIT license
     /// renamed ZMDecimal to avoid clashes with that library, which some projects also reference
     /// broken out of the library to avoid the ZeroMev.Client needing to reference it, as this must be kept light to reduce Blazor download times

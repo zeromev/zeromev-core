@@ -12,7 +12,7 @@ namespace ZeroMev.MevEFC
 
         public string Id { get; set; } = null!;
         public DateTime? CreatedAt { get; set; }
-        public decimal BlockNumber { get; set; }
+        public long BlockNumber { get; set; }
         public string SandwicherAddress { get; set; } = null!;
         public string FrontrunSwapTransactionHash { get; set; } = null!;
         public int[] FrontrunSwapTraceAddress { get; set; } = null!;

@@ -50,7 +50,7 @@ namespace ZeroMev.MevEFC
             // add the new row
             ZmLatestBlockUpdate lastUpdate = new ZmLatestBlockUpdate()
             {
-                BlockNumber = (decimal)blockNumber,
+                BlockNumber = blockNumber,
                 UpdatedAt = DateTime.Now
             };
             db.ZmLatestBlockUpdates.Add(lastUpdate);

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Numerics;
 using System.Collections.Generic;
 
 namespace ZeroMev.MevEFC
@@ -7,7 +8,7 @@ namespace ZeroMev.MevEFC
     {
         public DateTime? ClassifiedAt { get; set; }
         public string TransactionHash { get; set; } = null!;
-        public decimal BlockNumber { get; set; }
+        public long BlockNumber { get; set; }
         public string Classification { get; set; } = null!;
         public string TraceType { get; set; } = null!;
         public string? Protocol { get; set; }
@@ -17,11 +18,11 @@ namespace ZeroMev.MevEFC
         public string? Inputs { get; set; }
         public string? FromAddress { get; set; }
         public string? ToAddress { get; set; }
-        public decimal? Gas { get; set; }
-        public decimal? Value { get; set; }
-        public decimal? GasUsed { get; set; }
+        public BigInteger? Gas { get; set; }
+        public BigInteger? Value { get; set; }
+        public BigInteger? GasUsed { get; set; }
         public string? Error { get; set; }
         public int[] TraceAddress { get; set; } = null!;
-        public decimal? TransactionPosition { get; set; }
+        public int? TransactionPosition { get; set; }
     }
 }
