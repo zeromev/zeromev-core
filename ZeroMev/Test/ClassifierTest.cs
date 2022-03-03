@@ -17,13 +17,34 @@ namespace ZeroMev.Test
     public class ClassifierTest
     {
         [TestMethod]
+        public void DebugSwapsByBlock()
+        {
+            using (var db = new zeromevContext())
+            {
+                var swaps = (from s in db.Swaps
+                             where s.BlockNumber >= 13602897 && s.BlockNumber <= 13602897
+                             orderby s.TraceAddress
+                             select s).ToList();
+                foreach (var s in swaps)
+                    Debug.WriteLine(string.Join(",", s.TraceAddress));
+            }
+            return;
+
+            const int fromBlock = 13602897 - 10000;
+            const int toBlock = 13602897;
+
+            var bi = BlockProcess.Load(fromBlock, toBlock);
+            bi.DebugSwaps(13602897);
+        }
+
+        [TestMethod]
         public void BuildDEXsTest()
         {
             const int fromBlock = 13358564;
-            const int toBlock = 13358564 + 100;
+            const int toBlock = 13358564 + 1000;
 
+            var bi = BlockProcess.Load(fromBlock, toBlock);
             Stopwatch sw = Stopwatch.StartNew();
-            BlockProcess bi = BlockProcess.Load(fromBlock, toBlock);
             bi.Process();
             sw.Stop();
 
@@ -49,10 +70,10 @@ namespace ZeroMev.Test
             {
                 var s = dexs.Add(swap, DateTime.Now.AddMinutes(count++), out var pair);
                 /*
-                ZMDecimal rateA = s.ARateUSD ??= new ZMDecimal();
-                ZMDecimal usdA = s.AmountA * (s.ARateUSD ??= 1);
-                ZMDecimal rateB = s.BRateUSD ??= new ZMDecimal();
-                ZMDecimal usdB = s.AmountB * (s.BRateUSD ??= 1);
+                ZMDecimal rateA = s.ARateUsd ??= new ZMDecimal();
+                ZMDecimal usdA = s.AmountA * (s.ARateUsd ??= 1);
+                ZMDecimal rateB = s.BRateUsd ??= new ZMDecimal();
+                ZMDecimal usdB = s.AmountB * (s.BRateUsd ??= 1);
                 Debug.WriteLine($"A {s.SymbolA} amount {s.AmountA} usd {usdA.RoundAwayFromZero(2)} rate {rateA.RoundAwayFromZero(5)}, B {s.SymbolB} amount {s.AmountB} usd {usdB.RoundAwayFromZero(2)} rate {rateB.RoundAwayFromZero(5)}");
                 */
             }

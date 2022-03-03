@@ -1,24 +1,42 @@
 ﻿using System;
 using System.Globalization;
 using System.Numerics;
+using System.Collections;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace ZeroMev.Shared
 {
+    public class ZMDecimalConverter : JsonConverter<ZMDecimal>
+    {
+        public override ZMDecimal Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var s = JsonSerializer.Deserialize<string>(ref reader, options);
+            return ZMDecimal.Parse(s);
+        }
+
+        public override void Write(Utf8JsonWriter writer, ZMDecimal value, JsonSerializerOptions options)
+        {
+            var dto = value.ToString();
+            JsonSerializer.Serialize(writer, dto, options);
+        }
+    }
+
     public static class ZMDecimalExtensions
     {
-        public static decimal ToUSD(this ZMDecimal value)
+        public static decimal ToUsd(this ZMDecimal value)
         {
-            return Math.Round((decimal)value, 2);
+            return (decimal)value.RoundAwayFromZero(2);
         }
 
         public static ZMDecimal Shorten(this ZMDecimal value)
         {
             if (value < 1)
-                return Math.Round((decimal)value, 7);
+                return (decimal)value.RoundAwayFromZero(7);
             else if (value < 10)
-                return Math.Round((decimal)value, 5);
+                return (decimal)value.RoundAwayFromZero(5);
             else
-                return Math.Round((decimal)value, 2);
+                return (decimal)value.RoundAwayFromZero(2);
         }
     }
 
@@ -33,8 +51,8 @@ namespace ZeroMev.Shared
         /// </summary>
         public const int Precision = 50;
 
-        public ZMDecimal(ZMDecimal bigDecimal, bool alwaysTruncate = false) : this(bigDecimal.Mantissa,
-            bigDecimal.Exponent, alwaysTruncate)
+        public ZMDecimal(ZMDecimal ZMDecimal, bool alwaysTruncate = false) : this(ZMDecimal.Mantissa,
+            ZMDecimal.Exponent, alwaysTruncate)
         {
         }
 
@@ -176,7 +194,9 @@ namespace ZeroMev.Shared
         public override string ToString()
         {
             Normalize();
-            var s = Mantissa.ToString();
+            bool isNegative = Mantissa < 0;
+
+            var s = BigInteger.Abs(Mantissa).ToString();
             if (Exponent != 0)
             {
                 var decimalPos = s.Length + Exponent;
@@ -189,7 +209,7 @@ namespace ZeroMev.Shared
                     s = s.PadRight(decimalPos, '0');
             }
 
-            return s;
+            return isNegative ? $"-{s}" : s;
         }
 
         public bool Equals(ZMDecimal other)
@@ -223,16 +243,21 @@ namespace ZeroMev.Shared
             return new ZMDecimal(value, 0);
         }
 
+        public static implicit operator ZMDecimal(BigInteger value)
+        {
+            return new ZMDecimal(value, 0);
+        }
+
         public static implicit operator ZMDecimal(double value)
         {
-            var mantissa = (BigInteger)value;
+            var mantissa = (long)value;
             var exponent = 0;
             double scaleFactor = 1;
             while (Math.Abs(value * scaleFactor - (double)mantissa) > 0)
             {
                 exponent -= 1;
                 scaleFactor *= 10;
-                mantissa = (BigInteger)(value * scaleFactor);
+                mantissa = (long)(value * scaleFactor);
             }
 
             return new ZMDecimal(mantissa, exponent);
@@ -251,11 +276,6 @@ namespace ZeroMev.Shared
             }
 
             return new ZMDecimal(mantissa, exponent);
-        }
-
-        public static implicit operator ZMDecimal(BigInteger value)
-        {
-            return new ZMDecimal(value, 0);
         }
 
         public static explicit operator double(ZMDecimal value)

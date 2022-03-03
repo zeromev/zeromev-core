@@ -10,6 +10,7 @@ namespace ZeroMev.Shared
     {
         None,
         Swap,
+        ContractSwaps,
         Frontrun,
         Sandwich,
         Backrun,
@@ -30,80 +31,24 @@ namespace ZeroMev.Shared
         Info
     }
 
+    public enum ProtocolLiquidation
+    {
+        Unknown,
+        Aave,
+        CompoundV2
+    }
+
     public interface IMEV
     {
         int? TxIndex { get; } // preferred
         string? TxHash { get; } // suppied if TxIndex not available
         MEVType MEVType { get; }
         MEVClass MEVClass { get; }
-        public decimal? MEVAmountUSD { get; }
-        string? MEVSummary(MEVBlock2 mevBlock);
-        string? MEVDetail(MEVBlock2 mevBlock);
-        string? ActionSummary(MEVBlock2 mevBlock);
-        string? ActionDetail(MEVBlock2 mevBlock);
-    }
-
-    public class MEVSwap
-    {
-        public MEVSwap(int symbolInIndex, int symbolOutIndex, ZMDecimal amountIn, ZMDecimal amountOut, ZMDecimal? outUSDRate)
-        {
-            SymbolInIndex = symbolInIndex;
-            SymbolOutIndex = symbolOutIndex;
-            AmountIn = amountIn;
-            AmountOut = amountOut;
-            if (outUSDRate.HasValue)
-                AmountOutUSD = (amountOut * outUSDRate.Value).ToUSD(); // store the output usd because it's smaller than the BigDecimal rate
-        }
-
-        [JsonPropertyName("i")]
-        int SymbolInIndex { get; set; }
-
-        [JsonPropertyName("o")]
-        int SymbolOutIndex { get; set; }
-
-        [JsonPropertyName("a")]
-        ZMDecimal AmountIn { get; set; }
-
-        [JsonPropertyName("b")]
-        ZMDecimal AmountOut { get; set; }
-
-        [JsonPropertyName("u")]
-        decimal? AmountOutUSD { get; set; }
-
-        public ZMDecimal Rate
-        {
-            get
-            {
-                return AmountOut / AmountIn;
-            }
-        }
-
-        public string ActionSummary(MEVBlock2 mevBlock)
-        {
-            StringBuilder sb = new StringBuilder();
-            sb.Append(mevBlock.Symbols[SymbolInIndex].Name);
-            sb.Append(" > ");
-            sb.Append(mevBlock.Symbols[SymbolOutIndex].Name);
-            return sb.ToString();
-        }
-
-        public string ActionDetail(MEVBlock2 mevBlock)
-        {
-            StringBuilder sb = new StringBuilder();
-            sb.Append(mevBlock.Symbols[SymbolInIndex].Name);
-            sb.Append(" ");
-            sb.Append(AmountIn.Shorten());
-            sb.Append(" ");
-            sb.Append(" > ");
-            sb.Append(mevBlock.Symbols[SymbolOutIndex].Name);
-            sb.Append(" ");
-            sb.Append(AmountOut.Shorten());
-            sb.Append(" @");
-            sb.Append(Rate.Shorten());
-            sb.Append(" $");
-            sb.Append(AmountOutUSD);
-            return sb.ToString();
-        }
+        decimal? MEVAmountUsd { get; set; }
+        string? MEVDetail { get; set; }
+        string? ActionSummary { get; set; }
+        string? ActionDetail { get; set; }
+        void Cache(MEVBlock2 mevBlock, int mevIndex); // mevIndex is allows mev instances to find other related instances, eg: backrun can cheaply find related sandwiched and frontun txs without duplicating them
     }
 
     public class Symbol
@@ -123,8 +68,10 @@ namespace ZeroMev.Shared
 
         [JsonPropertyName("n")]
         public string Name { get; set; }
+
         [JsonPropertyName("i")]
         public string Image { get; set; }
+
         [JsonIgnore] // to save storage
         public string TokenAddress { get; set; }
 
@@ -143,6 +90,10 @@ namespace ZeroMev.Shared
 
     public class MEVBlock2
     {
+        public MEVBlock2()
+        {
+        }
+
         public MEVBlock2(long blockNumber)
         {
             BlockNumber = blockNumber;
@@ -151,18 +102,36 @@ namespace ZeroMev.Shared
         // persisted
         [JsonPropertyName("bn")]
         public long BlockNumber { get; private set; }
+
         [JsonPropertyName("sb")]
         public List<Symbol> Symbols { get; private set; } = new List<Symbol>();
+
         [JsonPropertyName("eu")]
         public decimal? ETHUSD { get; private set; }
+
+        [JsonPropertyName("s")]
+        public List<MEVSwap> Swaps { get; set; } = new List<MEVSwap>();
+
+        [JsonPropertyName("c")]
+        public List<MEVContractSwaps> ContractSwaps { get; set; } = new List<MEVContractSwaps>();
+
         [JsonPropertyName("f")]
         public List<MEVFrontrun> Frontruns { get; set; } = new List<MEVFrontrun>();
-        [JsonPropertyName("s")]
-        public List<MEVSandwiched> Sandwiched { get; set; } = new List<MEVSandwiched>();
+
+        [JsonPropertyName("w")]
+        public List<MEVSandwiched[]> Sandwiched { get; set; } = new List<MEVSandwiched[]>();
+
         [JsonPropertyName("b")]
         public List<MEVBackrun> Backruns { get; set; } = new List<MEVBackrun>();
+
         [JsonPropertyName("a")]
         public List<MEVArb> Arbs { get; set; } = new List<MEVArb>();
+
+        [JsonPropertyName("l")]
+        public List<MEVLiquidation> Liquidations { get; set; } = new List<MEVLiquidation>();
+
+        [JsonPropertyName("n")]
+        public List<MEVNFT> NFTrades { get; set; } = new List<MEVNFT>();
 
         // calculated
         [JsonIgnore]
@@ -171,10 +140,208 @@ namespace ZeroMev.Shared
         public int[] MEVClassCount { get; private set; }
         [JsonIgnore]
         public int[] MEVClassAmount { get; private set; }
+
+        public Symbol? GetSymbol(int symbolIndex)
+        {
+            if (symbolIndex < 0) return null;
+            return Symbols[symbolIndex];
+        }
+
+        public string? GetSymbolName(int symbolIndex)
+        {
+            if (symbolIndex < 0) return "";
+            return Symbols[symbolIndex].Name;
+        }
+    }
+
+    public class MEVSwap : IMEV
+    {
+        public MEVSwap()
+        {
+        }
+
+        public MEVSwap(int txIndex, int symbolInIndex, int symbolOutIndex, ZMDecimal amountIn, ZMDecimal amountOut, ZMDecimal? inUsdRate, ZMDecimal? outUsdRate)
+        {
+            TxIndex = txIndex;
+            SymbolInIndex = symbolInIndex;
+            SymbolOutIndex = symbolOutIndex;
+            AmountIn = amountIn;
+            AmountOut = amountOut;
+
+            // store the output usd because it's smaller than the BigDecimal rate and generally more useful
+            if (inUsdRate.HasValue) AmountInUsd = (amountIn * inUsdRate.Value).ToUsd();
+            if (outUsdRate.HasValue) AmountOutUsd = (amountOut * outUsdRate.Value).ToUsd();
+        }
+
+        [JsonPropertyName("i")]
+        public int? TxIndex { get; private set; }
+
+        [JsonIgnore]
+        public string TxHash => null;
+
+        [JsonPropertyName("a")]
+        public int SymbolInIndex { get; set; }
+
+        [JsonPropertyName("b")]
+        public int SymbolOutIndex { get; set; }
+
+        [JsonPropertyName("c")]
+        public ZMDecimal AmountIn { get; set; }
+
+        [JsonPropertyName("d")]
+        public ZMDecimal AmountOut { get; set; }
+
+        [JsonPropertyName("e")]
+        public decimal? AmountInUsd { get; set; }
+
+        [JsonPropertyName("f")]
+        public decimal? AmountOutUsd { get; set; }
+
+        [JsonIgnore]
+        public ZMDecimal Rate
+        {
+            get
+            {
+                return AmountOut / AmountIn;
+            }
+        }
+
+        [JsonIgnore]
+        public MEVType MEVType => MEVType.Swap;
+
+        [JsonIgnore]
+        public MEVClass MEVClass => MEVClass.Info;
+
+        [JsonIgnore]
+        public decimal? MEVAmountUsd { get; set; } = null;
+
+        [JsonIgnore]
+        public string? MEVDetail { get; set; } = "";
+
+        [JsonIgnore]
+        public string? ActionSummary { get; set; }
+
+        [JsonIgnore]
+        public string? ActionDetail { get; set; }
+
+        public void Cache(MEVBlock2 mevBlock, int mevIndex)
+        {
+            StringBuilder sb = new StringBuilder();
+            BuildActionSummary(mevBlock, sb);
+            ActionSummary = sb.ToString();
+
+            sb.Clear();
+            BuildActionDetail(mevBlock, sb);
+            ActionDetail = sb.ToString();
+        }
+
+        public void BuildActionSummary(MEVBlock2 mevBlock, StringBuilder sb)
+        {
+            sb.Append(mevBlock.GetSymbolName(SymbolInIndex));
+            sb.Append(" > ");
+            sb.Append(mevBlock.GetSymbolName(SymbolOutIndex));
+        }
+
+        public void BuildActionDetail(MEVBlock2 mevBlock, StringBuilder sb)
+        {
+            sb.Append(mevBlock.GetSymbolName(SymbolInIndex));
+            sb.Append(" ");
+            sb.Append(AmountIn.Shorten());
+            sb.Append(" ($");
+            sb.Append(AmountInUsd != null ? AmountInUsd.ToString() : "?");
+            sb.Append(") > ");
+            sb.Append(mevBlock.GetSymbolName(SymbolOutIndex));
+            sb.Append(" ");
+            sb.Append(AmountOut.Shorten());
+            sb.Append(" ($");
+            sb.Append(AmountOutUsd != null ? AmountOutUsd.ToString() : "?");
+            sb.Append(") @");
+            sb.Append(Rate.Shorten());
+        }
+    }
+
+    public class MEVContractSwaps : IMEV
+    {
+        public MEVContractSwaps()
+        {
+        }
+
+        public MEVContractSwaps(int? txIndex)
+        {
+            TxIndex = txIndex;
+        }
+
+        [JsonPropertyName("s")]
+        public List<MEVSwap> Swaps { get; set; } = new List<MEVSwap>();
+
+        [JsonPropertyName("i")]
+        public int? TxIndex { get; private set; }
+
+        [JsonIgnore]
+        public string TxHash => null;
+
+        [JsonIgnore]
+        public MEVType MEVType => MEVType.ContractSwaps;
+
+        [JsonIgnore]
+        public MEVClass MEVClass => MEVClass.Info;
+
+        [JsonIgnore]
+        public decimal? MEVAmountUsd { get; set; } = null;
+
+        [JsonIgnore]
+        public string? MEVDetail { get; set; } = "";
+
+        [JsonIgnore]
+        public string? ActionSummary { get; set; }
+
+        [JsonIgnore]
+        public string? ActionDetail { get; set; }
+
+        public void Cache(MEVBlock2 mevBlock, int mevIndex)
+        {
+            StringBuilder sb = new StringBuilder();
+            BuildActionSummary(mevBlock, sb);
+            ActionSummary = sb.ToString();
+
+            sb.Clear();
+            BuildActionDetail(mevBlock, sb);
+            ActionDetail = sb.ToString();
+        }
+
+        public string BuildActionSummary(MEVBlock2 mevBlock, StringBuilder sb)
+        {
+            if (Swaps == null || Swaps.Count == 0) return "no swaps";
+            Swaps[0].BuildActionSummary(mevBlock, sb);
+            if (Swaps.Count > 1)
+            {
+                sb.Append(" +");
+                sb.Append(Swaps.Count - 1);
+                sb.Append(" more");
+            }
+            sb.AppendLine();
+            return sb.ToString();
+        }
+
+        public string BuildActionDetail(MEVBlock2 mevBlock, StringBuilder sb)
+        {
+            sb.Append(Swaps.Count);
+            sb.AppendLine(" swaps in contract.");
+            foreach (var swap in Swaps)
+            {
+                swap.BuildActionDetail(mevBlock, sb);
+                sb.AppendLine();
+            }
+            return sb.ToString();
+        }
     }
 
     public class MEVFrontrun : IMEV
     {
+        public MEVFrontrun()
+        {
+        }
+
         public MEVFrontrun(int? txIndex, MEVSwap swap)
         {
             TxIndex = txIndex;
@@ -197,25 +364,36 @@ namespace ZeroMev.Shared
         public MEVClass MEVClass => MEVClass.Toxic;
 
         [JsonIgnore]
-        public decimal? MEVAmountUSD => null;
+        public decimal? MEVAmountUsd { get; set; } = null;
 
-        public string MEVSummary(MEVBlock2 mevBlock) => throw new NotImplementedException();
+        [JsonIgnore]
+        public string? MEVDetail { get; set; } = "see backrun.";
 
-        public string MEVDetail(MEVBlock2 mevBlock) => throw new NotImplementedException();
+        [JsonIgnore]
+        public string? ActionSummary { get; set; }
 
-        public string ActionSummary(MEVBlock2 mevBlock)
+        [JsonIgnore]
+        public string? ActionDetail { get; set; }
+
+        public void Cache(MEVBlock2 mevBlock, int mevIndex)
         {
-            return Swap.ActionSummary(mevBlock);
-        }
+            StringBuilder sb = new StringBuilder();
+            Swap.BuildActionSummary(mevBlock, sb);
+            ActionSummary = sb.ToString();
 
-        public string ActionDetail(MEVBlock2 mevBlock)
-        {
-            return Swap.ActionDetail(mevBlock);
+            sb.Clear();
+            Swap.BuildActionDetail(mevBlock, sb);
+            ActionDetail = sb.ToString();
+            return;
         }
     }
 
     public class MEVSandwiched : IMEV
     {
+        public MEVSandwiched()
+        {
+        }
+
         public MEVSandwiched(int? txIndex, MEVSwap swap)
         {
             TxIndex = txIndex;
@@ -238,29 +416,39 @@ namespace ZeroMev.Shared
         public MEVClass MEVClass => MEVClass.Toxic;
 
         [JsonIgnore]
-        public decimal? MEVAmountUSD => null;
+        public decimal? MEVAmountUsd { get; set; } = null;
 
-        public string MEVSummary(MEVBlock2 mevBlock) => throw new NotImplementedException();
+        [JsonIgnore]
+        public string? MEVDetail { get; set; } = "see backrun.";
 
-        public string MEVDetail(MEVBlock2 mevBlock) => throw new NotImplementedException();
+        [JsonIgnore]
+        public string? ActionSummary { get; set; }
 
-        public string ActionSummary(MEVBlock2 mevBlock)
+        [JsonIgnore]
+        public string? ActionDetail { get; set; }
+
+        public void Cache(MEVBlock2 mevBlock, int mevIndex)
         {
-            return Swap.ActionSummary(mevBlock);
-        }
+            StringBuilder sb = new StringBuilder();
+            Swap.BuildActionSummary(mevBlock, sb);
+            ActionSummary = sb.ToString();
 
-        public string ActionDetail(MEVBlock2 mevBlock)
-        {
-            return Swap.ActionDetail(mevBlock);
+            sb.Clear();
+            Swap.BuildActionDetail(mevBlock, sb);
+            ActionDetail = sb.ToString();
+            return;
         }
     }
 
     public class MEVBackrun : IMEV
     {
-        public MEVBackrun(int? txIndex, MEVSwap swap, decimal? mevAmountUSD)
+        public MEVBackrun()
+        {
+        }
+
+        public MEVBackrun(int? txIndex, MEVSwap swap)
         {
             TxIndex = txIndex;
-            MEVAmountUSD = mevAmountUSD;
             Swap = swap;
         }
 
@@ -270,7 +458,7 @@ namespace ZeroMev.Shared
         [JsonPropertyName("i")]
         public int? TxIndex { get; private set; }
 
-        [JsonPropertyName("h")]
+        [JsonIgnore]
         public string TxHash => null;
 
         [JsonIgnore]
@@ -279,63 +467,226 @@ namespace ZeroMev.Shared
         [JsonIgnore]
         public MEVClass MEVClass => MEVClass.Toxic;
 
-        [JsonPropertyName("u")]
-        public decimal? MEVAmountUSD { get; private set; }
+        [JsonIgnore]
+        public decimal? MEVAmountUsd { get; set; }
 
-        public string MEVSummary(MEVBlock2 mevBlock) => throw new NotImplementedException();
+        [JsonIgnore]
+        public string? MEVDetail { get; set; }
 
-        public string MEVDetail(MEVBlock2 mevBlock) => throw new NotImplementedException();
+        [JsonIgnore]
+        public string? ActionSummary { get; set; }
 
-        public string ActionSummary(MEVBlock2 mevBlock)
+        [JsonIgnore]
+        public string? ActionDetail { get; set; }
+
+        public void Cache(MEVBlock2 mevBlock, int mevIndex)
         {
-            return Swap.ActionSummary(mevBlock);
-        }
+            var frontrun = mevBlock.Frontruns[mevIndex].Swap;
+            if (frontrun.AmountInUsd == null || Swap.AmountOutUsd == null)
+            {
+                MEVAmountUsd = null;
+                MEVDetail = "missing exchange rates, can't calculate";
+            }
+            else
+            {
+                MEVAmountUsd = frontrun.AmountInUsd - Swap.AmountOutUsd;
+                MEVDetail = $"backrun (in) ${frontrun.AmountInUsd} - frontrun (out) ${Swap.AmountOutUsd} = victim impact ${frontrun.AmountInUsd - Swap.AmountOutUsd}";
+            }
 
-        public string ActionDetail(MEVBlock2 mevBlock)
-        {
-            return Swap.ActionDetail(mevBlock);
+            StringBuilder sb = new StringBuilder();
+            Swap.BuildActionSummary(mevBlock, sb);
+            ActionSummary = sb.ToString();
+
+            sb.Clear();
+            Swap.BuildActionDetail(mevBlock, sb);
+            ActionDetail = sb.ToString();
+            return;
         }
     }
 
     public class MEVArb : IMEV
     {
-        public MEVArb(int? txIndex, string txHash, MEVClass mevClass, decimal? mevAmount)
+        public MEVArb()
+        {
+        }
+
+        public MEVArb(int? txIndex, MEVClass mevClass, decimal? mevAmountUsd)
         {
             TxIndex = txIndex;
-            TxHash = txHash;
             MEVClass = mevClass;
+            MEVAmountUsd = mevAmountUsd;
         }
+
+        [JsonPropertyName("s")]
+        public List<MEVSwap> Swaps { get; set; } = new List<MEVSwap>();
 
         [JsonPropertyName("i")]
         public int? TxIndex { get; private set; }
 
-        [JsonPropertyName("h")]
-        public string TxHash { get; private set; }
+        [JsonIgnore]
+        public string TxHash => null;
 
         [JsonIgnore]
         public MEVType MEVType => MEVType.Arb;
 
         [JsonPropertyName("c")]
-        public MEVClass MEVClass { get; private set; }
+        public MEVClass MEVClass { get; private set; } = MEVClass.Unclassified;
 
         [JsonPropertyName("u")]
-        public decimal? MEVAmountUSD { get; private set; }
+        public decimal? MEVAmountUsd { get; set; }
 
-        public string MEVSummary(MEVBlock2 mevBlock) => throw new NotImplementedException();
+        [JsonIgnore]
+        public string? MEVDetail { get; set; }
 
-        public string MEVDetail(MEVBlock2 mevBlock) => throw new NotImplementedException();
+        [JsonIgnore]
+        public string? ActionSummary { get; set; }
 
-        public string ActionSummary(MEVBlock2 mevBlock) => throw new NotImplementedException();
+        [JsonIgnore]
+        public string? ActionDetail { get; set; }
 
-        public string ActionDetail(MEVBlock2 mevBlock) => throw new NotImplementedException();
+        public void Cache(MEVBlock2 mevBlock, int mevIndex)
+        {
+            MEVDetail = $"{Swaps.Count} swaps = impact ${MEVAmountUsd}.";
+
+            StringBuilder sb = new StringBuilder();
+            BuildActionSummary(mevBlock, sb);
+            ActionSummary = sb.ToString();
+
+            sb.Clear();
+            BuildActionDetail(mevBlock, sb);
+            ActionDetail = sb.ToString();
+        }
+
+        public string BuildActionSummary(MEVBlock2 mevBlock, StringBuilder sb)
+        {
+            if (Swaps == null || Swaps.Count == 0) return "no swaps";
+            Swaps[0].BuildActionSummary(mevBlock, sb);
+            if (Swaps.Count > 1)
+            {
+                sb.Append(" +");
+                sb.Append(Swaps.Count - 1);
+                sb.Append(" more");
+            }
+            sb.AppendLine();
+            return sb.ToString();
+        }
+
+        public string BuildActionDetail(MEVBlock2 mevBlock, StringBuilder sb)
+        {
+            sb.Append(Swaps.Count);
+            sb.AppendLine(" swaps in arb.");
+            foreach (var swap in Swaps)
+            {
+                swap.BuildActionDetail(mevBlock, sb);
+                sb.AppendLine();
+            }
+            return sb.ToString();
+        }
+    }
+
+    public class MEVLiquidation : IMEV
+    {
+        public MEVLiquidation()
+        {
+        }
+
+        public MEVLiquidation(string txHash, ProtocolLiquidation protocol, decimal? debtPurchaseAmountUsd, int debtSymbolIndex, decimal? receivedAmountUsd, int receivedSymbolIndex, bool? isReverted)
+        {
+            TxHash = txHash;
+            Protocol = protocol;
+            DebtPurchaseAmountUsd = debtPurchaseAmountUsd;
+            DebtSymbolIndex = debtSymbolIndex;
+            MEVAmountUsd = receivedAmountUsd;
+            ReceivedSymbolIndex = receivedSymbolIndex;
+            IsReverted = isReverted;
+        }
+
+        [JsonPropertyName("p")]
+        public ProtocolLiquidation Protocol { get; private set; }
+
+        [JsonPropertyName("d")]
+        public decimal? DebtPurchaseAmountUsd { get; private set; }
+
+        [JsonPropertyName("a")]
+        public int DebtSymbolIndex { get; private set; }
+
+        [JsonPropertyName("b")]
+        public int ReceivedSymbolIndex { get; private set; }
+
+        [JsonPropertyName("r")]
+        public bool? IsReverted { get; private set; }
+
+        [JsonIgnore]
+        public int? TxIndex => null;
+
+        [JsonPropertyName("h")]
+        public string TxHash { get; private set; }
+
+        [JsonIgnore]
+        public MEVType MEVType => MEVType.Liquidation;
+
+        [JsonIgnore]
+        public MEVClass MEVClass => MEVClass.Unclassified;
+
+        [JsonPropertyName("u")]
+        public decimal? MEVAmountUsd { get; set; }
+
+        [JsonIgnore]
+        public string? MEVDetail { get; set; } = "";
+
+        [JsonIgnore]
+        public string? ActionSummary { get; set; }
+
+        [JsonIgnore]
+        public string? ActionDetail { get; set; }
+
+        public void Cache(MEVBlock2 mevBlock, int mevIndex)
+        {
+            StringBuilder sb = new StringBuilder();
+            BuildActionSummary(mevBlock, sb);
+            ActionSummary = sb.ToString();
+
+            sb.Clear();
+            BuildActionDetail(mevBlock, sb);
+            ActionDetail = sb.ToString();
+        }
+
+        public string BuildActionSummary(MEVBlock2 mevBlock, StringBuilder sb)
+        {
+            sb.Append(mevBlock.GetSymbolName(DebtSymbolIndex));
+            sb.Append(" $ ");
+            sb.Append(mevBlock.GetSymbolName(ReceivedSymbolIndex));
+            return sb.ToString();
+        }
+
+        public string BuildActionDetail(MEVBlock2 mevBlock, StringBuilder sb)
+        {
+            // debt purchase amount symbolA $143.11
+            // received amount usd symbolB $54.17
+            sb.Append("debt purchase amount ");
+            sb.Append(mevBlock.GetSymbolName(DebtSymbolIndex));
+            sb.AppendLine(" $");
+            if (DebtPurchaseAmountUsd != null)
+                sb.Append(DebtPurchaseAmountUsd);
+            else
+                sb.Append("?");
+
+            sb.Append("received amount ");
+            sb.Append(mevBlock.GetSymbolName(ReceivedSymbolIndex));
+            sb.Append(" $");
+            if (MEVAmountUsd != null)
+                sb.Append(MEVAmountUsd);
+            else
+                sb.Append("?");
+            return sb.ToString();
+        }
     }
 
     public class MEVNFT : IMEV
     {
-        public MEVNFT(string txHash, decimal? mevAmount, int paymentSymbolIndex, string collectionAddress, string tokenId)
+        public MEVNFT(string txHash, int paymentSymbolIndex, string collectionAddress, string tokenId)
         {
             TxHash = txHash;
-            MEVAmountUSD = mevAmount;
             PaymentSymbolIndex = paymentSymbolIndex;
             CollectionAddress = collectionAddress;
             TokenId = tokenId;
@@ -348,8 +699,8 @@ namespace ZeroMev.Shared
         [JsonPropertyName("t")]
         public string TokenId { get; set; }
 
-        [JsonPropertyName("i")]
-        public int? TxIndex { get; private set; }
+        [JsonIgnore]
+        public int? TxIndex => null;
 
         [JsonPropertyName("h")]
         public string TxHash { get; private set; }
@@ -357,19 +708,24 @@ namespace ZeroMev.Shared
         [JsonIgnore]
         public MEVType MEVType => MEVType.NFT;
 
-        [JsonPropertyName("c")]
+        [JsonIgnore]
         public MEVClass MEVClass => MEVClass.Info;
 
-        [JsonPropertyName("u")]
-        public decimal? MEVAmountUSD { get; private set; }
+        [JsonIgnore]
+        public decimal? MEVAmountUsd { get; set; }
 
-        public string MEVSummary(MEVBlock2 mevBlock) => throw new NotImplementedException();
+        [JsonIgnore]
+        public string? MEVDetail { get; set; } = "";
 
-        public string MEVDetail(MEVBlock2 mevBlock) => throw new NotImplementedException();
+        [JsonIgnore]
+        public string? ActionSummary { get; set; }
 
-        public string ActionSummary(MEVBlock2 mevBlock) => throw new NotImplementedException();
+        [JsonIgnore]
+        public string? ActionDetail { get; set; }
 
-        public string ActionDetail(MEVBlock2 mevBlock) => throw new NotImplementedException();
+        public void Cache(MEVBlock2 mevBlock, int mevIndex)
+        {
+        }
     }
 
     public class MEVBlock

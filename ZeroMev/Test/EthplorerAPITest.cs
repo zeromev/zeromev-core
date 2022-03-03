@@ -42,11 +42,14 @@ namespace ZeroMev.Test
         public async Task ImportAllTokens()
         {
             // not a test- this is a one off batch process to import all known tokens into the db
-            return;
+            //return;
 
             // before running, populate zm_tokens table with unknown tokens using this SQL:
             // insert into zm_tokens select distinct token_in_address from swaps on conflict(address) do nothing;
             // insert into zm_tokens select distinct token_out_address from swaps on conflict(address) do nothing;
+            // insert into zm_tokens select distinct received_token_address from liquidations on conflict(address) do nothing;
+            // insert into zm_tokens select distinct debt_token_address from liquidations on conflict(address) do nothing;
+            // insert into zm_tokens select distinct payment_token_address from nft_trades on conflict(address) do nothing;
 
             // get tokens with missing details
             List<ZmToken> missing;
@@ -71,6 +74,10 @@ namespace ZeroMev.Test
                     }
                     else
                     {
+                        // some symbols are messed up
+                        if (zt.Symbol != null && zt.Name != null && zt.Symbol.Length > zt.Name.Length && zt.Name.Length > 2)
+                            zt.Symbol = zt.Name;
+
                         // a new context each time to allow for recovery after connection failure
                         using (var db = new zeromevContext())
                         {

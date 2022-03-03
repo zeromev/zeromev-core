@@ -49,6 +49,7 @@ namespace ZeroMev.Shared
         {
             Default = new JsonSerializerOptions { IncludeFields = true, PropertyNameCaseInsensitive = true };
             Default.Converters.Add(new BitArrayConverter());
+            Default.Converters.Add(new ZMDecimalConverter());
 
             StringToInt = new JsonSerializerOptions { IncludeFields = true, PropertyNameCaseInsensitive = true };
             StringToInt.Converters.Add(new StringToIntJsonConverter());

@@ -22,6 +22,6 @@ namespace ZeroMev.MevEFC
         public decimal ProfitAmount { get; set; }
         public string? Error { get; set; }
 
-        public virtual ICollection<ArbitrageSwap> ArbitrageSwaps { get; set; }
+        public virtual IEnumerable<ArbitrageSwap> ArbitrageSwaps { get; set; }
     }
 }
