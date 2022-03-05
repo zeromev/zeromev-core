@@ -18,8 +18,9 @@ namespace ZeroMev.ClassifierService
     // lessens the code needed in light client classes such as MEVBlock
     public static class MEVHelper
     {
-        public static int GetSymbolIndex(MEVBlock2 mb, string tokenAddress)
+        public static int GetSymbolIndex(MEVBlock2? mb, string? tokenAddress)
         {
+            if (mb == null || tokenAddress == null) return -1;
             int index = mb.Symbols.FindIndex(x => { return x.TokenAddress == tokenAddress; });
             if (index == -1)
             {
@@ -78,8 +79,11 @@ namespace ZeroMev.ClassifierService
             return mevSwap;
         }
 
-        public static ProtocolLiquidation GetProtocolLiquidation(string protocol)
+        public static ProtocolLiquidation GetProtocolLiquidation(string? protocol)
         {
+            if (protocol == null)
+                return ProtocolLiquidation.Unknown;
+
             switch (protocol)
             {
                 case "compound_v2":
@@ -91,6 +95,27 @@ namespace ZeroMev.ClassifierService
             }
         }
 
+        public static MEVError GetErrorFrom(string? errorText)
+        {
+            if (errorText == null || errorText == "")
+                return MEVError.None;
+
+            switch (errorText[0])
+            {
+                case 'O':
+                    return MEVError.OutOfGas;
+                case 'R':
+                    return MEVError.Reverted;
+                default:
+                    return MEVError.Unknown;
+            }
+        }
+
+        public static ProtocolNFT GetProtocolNFT(string protocol)
+        {
+            return protocol == "opensea" ? ProtocolNFT.opensea : ProtocolNFT.unknown;
+        }
+
         public static string TxKey(string txHash, int[] traceAddress)
         {
             return $"{txHash}[{string.Join(",", traceAddress)}]";
@@ -99,6 +124,31 @@ namespace ZeroMev.ClassifierService
         public static string TxKey(Swap swap)
         {
             return $"{swap.TransactionHash}[{string.Join(",", swap.TraceAddress)}]";
+        }
+
+        public static decimal? GetUsdAmount(string token, ZMDecimal? amount, out ZMDecimal? newAmount)
+        {
+            if (amount == null)
+            {
+                newAmount = null;
+                return null;
+            }
+
+            if (token == null)
+            {
+                newAmount = amount.Value / Tokens.Pow18;
+                return null;
+            }
+
+            var zmToken = Tokens.GetFromAddress(token);
+            var usdRate = XRates.GetUsdRate(token);
+            if (zmToken != null)
+                newAmount = amount.Value / zmToken.Divisor;
+            else
+                newAmount = amount.Value / Tokens.Pow18;
+            if (usdRate != null)
+                return (decimal)(newAmount.Value * usdRate).Value.ToUsd();
+            return null;
         }
     }
 
@@ -178,6 +228,7 @@ namespace ZeroMev.ClassifierService
                                 orderby n.BlockNumber, n.TransactionPosition, n.TraceAddress
                                 select n).ToList();
 
+                /*
                 bi.PunkBids = (from p in db.PunkBids
                                where p.BlockNumber >= fromBlockNumber && p.BlockNumber <= toBlockNumber
                                orderby p.BlockNumber, p.TransactionHash, p.TraceAddress
@@ -192,6 +243,7 @@ namespace ZeroMev.ClassifierService
                                  where p.BlockNumber >= fromBlockNumber && p.BlockNumber <= toBlockNumber
                                  orderby p.BlockNumber, p.TransactionHash, p.TraceAddress
                                  select p).ToList();
+                */
 
                 bi.ZmBlocks = (from z in db.ZmBlocks
                                where z.BlockNumber >= fromBlockNumber && z.BlockNumber <= toBlockNumber
@@ -447,15 +499,8 @@ namespace ZeroMev.ClassifierService
                     else if (arb.Swap.SwapTransactionHash != lastArbHash)
                     {
                         // create the mev arb on the first arb swap
-                        decimal? arbProfitUsd = null;
-                        if (arb.Arb.ProfitTokenAddress != null)
-                        {
-                            var arbToken = Tokens.GetFromAddress(arb.Arb.ProfitTokenAddress);
-                            var arbUsdRate = XRates.GetUsdRate(arb.Arb.ProfitTokenAddress);
-                            if (arbToken != null && arbUsdRate != null)
-                                arbProfitUsd = -(decimal)((arb.Arb.ProfitAmount / arbToken.Divisor) * arbUsdRate).Value.ToUsd();
-                        }
-
+                        ZMDecimal? newAmount;
+                        decimal? arbProfitUsd = MEVHelper.GetUsdAmount(arb.Arb.ProfitTokenAddress, arb.Arb.ProfitAmount, out newAmount);
                         var mevArb = new MEVArb(s.TransactionPosition, MEVClass.Unclassified, arbProfitUsd);
                         revertableArbSwaps.Clear();
                         lastArb = mevArb;
@@ -485,44 +530,46 @@ namespace ZeroMev.ClassifierService
             // liquidations
             foreach (var l in Liquidations)
             {
-                var protocol = MEVHelper.GetProtocolLiquidation(l.Protocol);
+                if (!GetMEVBlock(l.BlockNumber, ref mevBlock, ref arrivals))
+                    continue;
 
+                var protocol = MEVHelper.GetProtocolLiquidation(l.Protocol);
                 var debtSymbolIndex = MEVHelper.GetSymbolIndex(mevBlock, l.DebtTokenAddress);
                 var debtPurchaseAmountUsd = XRates.ConvertToUsd(l.DebtTokenAddress, l.DebtPurchaseAmount);
-
                 var receivedSymbolIndex = MEVHelper.GetSymbolIndex(mevBlock, l.ReceivedTokenAddress);
-                var receivedAmountUsd = XRates.ConvertToUsd(l.ReceivedTokenAddress, l.DebtPurchaseAmount);
-
+                var receivedAmountUsd = XRates.ConvertToUsd(l.ReceivedTokenAddress, l.ReceivedAmount);
                 bool? isReverted = l.Error == "Reverted" ? true : null;
 
-                var mevLiquidation = new MEVLiquidation(l.TransactionHash, protocol, debtPurchaseAmountUsd, debtSymbolIndex, receivedAmountUsd, receivedSymbolIndex, isReverted);
+                var mevLiquidation = new MEVLiquidation(l.TransactionHash, protocol, l.DebtPurchaseAmount, debtPurchaseAmountUsd, debtSymbolIndex, l.ReceivedAmount, receivedAmountUsd, receivedSymbolIndex, isReverted);
                 mevBlock.Liquidations.Add(mevLiquidation);
             }
 
             // nft swaps
-            foreach (var nft in NftTrades)
+            foreach (var n in NftTrades)
             {
+                if (!GetMEVBlock(n.BlockNumber, ref mevBlock, ref arrivals))
+                    continue;
 
+                ProtocolNFT protocol = MEVHelper.GetProtocolNFT(n.Protocol);
+                int paymentSymbolIndex;
+                decimal? paymentAmountUsd;
+                ZMDecimal? paymentAmount;
+                if (n.PaymentTokenAddress == "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee") // mev-inspect seems to use this to signify ETH in nft trades
+                {
+                    paymentSymbolIndex = Symbol.EthSymbolIndex;
+                    paymentAmountUsd = MEVHelper.GetUsdAmount("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", n.PaymentAmount, out paymentAmount); // WETH
+                }
+                else
+                {
+                    paymentSymbolIndex = MEVHelper.GetSymbolIndex(mevBlock, n.PaymentTokenAddress);
+                    paymentAmountUsd = MEVHelper.GetUsdAmount(n.PaymentTokenAddress, n.PaymentAmount, out paymentAmount);
+                }
+                MEVError error = MEVHelper.GetErrorFrom(n.Error);
+                var mevNft = new MEVNFT(n.TransactionPosition, protocol, paymentSymbolIndex, n.CollectionAddress, n.TokenId.ToString(), paymentAmount, paymentAmountUsd, error);
+                mevBlock.NFTrades.Add(mevNft);
             }
 
-            // punk bids
-            foreach (var pb in PunkBids)
-            {
-
-            }
-
-            // punk snipes
-            foreach (var pa in PunkBidAcceptances)
-            {
-
-            }
-
-            // punk snipes
-            foreach (var ps in PunkSnipes)
-            {
-
-            }
-
+            // debug
             foreach (var mb in _mevBlocks.Values)
             {
                 Debug.WriteLine(mb.BlockNumber);
@@ -539,7 +586,8 @@ namespace ZeroMev.ClassifierService
                 Debug.WriteLine("");
 
                 var json = JsonSerializer.Serialize<MEVBlock2>(mb, ZMSerializeOptions.Default);
-                Debug.WriteLine($"{mb.BlockNumber} {json.Length} bytes {json}");
+                var compJson = Binary.Compress(Encoding.ASCII.GetBytes(json));
+                Debug.WriteLine($"{mb.BlockNumber} {json.Length} bytes {compJson.Length} comp bytes {json}");
             }
 
             Debug.WriteLine($"{sandwichNaive.Value.ToUsd()} sandwich naive profit");
@@ -722,8 +770,11 @@ namespace ZeroMev.ClassifierService
             rate.Rate = newRate;
         }
 
-        public static decimal? ConvertToUsd(string token, ZMDecimal amount)
+        public static decimal? ConvertToUsd(string? token, ZMDecimal? amount)
         {
+            if (token == null || amount == null)
+                return null;
+
             // get xrate
             _usdBaseRate.TryGetValue(token, out var rate);
             if (rate == null)
@@ -735,7 +786,7 @@ namespace ZeroMev.ClassifierService
                 return null;
 
             amount = (amount / t.Divisor) * rate.Rate;
-            decimal? usd = amount.ToUsd();
+            decimal? usd = amount.Value.ToUsd();
             return usd;
         }
     }

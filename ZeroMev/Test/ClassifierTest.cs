@@ -41,7 +41,7 @@ namespace ZeroMev.Test
         public void BuildDEXsTest()
         {
             const int fromBlock = 13358564;
-            const int toBlock = 13358564 + 1000;
+            const int toBlock = 13358564 + 500;
 
             var bi = BlockProcess.Load(fromBlock, toBlock);
             Stopwatch sw = Stopwatch.StartNew();

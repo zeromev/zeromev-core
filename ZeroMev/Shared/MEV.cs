@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Numerics;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -31,11 +32,25 @@ namespace ZeroMev.Shared
         Info
     }
 
+    public enum MEVError
+    {
+        None,
+        Unknown,
+        Reverted,
+        OutOfGas
+    }
+
     public enum ProtocolLiquidation
     {
         Unknown,
         Aave,
         CompoundV2
+    }
+
+    public enum ProtocolNFT
+    {
+        unknown,
+        opensea
     }
 
     public interface IMEV
@@ -53,7 +68,9 @@ namespace ZeroMev.Shared
 
     public class Symbol
     {
+        public const int EthSymbolIndex = -2;
         public const string UnknownImage = @"/un.png";
+        public static Symbol EthSymbol = new Symbol("Eth", "eth.png", "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
 
         public Symbol()
         {
@@ -143,13 +160,23 @@ namespace ZeroMev.Shared
 
         public Symbol? GetSymbol(int symbolIndex)
         {
-            if (symbolIndex < 0) return null;
+            if (symbolIndex < 0)
+            {
+                if (symbolIndex == Symbol.EthSymbolIndex)
+                    return Symbol.EthSymbol;
+                return null;
+            }
             return Symbols[symbolIndex];
         }
 
         public string? GetSymbolName(int symbolIndex)
         {
-            if (symbolIndex < 0) return "";
+            if (symbolIndex < 0)
+            {
+                if (symbolIndex == Symbol.EthSymbolIndex)
+                    return "Eth";
+                return "";
+            }
             return Symbols[symbolIndex].Name;
         }
     }
@@ -546,9 +573,18 @@ namespace ZeroMev.Shared
 
         public void Cache(MEVBlock2 mevBlock, int mevIndex)
         {
-            MEVDetail = $"{Swaps.Count} swaps = impact ${MEVAmountUsd}.";
-
             StringBuilder sb = new StringBuilder();
+            sb.Append(Swaps.Count);
+            sb.Append(" swaps = impact $");
+            if (MEVAmountUsd != null)
+            {
+                sb.Append(MEVAmountUsd.Value.ToString());
+                sb.AppendLine(".");
+            }
+            else
+            {
+                sb.AppendLine("?");
+            }
             BuildActionSummary(mevBlock, sb);
             ActionSummary = sb.ToString();
 
@@ -559,7 +595,7 @@ namespace ZeroMev.Shared
 
         public string BuildActionSummary(MEVBlock2 mevBlock, StringBuilder sb)
         {
-            if (Swaps == null || Swaps.Count == 0) return "no swaps";
+            if (Swaps == null || Swaps.Count == 0) return "no swaps.";
             Swaps[0].BuildActionSummary(mevBlock, sb);
             if (Swaps.Count > 1)
             {
@@ -590,11 +626,13 @@ namespace ZeroMev.Shared
         {
         }
 
-        public MEVLiquidation(string txHash, ProtocolLiquidation protocol, decimal? debtPurchaseAmountUsd, int debtSymbolIndex, decimal? receivedAmountUsd, int receivedSymbolIndex, bool? isReverted)
+        public MEVLiquidation(string txHash, ProtocolLiquidation protocol, BigInteger? debtPurchaseAmount, decimal? debtPurchaseAmountUsd, int debtSymbolIndex, BigInteger? receivedAmount, decimal? receivedAmountUsd, int receivedSymbolIndex, bool? isReverted)
         {
             TxHash = txHash;
             Protocol = protocol;
+            DebtPurchaseAmount = debtPurchaseAmount;
             DebtPurchaseAmountUsd = debtPurchaseAmountUsd;
+            ReceivedAmount = receivedAmount;
             DebtSymbolIndex = debtSymbolIndex;
             MEVAmountUsd = receivedAmountUsd;
             ReceivedSymbolIndex = receivedSymbolIndex;
@@ -605,7 +643,13 @@ namespace ZeroMev.Shared
         public ProtocolLiquidation Protocol { get; private set; }
 
         [JsonPropertyName("d")]
+        public BigInteger? DebtPurchaseAmount { get; private set; }
+
+        [JsonPropertyName("du")]
         public decimal? DebtPurchaseAmountUsd { get; private set; }
+
+        [JsonPropertyName("r")]
+        public BigInteger? ReceivedAmount { get; private set; }
 
         [JsonPropertyName("a")]
         public int DebtSymbolIndex { get; private set; }
@@ -613,23 +657,23 @@ namespace ZeroMev.Shared
         [JsonPropertyName("b")]
         public int ReceivedSymbolIndex { get; private set; }
 
-        [JsonPropertyName("r")]
+        [JsonPropertyName("v")]
         public bool? IsReverted { get; private set; }
 
-        [JsonIgnore]
-        public int? TxIndex => null;
+        [JsonPropertyName("u")]
+        public decimal? MEVAmountUsd { get; set; }
 
         [JsonPropertyName("h")]
         public string TxHash { get; private set; }
+
+        [JsonIgnore]
+        public int? TxIndex => null;
 
         [JsonIgnore]
         public MEVType MEVType => MEVType.Liquidation;
 
         [JsonIgnore]
         public MEVClass MEVClass => MEVClass.Unclassified;
-
-        [JsonPropertyName("u")]
-        public decimal? MEVAmountUsd { get; set; }
 
         [JsonIgnore]
         public string? MEVDetail { get; set; } = "";
@@ -661,15 +705,22 @@ namespace ZeroMev.Shared
 
         public string BuildActionDetail(MEVBlock2 mevBlock, StringBuilder sb)
         {
-            // debt purchase amount symbolA $143.11
-            // received amount usd symbolB $54.17
+            // aave protocol.
+            // debt purchase amount symbolA $143.11 (2784324.33).
+            // received amount usd symbolB $54.17 (243432.11).
+            sb.Append(Protocol.ToString());
+            sb.AppendLine(" protocol.");
+
             sb.Append("debt purchase amount ");
             sb.Append(mevBlock.GetSymbolName(DebtSymbolIndex));
-            sb.AppendLine(" $");
+            sb.Append(" $");
             if (DebtPurchaseAmountUsd != null)
                 sb.Append(DebtPurchaseAmountUsd);
             else
                 sb.Append("?");
+            sb.Append(" (");
+            sb.Append(DebtPurchaseAmount);
+            sb.AppendLine(").");
 
             sb.Append("received amount ");
             sb.Append(mevBlock.GetSymbolName(ReceivedSymbolIndex));
@@ -678,32 +729,54 @@ namespace ZeroMev.Shared
                 sb.Append(MEVAmountUsd);
             else
                 sb.Append("?");
+            sb.Append(" (");
+            sb.Append(ReceivedAmount);
+            sb.AppendLine(").");
+
             return sb.ToString();
         }
     }
 
     public class MEVNFT : IMEV
     {
-        public MEVNFT(string txHash, int paymentSymbolIndex, string collectionAddress, string tokenId)
+        public MEVNFT(int? txIndex, ProtocolNFT protocol, int paymentSymbolIndex, string collectionAddress, string tokenId, ZMDecimal? paymentAmount, ZMDecimal? paymentAmountUsd, MEVError? error)
         {
-            TxHash = txHash;
+            TxIndex = txIndex;
+            Protocol = protocol;
             PaymentSymbolIndex = paymentSymbolIndex;
+            PaymentAmount = paymentAmount;
+            PaymentAmountUsd = paymentAmountUsd;
             CollectionAddress = collectionAddress;
             TokenId = tokenId;
+            Error = error;
         }
+
+        [JsonPropertyName("p")]
+        public ProtocolNFT Protocol { get; set; }
 
         [JsonPropertyName("s")]
         int PaymentSymbolIndex { get; set; }
+
         [JsonPropertyName("c")]
         public string CollectionAddress { get; set; }
+
         [JsonPropertyName("t")]
         public string TokenId { get; set; }
 
-        [JsonIgnore]
-        public int? TxIndex => null;
+        [JsonPropertyName("a")]
+        public ZMDecimal? PaymentAmount { get; set; }
 
-        [JsonPropertyName("h")]
-        public string TxHash { get; private set; }
+        [JsonPropertyName("u")]
+        public ZMDecimal? PaymentAmountUsd { get; set; }
+
+        [JsonPropertyName("e")]
+        public MEVError? Error { get; set; }
+
+        [JsonPropertyName("i")]
+        public int? TxIndex { get; private set; }
+
+        [JsonIgnore]
+        public string TxHash => null;
 
         [JsonIgnore]
         public MEVType MEVType => MEVType.NFT;
@@ -712,7 +785,7 @@ namespace ZeroMev.Shared
         public MEVClass MEVClass => MEVClass.Info;
 
         [JsonIgnore]
-        public decimal? MEVAmountUsd { get; set; }
+        public decimal? MEVAmountUsd { get; set; } = null;
 
         [JsonIgnore]
         public string? MEVDetail { get; set; } = "";
@@ -725,6 +798,65 @@ namespace ZeroMev.Shared
 
         public void Cache(MEVBlock2 mevBlock, int mevIndex)
         {
+            // Opensea nft protocol
+            // link https://opensea.io/assets/0xac3d871d3431847bdff9eebb42eb51ae06e131c3/6016
+            // $1313.10 (0.33 WETH)
+
+            StringBuilder sb = new StringBuilder();
+
+            string nftLink = null;
+            if (Protocol == ProtocolNFT.opensea)
+            {
+                sb.Append("https://opensea.io/assets/");
+                sb.Append(CollectionAddress);
+                sb.Append(@"/");
+                sb.Append(TokenId);
+                nftLink = sb.ToString();
+            }
+
+            sb.Clear();
+            sb.Append("<a href='");
+            sb.Append(nftLink);
+            sb.Append("'>");
+            sb.Append("nft $");
+            if (PaymentAmountUsd != null)
+                sb.Append(PaymentAmountUsd);
+            else
+                sb.Append("?");
+            sb.Append("</a>");
+            ActionSummary = sb.ToString();
+
+            sb.Clear();
+            sb.Append(Protocol);
+            sb.AppendLine(" nft protocol");
+            if (nftLink != null)
+            {
+                sb.Append("link ");
+                sb.AppendLine(nftLink);
+            }
+            else
+            {
+                sb.Append("collection ");
+                sb.AppendLine(CollectionAddress);
+                sb.Append(@"token ");
+                sb.AppendLine(TokenId);
+            }
+            sb.Append("payment $");
+            if (PaymentAmountUsd != null)
+                sb.Append(PaymentAmountUsd);
+            else
+                sb.Append("?");
+            sb.Append(" (");
+            sb.Append(PaymentAmount);
+            sb.Append(" ");
+            sb.Append(mevBlock.GetSymbolName(PaymentSymbolIndex));
+            sb.Append(")");
+            if (Error != MEVError.None)
+            {
+                sb.AppendLine();
+                sb.AppendLine(Error.ToString());
+            }
+            ActionDetail = sb.ToString();
         }
     }
 
