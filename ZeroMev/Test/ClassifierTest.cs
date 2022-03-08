@@ -17,79 +17,21 @@ namespace ZeroMev.Test
     public class ClassifierTest
     {
         [TestMethod]
-        public void DebugSwapsByBlock()
-        {
-            using (var db = new zeromevContext())
-            {
-                var swaps = (from s in db.Swaps
-                             where s.BlockNumber >= 13602897 && s.BlockNumber <= 13602897
-                             orderby s.TraceAddress
-                             select s).ToList();
-                foreach (var s in swaps)
-                    Debug.WriteLine(string.Join(",", s.TraceAddress));
-            }
-            return;
-
-            const int fromBlock = 13602897 - 10000;
-            const int toBlock = 13602897;
-
-            var bi = BlockProcess.Load(fromBlock, toBlock);
-            bi.DebugSwaps(13602897);
-        }
-
-        [TestMethod]
         public void BuildDEXsTest()
         {
             const int fromBlock = 13358564;
-            const int toBlock = 13358564 + 500;
+            const int toBlock = 13358564 + 10000;
 
-            var bi = BlockProcess.Load(fromBlock, toBlock);
+            var dexs = new DEXs();
+            var bi = BlockProcess.Load(fromBlock, toBlock, dexs);
+            bi.Run();
+            bi.Save();
             Stopwatch sw = Stopwatch.StartNew();
-            bi.Process();
             sw.Stop();
 
             double ms = (double)sw.ElapsedMilliseconds;
             Debug.WriteLine(sw.ElapsedMilliseconds + " ms");
             Debug.WriteLine((ms / (toBlock - fromBlock)) + " ms per block");
-            return;
-
-            Tokens.Load();
-            DEXs dexs = new DEXs();
-
-            sw = Stopwatch.StartNew();
-            List<Swap> swaps;
-            using (var db = new zeromevContext())
-            {
-                swaps = (from s in db.Swaps
-                         where s.BlockNumber >= fromBlock && s.BlockNumber <= toBlock
-                         orderby s.BlockNumber, s.TransactionPosition, s.TraceAddress
-                         select s).ToList();
-            }
-            int count = 0;
-            foreach (var swap in swaps)
-            {
-                var s = dexs.Add(swap, DateTime.Now.AddMinutes(count++), out var pair);
-                /*
-                ZMDecimal rateA = s.ARateUsd ??= new ZMDecimal();
-                ZMDecimal usdA = s.AmountA * (s.ARateUsd ??= 1);
-                ZMDecimal rateB = s.BRateUsd ??= new ZMDecimal();
-                ZMDecimal usdB = s.AmountB * (s.BRateUsd ??= 1);
-                Debug.WriteLine($"A {s.SymbolA} amount {s.AmountA} usd {usdA.RoundAwayFromZero(2)} rate {rateA.RoundAwayFromZero(5)}, B {s.SymbolB} amount {s.AmountB} usd {usdB.RoundAwayFromZero(2)} rate {rateB.RoundAwayFromZero(5)}");
-                */
-            }
-            sw.Stop();
-
-            ms = (double)sw.ElapsedMilliseconds;
-            Debug.WriteLine(sw.ElapsedMilliseconds + " ms");
-            Debug.WriteLine((ms / (toBlock - fromBlock)) + " ms per block");
-
-            foreach (var dex in dexs.Values)
-            {
-                foreach (var pair in dex.Values)
-                {
-                    //Debug.WriteLine($"{pair.ToString()}");
-                }
-            }
         }
 
         [TestMethod]

@@ -40,6 +40,17 @@ namespace ZeroMev.Shared
         OutOfGas
     }
 
+    public enum ProtocolSwap
+    {
+        Unknown,
+        Uniswap2,
+        Uniswap3,
+        Curve,
+        ZeroX,
+        Balancer1,
+        Bancor
+    }
+
     public enum ProtocolLiquidation
     {
         Unknown,
@@ -49,8 +60,8 @@ namespace ZeroMev.Shared
 
     public enum ProtocolNFT
     {
-        unknown,
-        opensea
+        Unknown,
+        Opensea
     }
 
     public interface IMEV
@@ -118,13 +129,13 @@ namespace ZeroMev.Shared
 
         // persisted
         [JsonPropertyName("bn")]
-        public long BlockNumber { get; private set; }
+        public long BlockNumber { get; set; }
 
         [JsonPropertyName("sb")]
-        public List<Symbol> Symbols { get; private set; } = new List<Symbol>();
+        public List<Symbol> Symbols { get; set; } = new List<Symbol>();
 
         [JsonPropertyName("eu")]
-        public decimal? ETHUSD { get; private set; }
+        public decimal? ETHUSD { get; set; }
 
         [JsonPropertyName("s")]
         public List<MEVSwap> Swaps { get; set; } = new List<MEVSwap>();
@@ -187,9 +198,10 @@ namespace ZeroMev.Shared
         {
         }
 
-        public MEVSwap(int txIndex, int symbolInIndex, int symbolOutIndex, ZMDecimal amountIn, ZMDecimal amountOut, ZMDecimal? inUsdRate, ZMDecimal? outUsdRate)
+        public MEVSwap(int txIndex, ProtocolSwap protocol, int symbolInIndex, int symbolOutIndex, ZMDecimal amountIn, ZMDecimal amountOut, ZMDecimal? inUsdRate, ZMDecimal? outUsdRate)
         {
             TxIndex = txIndex;
+            Protocol = protocol;
             SymbolInIndex = symbolInIndex;
             SymbolOutIndex = symbolOutIndex;
             AmountIn = amountIn;
@@ -201,7 +213,7 @@ namespace ZeroMev.Shared
         }
 
         [JsonPropertyName("i")]
-        public int? TxIndex { get; private set; }
+        public int? TxIndex { get; set; }
 
         [JsonIgnore]
         public string TxHash => null;
@@ -223,6 +235,9 @@ namespace ZeroMev.Shared
 
         [JsonPropertyName("f")]
         public decimal? AmountOutUsd { get; set; }
+
+        [JsonPropertyName("p")]
+        public ProtocolSwap Protocol { get; set; }
 
         [JsonIgnore]
         public ZMDecimal Rate
@@ -271,6 +286,8 @@ namespace ZeroMev.Shared
 
         public void BuildActionDetail(MEVBlock2 mevBlock, StringBuilder sb)
         {
+            sb.Append(Protocol);
+            sb.Append(" ");
             sb.Append(mevBlock.GetSymbolName(SymbolInIndex));
             sb.Append(" ");
             sb.Append(AmountIn.Shorten());
@@ -302,7 +319,7 @@ namespace ZeroMev.Shared
         public List<MEVSwap> Swaps { get; set; } = new List<MEVSwap>();
 
         [JsonPropertyName("i")]
-        public int? TxIndex { get; private set; }
+        public int? TxIndex { get; set; }
 
         [JsonIgnore]
         public string TxHash => null;
@@ -379,7 +396,7 @@ namespace ZeroMev.Shared
         public MEVSwap Swap { get; set; }
 
         [JsonPropertyName("i")]
-        public int? TxIndex { get; private set; }
+        public int? TxIndex { get; set; }
 
         [JsonIgnore]
         public string TxHash => null;
@@ -431,7 +448,7 @@ namespace ZeroMev.Shared
         public MEVSwap Swap { get; set; }
 
         [JsonPropertyName("i")]
-        public int? TxIndex { get; private set; }
+        public int? TxIndex { get; set; }
 
         [JsonIgnore]
         public string TxHash => null;
@@ -483,7 +500,7 @@ namespace ZeroMev.Shared
         public MEVSwap Swap { get; set; }
 
         [JsonPropertyName("i")]
-        public int? TxIndex { get; private set; }
+        public int? TxIndex { get; set; }
 
         [JsonIgnore]
         public string TxHash => null;
@@ -548,7 +565,7 @@ namespace ZeroMev.Shared
         public List<MEVSwap> Swaps { get; set; } = new List<MEVSwap>();
 
         [JsonPropertyName("i")]
-        public int? TxIndex { get; private set; }
+        public int? TxIndex { get; set; }
 
         [JsonIgnore]
         public string TxHash => null;
@@ -557,7 +574,7 @@ namespace ZeroMev.Shared
         public MEVType MEVType => MEVType.Arb;
 
         [JsonPropertyName("c")]
-        public MEVClass MEVClass { get; private set; } = MEVClass.Unclassified;
+        public MEVClass MEVClass { get; set; } = MEVClass.Unclassified;
 
         [JsonPropertyName("u")]
         public decimal? MEVAmountUsd { get; set; }
@@ -640,31 +657,31 @@ namespace ZeroMev.Shared
         }
 
         [JsonPropertyName("p")]
-        public ProtocolLiquidation Protocol { get; private set; }
+        public ProtocolLiquidation Protocol { get; set; }
 
         [JsonPropertyName("d")]
-        public BigInteger? DebtPurchaseAmount { get; private set; }
+        public BigInteger? DebtPurchaseAmount { get; set; }
 
         [JsonPropertyName("du")]
-        public decimal? DebtPurchaseAmountUsd { get; private set; }
+        public decimal? DebtPurchaseAmountUsd { get; set; }
 
         [JsonPropertyName("r")]
-        public BigInteger? ReceivedAmount { get; private set; }
+        public BigInteger? ReceivedAmount { get; set; }
 
         [JsonPropertyName("a")]
-        public int DebtSymbolIndex { get; private set; }
+        public int DebtSymbolIndex { get; set; }
 
         [JsonPropertyName("b")]
-        public int ReceivedSymbolIndex { get; private set; }
+        public int ReceivedSymbolIndex { get; set; }
 
         [JsonPropertyName("v")]
-        public bool? IsReverted { get; private set; }
+        public bool? IsReverted { get; set; }
 
         [JsonPropertyName("u")]
         public decimal? MEVAmountUsd { get; set; }
 
         [JsonPropertyName("h")]
-        public string TxHash { get; private set; }
+        public string TxHash { get; set; }
 
         [JsonIgnore]
         public int? TxIndex => null;
@@ -755,7 +772,7 @@ namespace ZeroMev.Shared
         public ProtocolNFT Protocol { get; set; }
 
         [JsonPropertyName("s")]
-        int PaymentSymbolIndex { get; set; }
+        public int PaymentSymbolIndex { get; set; }
 
         [JsonPropertyName("c")]
         public string CollectionAddress { get; set; }
@@ -773,7 +790,7 @@ namespace ZeroMev.Shared
         public MEVError? Error { get; set; }
 
         [JsonPropertyName("i")]
-        public int? TxIndex { get; private set; }
+        public int? TxIndex { get; set; }
 
         [JsonIgnore]
         public string TxHash => null;
@@ -805,7 +822,7 @@ namespace ZeroMev.Shared
             StringBuilder sb = new StringBuilder();
 
             string nftLink = null;
-            if (Protocol == ProtocolNFT.opensea)
+            if (Protocol == ProtocolNFT.Opensea)
             {
                 sb.Append("https://opensea.io/assets/");
                 sb.Append(CollectionAddress);

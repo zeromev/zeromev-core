@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.ResponseCompression;
+using System.Text;
+using System.Text.Json;
 using System.Collections;
 using ZeroMev.Shared;
 using ZeroMev.SharedServer;
@@ -40,14 +42,9 @@ app.MapFallbackToFile("index.html");
 
 app.MapGet("/zmhealth", () => "ok");
 
-app.MapGet("/zmblock/{id}", (long id) =>
+app.MapGet("/zmblock/{id}", async (long id) =>
 {
-    ZMBlock zb = DB.GetZMBlock(id);
-    if (zb == null)
-        zb = new ZMBlock(id, null);
-    BitArray bundles = DB.ReadFlashbotsBundles(id);
-    zb.Bundles = bundles;
-    return Results.Json(zb, ZMSerializeOptions.Default);
+    return Results.Text(await DB.BuildZmBlockJson(id));
 });
 
 app.Run();

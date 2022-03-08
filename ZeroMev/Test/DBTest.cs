@@ -2,6 +2,10 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.IO;
 using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Text;
+using System.Text.Json;
 using ZeroMev.Shared;
 using ZeroMev.SharedServer;
 
@@ -10,6 +14,18 @@ namespace ZeroMev.Test
     [TestClass]
     public class DBTest
     {
+        [TestMethod]
+        public async Task BuildZmBlockJson()
+        {
+            const long blockNumber = 13359463;
+
+            var json = await DB.BuildZmBlockJson(blockNumber);
+            Debug.WriteLine(json);
+            var zb = JsonSerializer.Deserialize<ZMBlock>(json, ZMSerializeOptions.Default);
+            Assert.AreEqual(zb.BlockNumber, blockNumber);
+            Assert.AreEqual(zb.MevBlock.BlockNumber, blockNumber);
+        }
+
         public void TestExportBlocksToCsv()
         {
             using (StreamWriter sw = new StreamWriter(@"E:\block_vs_tx_stdev.csv"))

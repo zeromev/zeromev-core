@@ -25,6 +25,7 @@ namespace ZeroMev.ClassifierService
 
         bool _isStopped = false;
         static HttpClient _http = new HttpClient();
+        static DEXs _dexs = new DEXs();
 
         public Classifier(ILogger<Classifier> logger)
         {
@@ -137,6 +138,17 @@ namespace ZeroMev.ClassifierService
                                 // write the count to the db (useful for later bulk reprocessing/restarts)
                                 var txDataComp = Binary.Compress(Binary.WriteFirstSeenTxData(zv));
                                 await db.AddZmBlock(nextBlockNumber, txCount.Value, zv.BlockTimeAvg, txDataComp);
+                            }
+
+                            var bp = BlockProcess.Load(nextBlockNumber, nextBlockNumber, _dexs);
+                            try
+                            {
+                                bp.Run();
+                                bp.Save();
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogInformation($"error processing {nextBlockNumber} {ex}");
                             }
 
                             await db.SetLastProcessedBlock(nextBlockNumber);

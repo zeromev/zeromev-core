@@ -19,13 +19,15 @@ namespace ZeroMev.MevEFC
             return (long)db.ZmLatestBlockUpdates.Max(x => x.BlockNumber);
         }
 
-        public static async Task<bool> AddZmBlock(this zeromevContext db, long blockNumber, int txCount, DateTime blockTime, byte[] txData)
+        public static async Task<ZmBlock> AddZmBlock(this zeromevContext db, long blockNumber, int txCount, DateTime blockTime, byte[] txData)
         {
+            var zmb = new ZmBlock() { BlockNumber = blockNumber, TransactionCount = txCount, BlockTime = blockTime, TxData = txData };
+
             try
             {
-                db.ZmBlocks.Add(new ZmBlock() { BlockNumber = blockNumber, TransactionCount = txCount, BlockTime = blockTime, TxData = txData });
+                db.ZmBlocks.Add(zmb);
                 await db.SaveChangesAsync();
-                return true;
+                return zmb;
             }
             catch (Exception ex)
             {
@@ -33,9 +35,9 @@ namespace ZeroMev.MevEFC
                 {
                     // allow failure if we're trying to add a duplicate
                     if (ex.InnerException.Message.Contains("duplicate key"))
-                        return true;
+                        return zmb;
                 }
-                return false;
+                return null;
             }
         }
 

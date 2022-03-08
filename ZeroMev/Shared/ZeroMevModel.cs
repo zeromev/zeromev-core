@@ -85,7 +85,7 @@ namespace ZeroMev.Shared
         [JsonPropertyName("t")]
         public DateTime ArrivalTime { get; set; }
 
-        [JsonPropertyName("b")]
+        [JsonIgnore]
         public long ArrivalBlockNumber { get; set; }
 
         public int CompareTo(TxTime other)
@@ -104,6 +104,9 @@ namespace ZeroMev.Shared
 
         [JsonPropertyName("fbBundles")]
         public BitArray Bundles;
+
+        [JsonPropertyName("mevBlock")]
+        public MEVBlock2 MevBlock;
 
         [JsonConstructor]
         public ZMBlock()
