@@ -415,7 +415,6 @@ namespace ZeroMev.ClassifierService
             Tokens.Load();
 
             MEVFrontrun? frontrun = null;
-            int frontrunIndex = 0;
             string? lastArbHash = null;
             MEVArb? lastArb = null;
             MEVSwap? lastSwap = null;
@@ -437,7 +436,6 @@ namespace ZeroMev.ClassifierService
 
                     // reset on block boundaries
                     frontrun = null;
-                    frontrunIndex = 0;
                     lastArbHash = null;
                     lastArb = null;
                     revertableArbSwaps.Clear();
@@ -464,7 +462,7 @@ namespace ZeroMev.ClassifierService
                         throw new Exception("sandwich reentry");
 
                     // sandwich frontrun
-                    frontrun = new MEVFrontrun(frontrunIndex, MEVHelper.BuildMEVSwap(mevBlock, s, zmSwap));
+                    frontrun = new MEVFrontrun(s.TransactionPosition.Value, MEVHelper.BuildMEVSwap(mevBlock, s, zmSwap));
                 }
                 else if (this.SandwichesBackrun.TryGetValue(sKey, out var sandwichBackrun))
                 {

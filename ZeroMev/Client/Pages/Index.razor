@@ -39,8 +39,6 @@
             for (int i = MockBlocks.GetUpperBound(0); i >= 0; i--)
             {
                 var mb = new MEVBlock(MockBlocks[i, 0]);
-                mb.MockMEV((int)MockBlocks[i, 1]);
-                mb.BuildMEVSummaries();
                 MEVBlocks.Add(mb);
             }
         }

@@ -32,14 +32,6 @@ namespace ZeroMev.Shared
         Ok
     }
 
-    public enum FilterTxsBy
-    {
-        All,
-        MEV,
-        ToxicMEV,
-        OtherMEV
-    }
-
     public class ZMSerializeOptions
     {
         static public JsonSerializerOptions Default;
@@ -324,12 +316,9 @@ namespace ZeroMev.Shared
             if (Txs == null || Txs.Length != TxCount)
                 return false;
 
-            // set flashbots bundle indexes
+            // set flashbots and mev
             SetFlashbotsBundles(zb.Bundles);
-
-            // temporarily mock-up mev to build the front end TODO replace this
-            MEVBlock mockMev = MockMEV();
-            SetMEV(mockMev);
+            SetMev(zb.MevBlock);
 
             // require zm block data
             if (zb.PoPs == null || zb.PoPs.Count == 0)
@@ -449,34 +438,44 @@ namespace ZeroMev.Shared
             }
         }
 
-        public MEVBlock MockMEV()
+        public void SetMev(MEVBlock2 mb)
         {
-            // create a model instance that will in time have been returned via the api
-            MEVBlock mm = new MEVBlock(BlockNumber);
-            mm.MockMEV(TxCount);
-            mm.BuildMEVSummaries();
-            return mm;
+            if (mb == null) return;
+            for (int i = 0; i < mb.Swaps.Count; i++) SetMev(mb.Swaps[i], mb, i);
+            for (int i = 0; i < mb.ContractSwaps.Count; i++) SetMev(mb.ContractSwaps[i], mb, i);
+            for (int i = 0; i < mb.Backruns.Count; i++) SetMev(mb.Backruns[i], mb, i);
+            for (int i = 0; i < mb.Sandwiched.Count; i++)
+                foreach (var s in mb.Sandwiched[i])
+                    SetMev(s, mb, i);
+            for (int i = 0; i < mb.Frontruns.Count; i++) SetMev(mb.Frontruns[i], mb, i);
+            for (int i = 0; i < mb.Arbs.Count; i++) SetMev(mb.Arbs[i], mb, i);
+            for (int i = 0; i < mb.Liquidations.Count; i++) SetMev(mb.Liquidations[i], mb, i);
+            for (int i = 0; i < mb.NFTrades.Count; i++) SetMev(mb.NFTrades[i], mb, i);
         }
 
-        public void SetMEV(MEVBlock mm)
+        private void SetMev(IMEV mev, MEVBlock2 mb, int mevIndex)
         {
-            MEVCount = mm.MEVCount;
-            MEVToxicCount = mm.MEVToxicCount;
-            MEVOtherCount = mm.MEVOtherCount;
+            // calculate members
+            mev.Cache(mb, mevIndex);
 
-            MEVAmount = mm.MEVAmount;
-            MEVToxicAmount = mm.MEVToxicAmount;
-            MEVOtherAmount = mm.MEVOtherAmount;
-
-            if (mm.Rows == null)
-                return;
-
-            foreach (var r in mm.Rows)
+            // allocate to transactions by index where possible
+            if (mev.TxIndex != null)
             {
-                ZMTx tx = Txs[r.Index];
-                tx.MEVType = r.MEVType;
-                tx.MEVAmount = r.MEVAmount;
-                tx.MEVComment = r.MEVComment;
+                Txs[mev.TxIndex.Value].MEV = mev;
+                return;
+            }
+
+            // use hash if we have to
+            if (mev.TxHash != null)
+            {
+                foreach (var tx in Txs)
+                {
+                    if (tx.TxnHash == mev.TxHash)
+                    {
+                        tx.MEV = mev;
+                        return;
+                    }
+                }
             }
         }
 
@@ -504,7 +503,7 @@ namespace ZeroMev.Shared
             return true;
         }
 
-        public List<ZMTx> GetFiltered(FilterTxsBy filter)
+        public List<ZMTx> GetFiltered(MEVClass filter)
         {
             if (Txs.Length == 0)
                 return new List<ZMTx>();
@@ -560,9 +559,7 @@ namespace ZeroMev.Shared
         public string Bundle { get; set; }
 
         // mev
-        public MEVType MEVType { get; set; }
-        public decimal? MEVAmount { get; set; }
-        public string MEVComment { get; set; }
+        public IMEV MEV { get; set; }
 
         // determined from arrival times
         public int TimeOrderIndex { get; set; }
@@ -572,8 +569,35 @@ namespace ZeroMev.Shared
         {
             get
             {
-                if (!MEVAmount.HasValue) return "";
-                return "$" + MEVAmount.Value.ToString("0.00");
+                if (!MEV.MEVAmountUsd.HasValue) return "";
+                return "$" + MEV.MEVAmountUsd.Value.ToString("0.00");
+            }
+        }
+
+        public MEVClass MEVClass
+        {
+            get
+            {
+                if (MEV == null) return MEVClass.All;
+                return MEV.MEVClass;
+            }
+        }
+
+        public string MEVName
+        {
+            get
+            {
+                if (MEV == null) return "";
+                return MEV.MEVType.ToString();
+            }
+        }
+
+        public string MEVActionSummary
+        {
+            get
+            {
+                if (MEV == null) return "";
+                return MEV.ActionSummary;
             }
         }
 
@@ -679,28 +703,14 @@ namespace ZeroMev.Shared
             }
         }
 
-        public bool Filter(FilterTxsBy filter)
+        public bool Filter(MEVClass filter)
         {
-            switch (filter)
-            {
-                case FilterTxsBy.All:
-                    return true;
-
-                case FilterTxsBy.MEV:
-                    return MEV.Get(this.MEVType).IsVisible;
-
-                case FilterTxsBy.ToxicMEV:
-                    return MEV.Get(this.MEVType).IsVisible && MEV.Get(this.MEVType).IsToxic;
-
-                case FilterTxsBy.OtherMEV:
-                    return MEV.Get(this.MEVType).IsVisible && !MEV.Get(this.MEVType).IsToxic;
-
-                default:
-                    return false;
-            }
+            if (filter == MEVClass.All) return true;
+            if (MEV.MEVClass == MEVClass.Info && MEV != null) return true;
+            return (MEV.MEVClass == filter);
         }
 
-        public bool FilterOut(FilterTxsBy filter)
+        public bool FilterOut(MEVClass filter)
         {
             return !Filter(filter);
         }

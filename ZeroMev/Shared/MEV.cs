@@ -11,20 +11,21 @@ namespace ZeroMev.Shared
     {
         None,
         Swap,
-        ContractSwaps,
+        Swaps,
         Frontrun,
         Sandwich,
         Backrun,
         Arb,
-        Liquidation,
+        Liquid,
         NFT,
         PunkBid,
-        PunkAcceptance,
+        PunkAccept,
         PunkSnipe
     }
 
     public enum MEVClass
     {
+        All,
         Unclassified,
         Positive,
         Neutral,
@@ -190,6 +191,17 @@ namespace ZeroMev.Shared
             }
             return Symbols[symbolIndex].Name;
         }
+
+        public string? GetImage(int symbolIndex)
+        {
+            if (symbolIndex < 0)
+            {
+                if (symbolIndex == Symbol.EthSymbolIndex)
+                    return Symbol.EthSymbol.GetImageUrl();
+                return Symbol.UnknownImage;
+            }
+            return Symbols[symbolIndex].GetImageUrl();
+        }
     }
 
     public class MEVSwap : IMEV
@@ -279,9 +291,12 @@ namespace ZeroMev.Shared
 
         public void BuildActionSummary(MEVBlock2 mevBlock, StringBuilder sb)
         {
-            sb.Append(mevBlock.GetSymbolName(SymbolInIndex));
-            sb.Append(" > ");
-            sb.Append(mevBlock.GetSymbolName(SymbolOutIndex));
+            sb.Append("<img src=\"");
+            sb.Append(mevBlock.GetImage(SymbolInIndex));
+            //sb.Append("\" width=\"24\" height=\"24\"> <img src=\"swap.png\" width=\"24\" height=\"24\">  <img src=\"");
+            sb.Append("\" width=\"20\" height=\"20\"> : <img src=\"");
+            sb.Append(mevBlock.GetImage(SymbolOutIndex));
+            sb.Append("\" width=\"20\" height=\"20\">");
         }
 
         public void BuildActionDetail(MEVBlock2 mevBlock, StringBuilder sb)
@@ -325,7 +340,7 @@ namespace ZeroMev.Shared
         public string TxHash => null;
 
         [JsonIgnore]
-        public MEVType MEVType => MEVType.ContractSwaps;
+        public MEVType MEVType => MEVType.Swaps;
 
         [JsonIgnore]
         public MEVClass MEVClass => MEVClass.Info;
@@ -361,7 +376,6 @@ namespace ZeroMev.Shared
             {
                 sb.Append(" +");
                 sb.Append(Swaps.Count - 1);
-                sb.Append(" more");
             }
             sb.AppendLine();
             return sb.ToString();
@@ -591,17 +605,6 @@ namespace ZeroMev.Shared
         public void Cache(MEVBlock2 mevBlock, int mevIndex)
         {
             StringBuilder sb = new StringBuilder();
-            sb.Append(Swaps.Count);
-            sb.Append(" swaps = impact $");
-            if (MEVAmountUsd != null)
-            {
-                sb.Append(MEVAmountUsd.Value.ToString());
-                sb.AppendLine(".");
-            }
-            else
-            {
-                sb.AppendLine("?");
-            }
             BuildActionSummary(mevBlock, sb);
             ActionSummary = sb.ToString();
 
@@ -618,7 +621,6 @@ namespace ZeroMev.Shared
             {
                 sb.Append(" +");
                 sb.Append(Swaps.Count - 1);
-                sb.Append(" more");
             }
             sb.AppendLine();
             return sb.ToString();
@@ -687,7 +689,7 @@ namespace ZeroMev.Shared
         public int? TxIndex => null;
 
         [JsonIgnore]
-        public MEVType MEVType => MEVType.Liquidation;
+        public MEVType MEVType => MEVType.Liquid;
 
         [JsonIgnore]
         public MEVClass MEVClass => MEVClass.Unclassified;
@@ -832,10 +834,9 @@ namespace ZeroMev.Shared
             }
 
             sb.Clear();
-            sb.Append("<a href='");
+            sb.Append("<img src=\"\\nft.png\" alt=\"nft\" width=\"24\" height=\"24\"></img><a href=\"");
             sb.Append(nftLink);
-            sb.Append("'>");
-            sb.Append("nft $");
+            sb.Append("\\> $");
             if (PaymentAmountUsd != null)
                 sb.Append(PaymentAmountUsd);
             else
@@ -914,7 +915,6 @@ namespace ZeroMev.Shared
             {
                 if (row.MEVType == MEVType.None) continue;
                 int mi = (int)row.MEVType;
-                if (MEV.Rows[mi].Parent != 0) continue;
                 MEVSummaries[mi].Count++;
                 decimal mevAmount = 0;
                 if (row.MEVAmount.HasValue)
@@ -924,6 +924,7 @@ namespace ZeroMev.Shared
 
                 if (MEV.Rows[mi].IsVisible)
                 {
+                    /*
                     if (MEV.Rows[mi].IsToxic)
                     {
                         MEVToxicCount++;
@@ -936,47 +937,9 @@ namespace ZeroMev.Shared
                     }
                     MEVCount++;
                     MEVAmount += mevAmount;
+                    */
                 }
             }
-        }
-
-        public void MockMEV(int txCount)
-        {
-            // temporarily mock-up mev types to allow for front-end development
-            if (txCount < 3) return;
-
-            // use the block number as the seed to the mev is reproduced for each block
-            Random r = new Random((int)BlockNumber);
-            const string comment = "<p>Some information about this mev attack</p><p>not sure how much</p><p>could include a list of txs</p><p>tx1...</p><p>tx2...</p><p>tx3...</p>";
-            List<MEVRow> rows = new List<MEVRow>();
-
-            // put a sandwich at the start of every block (likely fairly accurate!)
-            int i = 0;
-            rows.Add(new MEVRow(i++, MEVType.Frontrun, null, comment));
-            rows.Add(new MEVRow(i++, MEVType.Sandwich, MockAmount(r), comment));
-            rows.Add(new MEVRow(i++, MEVType.Backrun, null, comment));
-
-            // generate mock mev
-            for (; i < txCount; ++i)
-            {
-                for (int k = 0; k < MEV.MockProbs.Length; ++k)
-                {
-                    if (MEV.MockProbs[k] != 0 && r.NextDouble() < MEV.MockProbs[k])
-                    {
-                        decimal? amount = null;
-                        if ((MEVType)k != MEVType.Swap)
-                            amount = MockAmount(r);
-                        rows.Add(new MEVRow(i, (MEVType)k, amount, comment));
-                        break;
-                    }
-                }
-            }
-            Rows = rows.ToArray();
-        }
-
-        public decimal MockAmount(Random r)
-        {
-            return (decimal)r.NextDouble() * -120;
         }
     }
 
@@ -1006,29 +969,25 @@ namespace ZeroMev.Shared
     public struct MEVDisplay
     {
         public readonly int Index;
-        public readonly MEVType Type;
+        public readonly MEVClass Class;
         public readonly string Name;
         public readonly bool IsVisible;
-        public readonly bool IsToxic;
         public readonly string CssClass;
-        public readonly int Parent;
 
-        public MEVDisplay(int index, MEVType type, string name, bool isVisible, bool isToxic, string cssClass, int parent)
+        public MEVDisplay(MEVClass mevClass, string name, bool isVisible, string cssClass)
         {
-            Index = index;
-            Type = type;
+            Index = (int)mevClass;
+            Class = mevClass;
             Name = name;
             IsVisible = isVisible;
-            IsToxic = isToxic;
             CssClass = cssClass;
-            Parent = parent;
         }
 
         public bool DoDisplay
         {
             get
             {
-                return IsVisible && Parent == 0;
+                return IsVisible;
             }
         }
     }
@@ -1036,44 +995,27 @@ namespace ZeroMev.Shared
     public class MEV
     {
         public static MEVDisplay[] Rows = {
-            new MEVDisplay(0, MEVType.None, "", false, false, "mev-inactive", 0), // TODO don't need cssClass. Colour is set by MEVClass not MEVType
-            new MEVDisplay(1, MEVType.Swap, "Swap", true, false, "mev-swap", 0),
-            new MEVDisplay(2, MEVType.Frontrun, "Frontrun", true, true, "mev-fr", 9),
-            new MEVDisplay(3, MEVType.Sandwich, "Sandwich", true, true, "mev-sw", 0),
-            new MEVDisplay(4, MEVType.Backrun, "Backrun", true, true, "mev-br", 9),
-            new MEVDisplay(5, MEVType.Arb, "Arb", true, false, "mev-arb", 0),
-            new MEVDisplay(6, MEVType.Liquidation, "Liquidation", true, false, "mev-liq", 0),
-            new MEVDisplay(7, MEVType.NFT, "NFT", true, false, "mev-nft", 0),
-            new MEVDisplay(8, MEVType.PunkBid, "Punk Bid", true, true, "mev-snipe", 0),
-            new MEVDisplay(9, MEVType.PunkAcceptance, "Punk Accept", true, true, "mev-snipe", 0),
-            new MEVDisplay(10, MEVType.PunkSnipe, "Punk Snipe", true, true, "mev-snipe", 0) };
+            new MEVDisplay(MEVClass.All, "", false, "mev-any"),
+            new MEVDisplay(MEVClass.Unclassified, "Unclassified", true, "mev-un"),
+            new MEVDisplay(MEVClass.Positive, "Positive", true, "mev-pos"),
+            new MEVDisplay(MEVClass.Neutral, "Neutral", true, "mev-neu"),
+            new MEVDisplay(MEVClass.Toxic, "Toxic", true, "mev-tox"),
+            new MEVDisplay(MEVClass.Info, "Info", true, "mev-inf")};
 
-        public static double[] MockProbs = new double[]
-            {
-                0,
-                0.06,
-                0,
-                0,
-                0,
-                0.04,
-                0.0075,
-                0.02,
-                0.01,
-                0.005,
-                0.005
-            };
-
-        public static MEVDisplay Get(MEVType mevType)
+        public static MEVDisplay Get(MEVClass mevClass)
         {
-            return Rows[(int)mevType];
+            return Rows[(int)mevClass];
         }
 
-        public static string CssClass(MEVType mevType, OrderBy orderBy)
+        public static string CssClass(MEVClass mevClass, OrderBy orderBy)
         {
-            if (orderBy != OrderBy.Time || !Rows[(int)mevType].IsToxic)
-                return Rows[(int)mevType].CssClass;
-            else
-                return Rows[0].CssClass;
+            if (orderBy == OrderBy.Time)
+            {
+                if (mevClass == MEVClass.Toxic || mevClass == MEVClass.Positive)
+                    return Rows[(int)MEVClass.Neutral].CssClass;
+            }
+
+            return Rows[(int)mevClass].CssClass;
         }
     }
 }

@@ -59,57 +59,29 @@ a, .btn-link {
 
 /* zeromev specific */
 
-/* mev types */
-.mev-inactive {
-    background-color: #cccccc;
+/* mev classes */
+.mev-any {
+    background-color: transparent;
 }
 
-.mev-all {
+.mev-un {
     background-color: lightslategrey;
 }
 
-.mev-fr {
-    background-color: sandybrown;
+.mev-pos {
+    background-color: green;
 }
 
-.mev-br {
-    background-color: sandybrown;
+.mev-neu {
+    background-color: orange;
 }
 
-.mev-sw {
+.mev-tox {
     background-color: indianred;
 }
 
-.mev-arb {
-    background-color: cornflowerblue;
-}
-
-.mev-swap {
-    background-color: #a2c4fc;
-}
-
-.mev-nft {
-    background-color: cornflowerblue;
-}
-
-.mev-liq {
-    background-color: cornflowerblue;
-}
-
-.mev-bad-arb {
-    background-color: indianred;
-}
-
-.mev-fr-swap {
-    background-color: indianred;
-}
-
-.mev-snipe {
-    background-color: indianred;
-}
-
-.mev-fr-liq {
-    background-color: indianred;
+.mev-inf {
+    background-color: lightblue;
 }
 
 .badge.rounded-pill.pill-zm {

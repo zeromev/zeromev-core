@@ -51,7 +51,6 @@ else
             for (long blockNum = BlockNumber.Value; blockNum >= BlockNumber.Value - API.BlocksPerPage; blockNum--)
             {
                 var mb = new MEVBlock(blockNum);
-                mb.MockMEV(100); // real tx count unknown- block table will not match this page
                 mb.BuildMEVSummaries();
                 MEVBlocks.Add(mb);
             }

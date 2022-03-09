@@ -29,10 +29,10 @@ else
         </div>
         <div class="col">
             <div class="btn-group" role="group" aria-label="transaction filter">
-                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.All?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.All)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />all (@ZV.TxCount)</button>
-                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.MEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.MEV)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />mev (@ZV.MEVCount)</button>
-                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.ToxicMEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.ToxicMEV)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />toxic mev (@ZV.MEVToxicCount)</button>
-                <button type="button" class="btn btn-outline-light @(Filter==FilterTxsBy.OtherMEV?"active":"text-dark")" @onclick="() => SetFilter(FilterTxsBy.OtherMEV)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />other (@ZV.MEVOtherCount)</button>
+                <button type="button" class="btn btn-outline-light @(Filter==MEVClass.All?"active":"text-dark")" @onclick="() => SetFilter(MEVClass.All)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />all (@ZV.TxCount)</button>
+                <button type="button" class="btn btn-outline-light @(Filter==MEVClass.Info?"active":"text-dark")" @onclick="() => SetFilter(MEVClass.Info)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />info (@ZV.MEVCount)</button>
+                <button type="button" class="btn btn-outline-light @(Filter==MEVClass.Toxic?"active":"text-dark")" @onclick="() => SetFilter(MEVClass.Toxic)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />toxic mev (@ZV.MEVToxicCount)</button>
+                <button type="button" class="btn btn-outline-light @(Filter==MEVClass.Unclassified?"active":"text-dark")" @onclick="() => SetFilter(MEVClass.Unclassified)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />other (@ZV.MEVOtherCount)</button>
             </div>
         </div>
     </div>
@@ -47,6 +47,7 @@ else
             <th scope="col">delay</th>
             <th scope="col">txn hash</th>
             <th scope="col">arrival time</th>
+            <th scope="col">action</th>
             <th scope="col">mev</th>
             <th scope="col"><img src="FB.png" /></th>
             <th scope="col">from</th>
@@ -66,9 +67,10 @@ else
                     <td>@tx.InclusionDelayShort</td>
                     <td>@tx.TxnHashShort</td>
                     <td>@(tx.TimeOrder.ToString()+tx.TimeOrder.ToString(".fff"))</td>
-                    @if (MEV.Get(tx.MEVType).IsVisible)
+                    <td>@((MarkupString)tx.MEVActionSummary)</td>
+                    @if (MEV.Get(tx.MEVClass).IsVisible)
                 {
-                    <td><span class="badge text-light @MEV.CssClass(tx.MEVType, ZV.OrderBy)">@MEV.Get(tx.MEVType).Name</span></td>
+                    <td><span class="badge text-light @MEV.CssClass(tx.MEVClass, ZV.OrderBy)">@tx.MEVName</span></td>
                 }
                 else
                 {
@@ -119,12 +121,12 @@ else
     [Parameter]
     public int? TxIndex { get; set; }
 
-    FilterTxsBy Filter { get; set; } = FilterTxsBy.All;
+    MEVClass Filter { get; set; } = MEVClass.All;
     OrderBy Order { get; set; } = OrderBy.Block;
     List<ZMTx> filtered = new List<ZMTx>();
     byte[] R, G, B;
 
-    private void SetFilter(FilterTxsBy filter)
+    private void SetFilter(MEVClass filter)
     {
         Filter = filter;
     }

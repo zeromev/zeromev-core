@@ -4,8 +4,8 @@
 
 <div class=row>
     <div class="col">
-        <span class="badge text-light mx-2 @MEV.CssClass(MEVType.Sandwich, OrderBy.Block)">Toxic MEV</span>
-        <span class="badge text-light mx-2 @MEV.CssClass(MEVType.Arb, OrderBy.Block)">Other MEV</span>
+        <span class="badge text-light mx-2 @MEV.CssClass(MEVClass.Toxic, OrderBy.Block)">Toxic MEV</span>
+        <span class="badge text-light mx-2 @MEV.CssClass(MEVClass.Unclassified, OrderBy.Block)">Other MEV</span>
     </div>
 </div>
 <div class="row">
@@ -18,16 +18,17 @@
                 <hr />
                 <div class="col">
                     <a href="block?num=@mb.BlockNumber">
-                        <span class="badge text-light mx-2 my-2 @MEV.CssClass(MEVType.Sandwich, OrderBy.Block)">Toxic MEV Total</span>
+                        <span class="badge text-light mx-2 my-2 @MEV.CssClass(MEVClass.Toxic, OrderBy.Block)">Toxic MEV Total</span>
                     </a>
                     @("$"+mb.MEVToxicAmount.ToString("0.00"))
                     <a href="block?num=@mb.BlockNumber">
-                        <span class="badge text-light mx-2 my-2 @MEV.CssClass(MEVType.Arb, OrderBy.Block)">Other MEV Total</span>
+                        <span class="badge text-light mx-2 my-2 @MEV.CssClass(MEVClass.Unclassified, OrderBy.Block)">Other MEV Total</span>
                     </a>
                     @("$"+mb.MEVOtherAmount.ToString("0.00"))
                 </div>
                 @foreach (var m in mb.Rows)
             {
+                /*
                 @if (MEV.Get(m.MEVType).DoDisplay && m.MEVAmount.HasValue)
                 {
                     <a href="block?num=@mb.BlockNumber&txi=@m.Index">
@@ -38,6 +39,7 @@
                         @("$"+m.MEVAmount.Value.ToString("0.00"))
                     }
                 }
+                */
             }
         </Virtualize>
         }
