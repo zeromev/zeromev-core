@@ -19,7 +19,7 @@ namespace ZeroMev.Test
         {
             const long blockNumber = 13359463;
 
-            var json = await DB.BuildZmBlockJson(blockNumber);
+            var json = await DB.GetZmBlockJson(blockNumber);
             Debug.WriteLine(json);
             var zb = JsonSerializer.Deserialize<ZMBlock>(json, ZMSerializeOptions.Default);
             Assert.AreEqual(zb.BlockNumber, blockNumber);

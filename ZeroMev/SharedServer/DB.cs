@@ -321,7 +321,7 @@ namespace ZeroMev.SharedServer
             return DB.BuildZMBlock(blocks);
         }
 
-        public async static Task<string> BuildZmBlockJson(long blockNumber)
+        public async static Task<string> GetZmBlockJson(long blockNumber)
         {
             // extractors
             var cmdExtractors = new NpgsqlBatchCommand(ReadExtractorBlockSQL);

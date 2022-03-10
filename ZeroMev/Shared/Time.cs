@@ -4,14 +4,16 @@ namespace ZeroMev.Shared
 {
     public static class Time
     {
-        static TimeZoneInfo tzUS;
-        static TimeZoneInfo tzEU;
-        static TimeZoneInfo tzAS;
+        public const string Format = "yyyy-MM-dd HH:mm:ss.fff";
 
         // these are needed due to the inconsistent behaviour of timezones on Blazor/Azure (see https://github.com/dotnet/runtime/issues/60175)
         const string US = @"Central Standard Time;-360;(UTC-06:00) Central Time (US & Canada);Central Standard Time;Central Summer Time;[01:01:0001;12:31:2006;60;[0;02:00:00;4;1;0;];[0;02:00:00;10;5;0;];][01:01:2007;12:31:9999;60;[0;02:00:00;3;2;0;];[0;02:00:00;11;1;0;];];";
         const string EU = @"Central European Standard Time;60;(UTC+01:00) Sarajevo, Skopje, Warsaw, Zagreb;Central European Standard Time;Central European Summer Time;[01:01:0001;12:31:9999;60;[0;02:00:00;3;5;0;];[0;03:00:00;10;5;0;];];";
         const string AS = @"Asia/Singapore;480;(UTC+08:00) Kuala Lumpur, Singapore;Malay Peninsula Standard Time;Malay Peninsula Summer Time;;";
+
+        static TimeZoneInfo tzUS;
+        static TimeZoneInfo tzEU;
+        static TimeZoneInfo tzAS;
 
         static Time()
         {

@@ -138,6 +138,7 @@ namespace ZeroMev.ClassifierService
                     contractSwaps.Swaps.Add(newSwap); // before adding the latest swap
                     lastContractSwaps = contractSwaps;
                 }
+                return;
             }
             mevBlock.Swaps.Add(newSwap);
             lastSwap = newSwap;
@@ -425,6 +426,11 @@ namespace ZeroMev.ClassifierService
             List<DateTime>? arrivals = null;
             List<MEVSandwiched> sandwiched = new List<MEVSandwiched>();
 
+            // TODO change to use MevBlock2.Existing to do this...
+            // iterate swaps adding sandwiches and arbs, but not swaps
+            // iterate nft/liquidations too
+            // iterate swaps adding where there are none existing for the txindex
+
             // swaps, sandwiches and arbs
             foreach (Swap s in Swaps)
             {
@@ -515,7 +521,7 @@ namespace ZeroMev.ClassifierService
                     {
                         // create the mev arb on the first arb swap
                         ZMDecimal? newAmount;
-                        decimal? arbProfitUsd = MEVHelper.GetUsdAmount(arb.Arb.ProfitTokenAddress, arb.Arb.ProfitAmount, out newAmount);
+                        decimal? arbProfitUsd = -MEVHelper.GetUsdAmount(arb.Arb.ProfitTokenAddress, arb.Arb.ProfitAmount, out newAmount);
                         var mevArb = new MEVArb(s.TransactionPosition, MEVClass.Unclassified, arbProfitUsd);
                         revertableArbSwaps.Clear();
                         lastArb = mevArb;
@@ -584,12 +590,48 @@ namespace ZeroMev.ClassifierService
                 mevBlock.NFTrades.Add(mevNft);
             }
 
+            foreach (var mb in _mevBlocks.Values)
+                TestMev(mb);
             //MEVHelper.DebugMevBlocks(_mevBlocks);
         }
 
         public void Save()
         {
             DB.QueueWriteMevBlocksAsync(_mevBlocks.Values.ToList());
+        }
+
+        public void TestMev(MEVBlock2 mb)
+        {
+            if (mb == null) return;
+            IMEV[] mevs = new IMEV[5000];
+
+            for (int i = 0; i < mb.Swaps.Count; i++) TestMev(mb.Swaps[i], mb, i, mevs);
+            for (int i = 0; i < mb.ContractSwaps.Count; i++) TestMev(mb.ContractSwaps[i], mb, i, mevs);
+            for (int i = 0; i < mb.Arbs.Count; i++) TestMev(mb.Arbs[i], mb, i, mevs);
+            for (int i = 0; i < mb.Liquidations.Count; i++) TestMev(mb.Liquidations[i], mb, i, mevs);
+            for (int i = 0; i < mb.NFTrades.Count; i++) TestMev(mb.NFTrades[i], mb, i, mevs);
+            for (int i = 0; i < mb.Sandwiched.Count; i++)
+                foreach (var s in mb.Sandwiched[i])
+                    TestMev(s, mb, i, mevs);
+            for (int i = 0; i < mb.Backruns.Count; i++) TestMev(mb.Backruns[i], mb, i, mevs);
+            for (int i = 0; i < mb.Frontruns.Count; i++) TestMev(mb.Frontruns[i], mb, i, mevs);
+        }
+
+        private void TestMev(IMEV mev, MEVBlock2 mb, int mevIndex, IMEV[] mevs)
+        {
+            // calculate members
+            mev.Cache(mb, mevIndex);
+
+            // allocate to transactions by index where possible
+            if (mev.TxIndex != null)
+            {
+                if (mevs[mev.TxIndex.Value] != null)
+                {
+                    Debug.WriteLine($"{mevs[mev.TxIndex.Value]} overwritten by {mev}");
+                }
+                mevs[mev.TxIndex.Value] = mev;
+                return;
+            }
         }
 
         public void Test()
@@ -775,7 +817,7 @@ namespace ZeroMev.ClassifierService
                     {
                         // create the mev arb on the first arb swap
                         ZMDecimal? newAmount;
-                        decimal? arbProfitUsd = MEVHelper.GetUsdAmount(arb.Arb.ProfitTokenAddress, arb.Arb.ProfitAmount, out newAmount);
+                        decimal? arbProfitUsd = -MEVHelper.GetUsdAmount(arb.Arb.ProfitTokenAddress, arb.Arb.ProfitAmount, out newAmount);
                         var mevArb = new MEVArb(s.TransactionPosition, MEVClass.Unclassified, arbProfitUsd);
                         revertableArbSwaps.Clear();
                         lastArb = mevArb;
@@ -792,8 +834,8 @@ namespace ZeroMev.ClassifierService
                         {
                             MEVHelper.AddArbSwap(lastArb, mevBlock, s, zmSwap);
                             revertableArbSwaps.Add(new SwapRecord(s, zmSwap));
-                            isArbTx = true;
                         }
+                        isArbTx = true;
                     }
                 }
 

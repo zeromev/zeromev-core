@@ -1,9 +1,5 @@
 ﻿@import url('open-iconic/font/css/open-iconic-bootstrap.min.css');
 
-html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-}
-
 h1:focus {
     outline: none;
 }
@@ -58,6 +54,14 @@ a, .btn-link {
     }
 
 /* zeromev specific */
+abbr[title] {
+    text-decoration: none !important;
+}
+
+a {
+    color: rgb(33, 37, 41) !important;
+    text-decoration: none !important;
+}
 
 /* mev classes */
 .mev-any {

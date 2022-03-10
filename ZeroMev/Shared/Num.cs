@@ -32,8 +32,15 @@ namespace ZeroMev.Shared
         public static string ShortenHex(string hex, int toLength)
         {
             if (hex == null) return "";
-            if (toLength > hex.Length) return hex;
+            if (toLength > hex.Length || hex.Length <= 3) return hex;
             return hex.Substring(0, toLength) + "...";
+        }
+
+        public static string ShortenHexAbbr(string hex, int toLength)
+        {
+            if (hex == null) return "";
+            if (toLength > hex.Length || hex.Length <= 3) return hex;
+            return $"<abbr title=\"{hex}\">{hex.Substring(0, toLength)}...</abbr>";
         }
 
         public static string LongToHex(long value)

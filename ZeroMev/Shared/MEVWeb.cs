@@ -33,6 +33,14 @@ namespace ZeroMev.Shared
         Info
     }
 
+    public enum MEVFilter
+    {
+        All,
+        Info,
+        Toxic,
+        Other
+    }
+
     public enum MEVError
     {
         None,
@@ -169,6 +177,8 @@ namespace ZeroMev.Shared
         public int[] MEVClassCount { get; private set; }
         [JsonIgnore]
         public int[] MEVClassAmount { get; private set; }
+        [JsonIgnore]
+        public IMEV[] Existing { get; private set; }
 
         public Symbol? GetSymbol(int symbolIndex)
         {
@@ -270,7 +280,7 @@ namespace ZeroMev.Shared
         public decimal? MEVAmountUsd { get; set; } = null;
 
         [JsonIgnore]
-        public string? MEVDetail { get; set; } = "";
+        public string? MEVDetail { get; set; } = null;
 
         [JsonIgnore]
         public string? ActionSummary { get; set; }
@@ -293,8 +303,7 @@ namespace ZeroMev.Shared
         {
             sb.Append("<img src=\"");
             sb.Append(mevBlock.GetImage(SymbolInIndex));
-            //sb.Append("\" width=\"24\" height=\"24\"> <img src=\"swap.png\" width=\"24\" height=\"24\">  <img src=\"");
-            sb.Append("\" width=\"20\" height=\"20\"> : <img src=\"");
+            sb.Append("\" width=\"20\" height=\"20\"><img src=\"swap.svg\" width=\"20\" height=\"20\"><img src=\"");
             sb.Append(mevBlock.GetImage(SymbolOutIndex));
             sb.Append("\" width=\"20\" height=\"20\">");
         }
@@ -349,7 +358,7 @@ namespace ZeroMev.Shared
         public decimal? MEVAmountUsd { get; set; } = null;
 
         [JsonIgnore]
-        public string? MEVDetail { get; set; } = "";
+        public string? MEVDetail { get; set; } = null;
 
         [JsonIgnore]
         public string? ActionSummary { get; set; }
@@ -605,6 +614,29 @@ namespace ZeroMev.Shared
         public void Cache(MEVBlock2 mevBlock, int mevIndex)
         {
             StringBuilder sb = new StringBuilder();
+
+            if (MEVAmountUsd == null)
+            {
+                sb.AppendLine("arb missing exchange rates, can't calculate.");
+            }
+            else
+            {
+                if (Swaps == null || Swaps.Count == 0)
+                {
+                    sb.AppendLine("no arb swaps.");
+                }
+                else
+                {
+                    sb.Append(Swaps.Count);
+                    sb.AppendLine(" swaps in arb.");
+                }
+                sb.Append("arb victim impact $");
+                sb.Append(MEVAmountUsd);
+                sb.AppendLine(".");
+            }
+            MEVDetail = sb.ToString();
+
+            sb.Clear();
             BuildActionSummary(mevBlock, sb);
             ActionSummary = sb.ToString();
 
@@ -695,7 +727,7 @@ namespace ZeroMev.Shared
         public MEVClass MEVClass => MEVClass.Unclassified;
 
         [JsonIgnore]
-        public string? MEVDetail { get; set; } = "";
+        public string? MEVDetail { get; set; } = null;
 
         [JsonIgnore]
         public string? ActionSummary { get; set; }
@@ -807,7 +839,7 @@ namespace ZeroMev.Shared
         public decimal? MEVAmountUsd { get; set; } = null;
 
         [JsonIgnore]
-        public string? MEVDetail { get; set; } = "";
+        public string? MEVDetail { get; set; } = null;
 
         [JsonIgnore]
         public string? ActionSummary { get; set; }
@@ -834,14 +866,9 @@ namespace ZeroMev.Shared
             }
 
             sb.Clear();
-            sb.Append("<img src=\"\\nft.png\" alt=\"nft\" width=\"24\" height=\"24\"></img><a href=\"");
+            sb.Append("<a href=\"");
             sb.Append(nftLink);
-            sb.Append("\\> $");
-            if (PaymentAmountUsd != null)
-                sb.Append(PaymentAmountUsd);
-            else
-                sb.Append("?");
-            sb.Append("</a>");
+            sb.Append("\" target=\"_blank\"><img src=\"\\nft.png\" alt=\"nft\" width=\"20\" height=\"20\"><img src=\"\\link.svg\" alt=\"nft link\" width=\"20\" height=\"20\"></a>");
             ActionSummary = sb.ToString();
 
             sb.Clear();
@@ -901,7 +928,7 @@ namespace ZeroMev.Shared
             if (Rows == null)
                 return;
 
-            MEVSummaries = new MEVSummary[MEV.Rows.Length];
+            MEVSummaries = new MEVSummary[MEVWeb.Rows.Length];
 
             MEVCount = 0;
             MEVOtherCount = 0;
@@ -920,9 +947,9 @@ namespace ZeroMev.Shared
                 if (row.MEVAmount.HasValue)
                     mevAmount = row.MEVAmount.Value;
 
-                MEVSummaries[mi].Amount += mevAmount;
+                MEVSummaries[mi].AmountUsd += mevAmount;
 
-                if (MEV.Rows[mi].IsVisible)
+                if (MEVWeb.Rows[mi].IsVisible)
                 {
                     /*
                     if (MEV.Rows[mi].IsToxic)
@@ -945,9 +972,9 @@ namespace ZeroMev.Shared
 
     public struct MEVSummary
     {
-        public MEVType MevType;
+        public MEVFilter MEVFilter;
         public decimal Count;
-        public decimal Amount;
+        public decimal AmountUsd;
     }
 
     public class MEVRow
@@ -992,7 +1019,7 @@ namespace ZeroMev.Shared
         }
     }
 
-    public class MEV
+    public class MEVWeb
     {
         public static MEVDisplay[] Rows = {
             new MEVDisplay(MEVClass.All, "", false, "mev-any"),
@@ -1016,6 +1043,23 @@ namespace ZeroMev.Shared
             }
 
             return Rows[(int)mevClass].CssClass;
+        }
+
+        public static MEVFilter GetMEVFilter(MEVClass mevClass)
+        {
+            switch (mevClass)
+            {
+                case MEVClass.Toxic:
+                    return MEVFilter.Toxic;
+
+                case MEVClass.Unclassified:
+                case MEVClass.Positive:
+                case MEVClass.Neutral:
+                    return MEVFilter.Other;
+
+                default:
+                    return MEVFilter.Info;
+            }
         }
     }
 }

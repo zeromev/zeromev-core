@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text;
 using System.Numerics;
 using System.Collections;
 using System.Collections.Generic;
@@ -183,12 +184,8 @@ namespace ZeroMev.Shared
         public int ValidPopCount;
         public ZMTx[] Txs;
         public MEVSummary[] MEVSummaries;
-        public int MEVCount;
-        public int MEVOtherCount;
-        public int MEVToxicCount;
-        public decimal MEVAmount;
-        public decimal MEVOtherAmount;
-        public decimal MEVToxicAmount;
+        public string BlockTimeDetail;
+        public string PoPDetail;
 
         // display members
         public bool HasStats;
@@ -204,6 +201,8 @@ namespace ZeroMev.Shared
         public ZMView(long blockNumber)
         {
             BlockNumber = blockNumber;
+            MEVSummaries = new MEVSummary[Enum.GetValues(typeof(MEVFilter)).Length];
+            MEVSummaries.Initialize();
         }
 
         // offline processes such as the mev classifier can supply a zm block straight from the database to avoid using the REST api
@@ -288,7 +287,7 @@ namespace ZeroMev.Shared
             BlockNumber = Num.HexToLong(b.Number);
             TxCount = b.Transactions == null ? 0 : b.Transactions.Count;
             BlockHash = b.Hash;
-            BlockHashShort = Num.ShortenHex(b.Hash, 16);
+            BlockHashShort = Num.ShortenHexAbbr(b.Hash, 16);
 
             // build transactions
             Txs = new ZMTx[TxCount];
@@ -343,6 +342,7 @@ namespace ZeroMev.Shared
             BlockTimeMin = DateTime.MaxValue;
             PendingCountMax = 0;
             int popCount = 0;
+            StringBuilder sb = new StringBuilder();
             foreach (PoP pop in PoPs)
             {
                 if (pop.ExtractorIndex == (int)ExtractorPoP.Inf && PoPs.Count != 1) continue; // infura is not a real node and messes up the stats, so only use it if we have to
@@ -351,24 +351,44 @@ namespace ZeroMev.Shared
                 if (pop.BlockTime < BlockTimeMin) BlockTimeMin = pop.BlockTime;
                 if (pop.BlockTime > BlockTimeMax) BlockTimeMax = pop.BlockTime;
                 if (pop.PendingCount > PendingCountMax) PendingCountMax = pop.PendingCount;
+                sb.Append(pop.Name.ToString());
+                sb.Append(" ");
+                sb.AppendLine(pop.BlockTime.ToString(Time.Format));
             }
+            BlockTimeDetail = sb.ToString();
 
             // calculate avg and stdev
+            sb.Clear();
             if (popCount != 0)
             {
                 long avg = sum / popCount;
 
                 double pow = 0;
                 foreach (PoP pop in PoPs)
+                {
                     if (pop.ExtractorIndex != (int)ExtractorPoP.Inf)
-                        pow += Math.Pow((double)(pop.BlockTime.Ticks - avg), 2);
+                    {
+                        long diff = pop.BlockTime.Ticks - avg;
+                        TimeSpan ts = new TimeSpan(diff);
+                        pow += Math.Pow((double)diff, 2);
+                        sb.Append(pop.Name.ToString());
+                        sb.Append(" ");
+                        sb.AppendLine(ZMTx.DurationStrLong(ts));
+                    }
+                }
 
                 BlockTimeAvg = new DateTime(avg);
                 BlockTimeRangeMin = BlockTimeMin - BlockTimeAvg;
                 BlockTimeRangeMax = BlockTimeMax - BlockTimeAvg;
                 BlockTimeRangeStdev = new TimeSpan((long)Math.Sqrt(pow / popCount));
                 HasStats = true;
+                sb.AppendLine("");
+                sb.Append("avg block time ");
+                sb.AppendLine(BlockTimeAvg.ToString(Time.Format));
+                sb.Append("stdev block time ");
+                sb.AppendLine(ZMTx.DurationStrLong(BlockTimeRangeStdev));
             }
+            PoPDetail = sb.ToString();
             ValidPopCount = popCount;
 
             // pivot multiple pop arrival times into single tx rows
@@ -441,16 +461,18 @@ namespace ZeroMev.Shared
         public void SetMev(MEVBlock2 mb)
         {
             if (mb == null) return;
+            MEVSummaries.Initialize();
+
             for (int i = 0; i < mb.Swaps.Count; i++) SetMev(mb.Swaps[i], mb, i);
             for (int i = 0; i < mb.ContractSwaps.Count; i++) SetMev(mb.ContractSwaps[i], mb, i);
-            for (int i = 0; i < mb.Backruns.Count; i++) SetMev(mb.Backruns[i], mb, i);
-            for (int i = 0; i < mb.Sandwiched.Count; i++)
-                foreach (var s in mb.Sandwiched[i])
-                    SetMev(s, mb, i);
-            for (int i = 0; i < mb.Frontruns.Count; i++) SetMev(mb.Frontruns[i], mb, i);
             for (int i = 0; i < mb.Arbs.Count; i++) SetMev(mb.Arbs[i], mb, i);
             for (int i = 0; i < mb.Liquidations.Count; i++) SetMev(mb.Liquidations[i], mb, i);
             for (int i = 0; i < mb.NFTrades.Count; i++) SetMev(mb.NFTrades[i], mb, i);
+            for (int i = 0; i < mb.Sandwiched.Count; i++)
+                foreach (var s in mb.Sandwiched[i])
+                    SetMev(s, mb, i);
+            for (int i = 0; i < mb.Backruns.Count; i++) SetMev(mb.Backruns[i], mb, i);
+            for (int i = 0; i < mb.Frontruns.Count; i++) SetMev(mb.Frontruns[i], mb, i);
         }
 
         private void SetMev(IMEV mev, MEVBlock2 mb, int mevIndex)
@@ -458,9 +480,21 @@ namespace ZeroMev.Shared
             // calculate members
             mev.Cache(mb, mevIndex);
 
+            // calculate summaries
+            var mevFilter = MEVWeb.GetMEVFilter(mev.MEVClass);
+
+            MEVSummaries[(int)MEVFilter.All].Count++;
+            MEVSummaries[(int)MEVFilter.All].AmountUsd += mev.MEVAmountUsd ?? 0;
+            if (mevFilter == MEVFilter.Toxic || mevFilter == MEVFilter.Other)
+            {
+                MEVSummaries[(int)mevFilter].Count++;
+                MEVSummaries[(int)mevFilter].AmountUsd += mev.MEVAmountUsd ?? 0;
+            }
+
             // allocate to transactions by index where possible
             if (mev.TxIndex != null)
             {
+                MEVSummaries[(int)MEVFilter.Info].Count++;
                 Txs[mev.TxIndex.Value].MEV = mev;
                 return;
             }
@@ -472,6 +506,7 @@ namespace ZeroMev.Shared
                 {
                     if (tx.TxnHash == mev.TxHash)
                     {
+                        MEVSummaries[(int)MEVFilter.Info].Count++;
                         tx.MEV = mev;
                         return;
                     }
@@ -503,7 +538,7 @@ namespace ZeroMev.Shared
             return true;
         }
 
-        public List<ZMTx> GetFiltered(MEVClass filter)
+        public List<ZMTx> GetFiltered(MEVFilter filter)
         {
             if (Txs.Length == 0)
                 return new List<ZMTx>();
@@ -541,6 +576,7 @@ namespace ZeroMev.Shared
         // set from zm block data
         public TimeSpan InclusionDelay { get; private set; }
         public string InclusionDelayShort { get; private set; }
+        public string InclusionDelayDetail { get; private set; }
         public string HeatmapRGB { get; set; }
         public byte R { get; set; }
         public byte G { get; set; }
@@ -552,6 +588,7 @@ namespace ZeroMev.Shared
         public DateTime ArrivalMin { get; private set; }
         public DateTime? ArrivalMean { get; private set; }
         public TimeSpan? ArrivalStdev { get; private set; }
+        public string TimeOrderDetail { get; private set; }
 
         // flashbots
         public int? FBBundle { get; set; }
@@ -569,7 +606,7 @@ namespace ZeroMev.Shared
         {
             get
             {
-                if (!MEV.MEVAmountUsd.HasValue) return "";
+                if (MEV == null || !MEV.MEVAmountUsd.HasValue) return "";
                 return "$" + MEV.MEVAmountUsd.Value.ToString("0.00");
             }
         }
@@ -587,7 +624,7 @@ namespace ZeroMev.Shared
         {
             get
             {
-                if (MEV == null) return "";
+                if (MEV == null) return null;
                 return MEV.MEVType.ToString();
             }
         }
@@ -596,8 +633,35 @@ namespace ZeroMev.Shared
         {
             get
             {
-                if (MEV == null) return "";
+                if (MEV == null) return null;
                 return MEV.ActionSummary;
+            }
+        }
+
+        public string MEVActionDetail
+        {
+            get
+            {
+                if (MEV == null) return null;
+                return MEV.ActionDetail;
+            }
+        }
+
+        public string MEVDetail
+        {
+            get
+            {
+                if (MEV == null) return null;
+                return MEV.MEVDetail;
+            }
+        }
+
+        public MEVFilter MEVFilter
+        {
+            get
+            {
+                if (MEV == null) return MEVFilter.All;
+                return MEVWeb.GetMEVFilter(MEV.MEVClass);
             }
         }
 
@@ -608,11 +672,11 @@ namespace ZeroMev.Shared
 
             TxnHash = infTx.Hash;
             TxIndex = Num.HexToInt(infTx.TransactionIndex);
-            TxnHashShort = Num.ShortenHex(infTx.Hash, 16);
+            TxnHashShort = $"<a href=\"https://etherscan.io/tx/{infTx.Hash}\" target=\"_blank\">{Num.ShortenHexAbbr(infTx.Hash, 16)}</a>";
             From = infTx.From;
-            FromShort = Num.ShortenHex(infTx.From, 16);
+            FromShort = $"<a href=\"https://etherscan.io/address/{infTx.From}\" target=\"_blank\" >{Num.ShortenHexAbbr(infTx.From, 16)}</a>";
             To = infTx.To;
-            ToShort = Num.ShortenHex(infTx.To, 16);
+            ToShort = $"<a href=\"https://etherscan.io/address/{infTx.To}\" target=\"_blank\" >{Num.ShortenHexAbbr(infTx.To, 16)}</a>";
             ValueHex = infTx.Value;
             Value = Num.HexToValue(infTx.Value);
             GasPriceHex = infTx.GasPrice;
@@ -688,12 +752,16 @@ namespace ZeroMev.Shared
                 TimeOrder = zv.BlockTimeAvg;
                 InclusionDelay = new TimeSpan(0);
                 InclusionDelayShort = "miner";
+                InclusionDelayDetail = "not seen by any node, inserted by the miner.";
+                TimeOrderDetail = "inserted by the miner at " + TimeOrder.ToString(Time.Format);
             }
             else
             {
                 TimeOrder = min;
                 InclusionDelay = zv.BlockTimeAvg - TimeOrder;
                 InclusionDelayShort = DurationStr(InclusionDelay);
+                InclusionDelayDetail = GetInclusionDelayDetail(zv);
+                TimeOrderDetail = GetTimeOrderDetail(zv);
             }
 
             if (ValidCount > 1)
@@ -703,14 +771,49 @@ namespace ZeroMev.Shared
             }
         }
 
-        public bool Filter(MEVClass filter)
+        private string GetInclusionDelayDetail(ZMView zv)
         {
-            if (filter == MEVClass.All) return true;
-            if (MEV.MEVClass == MEVClass.Info && MEV != null) return true;
-            return (MEV.MEVClass == filter);
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < zv.PoPs.Count; i++)
+            {
+                if (Arrivals[i] == null) continue;
+                TimeSpan delay = zv.BlockTimeAvg - Arrivals[i].ArrivalTime;
+                sb.Append(zv.PoPs[i].Name);
+                sb.Append(" ");
+                sb.Append(DurationStrLong(delay));
+                sb.Append(" ");
+                if (Arrivals[i].ArrivalTime == ArrivalMin)
+                    sb.Append(" (first seen)");
+                sb.AppendLine();
+            }
+            return sb.ToString();
         }
 
-        public bool FilterOut(MEVClass filter)
+        private string GetTimeOrderDetail(ZMView zv)
+        {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < zv.PoPs.Count; i++)
+            {
+                if (Arrivals[i] == null) continue;
+                sb.Append(zv.PoPs[i].Name);
+                sb.Append(" ");
+                sb.Append(Arrivals[i].ArrivalTime.ToString(Time.Format));
+                sb.Append(" ");
+                if (Arrivals[i].ArrivalTime == ArrivalMin)
+                    sb.Append(" (first seen)");
+                sb.AppendLine();
+            }
+            return sb.ToString();
+        }
+
+        public bool Filter(MEVFilter filter)
+        {
+            if (filter == MEVFilter.All) return true;
+            if (filter == MEVFilter.Info && MEV != null) return true;
+            return this.MEVFilter == filter;
+        }
+
+        public bool FilterOut(MEVFilter filter)
         {
             return !Filter(filter);
         }
@@ -756,6 +859,23 @@ namespace ZeroMev.Shared
                 return ts.Hours + " hrs " + ts.Minutes + " mins";
             else
                 return ts.Days + " days " + ts.Hours + " hrs";
+        }
+
+        public static string DurationStrLong(TimeSpan ts)
+        {
+            // this doesn't work in the static Time library for some reason, and must be copied locally
+            double ms = ts.TotalMilliseconds;
+
+            if (ms < 1)
+                return "0 ms";
+            else if (ms < 1000D * 60)
+                return $"{ts.ToString("s\\.fff")} secs";
+            else if (ms < 1000D * 60 * 60)
+                return $"{ts.Minutes} mins {ts.ToString("s\\.fff")} secs";
+            else if (ms < 1000D * 60 * 60 * 24)
+                return $"{ts.Hours} hrs {ts.Minutes} mins {ts.ToString("s\\.fff")} secs";
+            else
+                return $"{ts.Days} days {ts.Hours} hrs {ts.Minutes} mins {ts.ToString("s\\.fff")} secs";
         }
 
         public static int CompareByTimeOrder(ZMTx a, ZMTx b)
