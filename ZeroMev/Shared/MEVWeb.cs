@@ -178,7 +178,7 @@ namespace ZeroMev.Shared
         [JsonIgnore]
         public int[] MEVClassAmount { get; private set; }
         [JsonIgnore]
-        public IMEV[] Existing { get; private set; }
+        public bool[] ExistingMEV { get; set; }
 
         public Symbol? GetSymbol(int symbolIndex)
         {
@@ -748,20 +748,21 @@ namespace ZeroMev.Shared
 
         public string BuildActionSummary(MEVBlock2 mevBlock, StringBuilder sb)
         {
-            sb.Append(mevBlock.GetSymbolName(DebtSymbolIndex));
-            sb.Append(" $ ");
-            sb.Append(mevBlock.GetSymbolName(ReceivedSymbolIndex));
+            sb.Append("<img src=\"");
+            sb.Append(mevBlock.GetImage(DebtSymbolIndex));
+            sb.Append("\" width=\"20\" height=\"20\"><img src=\"liq.svg\" width=\"20\" height=\"20\"><img src=\"");
+            sb.Append(mevBlock.GetImage(ReceivedSymbolIndex));
+            sb.Append("\" width=\"20\" height=\"20\">");
             return sb.ToString();
         }
 
         public string BuildActionDetail(MEVBlock2 mevBlock, StringBuilder sb)
         {
-            // aave protocol.
+            // aave protocol liquidation.
             // debt purchase amount symbolA $143.11 (2784324.33).
             // received amount usd symbolB $54.17 (243432.11).
             sb.Append(Protocol.ToString());
-            sb.AppendLine(" protocol.");
-
+            sb.AppendLine(" protocol liquidation.");
             sb.Append("debt purchase amount ");
             sb.Append(mevBlock.GetSymbolName(DebtSymbolIndex));
             sb.Append(" $");
@@ -1036,12 +1037,6 @@ namespace ZeroMev.Shared
 
         public static string CssClass(MEVClass mevClass, OrderBy orderBy)
         {
-            if (orderBy == OrderBy.Time)
-            {
-                if (mevClass == MEVClass.Toxic || mevClass == MEVClass.Positive)
-                    return Rows[(int)MEVClass.Neutral].CssClass;
-            }
-
             return Rows[(int)mevClass].CssClass;
         }
 

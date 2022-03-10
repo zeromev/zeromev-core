@@ -382,11 +382,12 @@ namespace ZeroMev.Shared
                 BlockTimeRangeMax = BlockTimeMax - BlockTimeAvg;
                 BlockTimeRangeStdev = new TimeSpan((long)Math.Sqrt(pow / popCount));
                 HasStats = true;
+
                 sb.AppendLine("");
+                sb.Append("stdev block latency ");
+                sb.AppendLine(ZMTx.DurationStrLong(BlockTimeRangeStdev));
                 sb.Append("avg block time ");
                 sb.AppendLine(BlockTimeAvg.ToString(Time.Format));
-                sb.Append("stdev block time ");
-                sb.AppendLine(ZMTx.DurationStrLong(BlockTimeRangeStdev));
             }
             PoPDetail = sb.ToString();
             ValidPopCount = popCount;
@@ -846,36 +847,38 @@ namespace ZeroMev.Shared
         {
             // this doesn't work in the static Time library for some reason, and must be copied locally
             double ms = ts.TotalMilliseconds;
+            double msAbs = Math.Abs(ms);
+            string neg = ms < 0 ? "-" : "";
 
-            if (ms < 1)
+            if (msAbs < 1)
                 return "0 ms";
-            else if (ms < 1000)
-                return ((int)ts.TotalMilliseconds) + " ms";
-            else if (ms < 1000D * 60)
-                return ts.Seconds + " secs";
-            else if (ms < 1000D * 60 * 60)
-                return ts.Minutes + " mins " + ts.Seconds + " secs";
-            else if (ms < 1000D * 60 * 60 * 24)
-                return ts.Hours + " hrs " + ts.Minutes + " mins";
+            else if (msAbs < 1000)
+                return $"{neg}{((int)ts.TotalMilliseconds)} ms";
+            else if (msAbs < 1000D * 60)
+                return $"{neg}{ts.Seconds} secs";
+            else if (msAbs < 1000D * 60 * 60)
+                return $"{neg}{ts.Minutes} mins {ts.Seconds} secs";
+            else if (msAbs < 1000D * 60 * 60 * 24)
+                return $"{neg}{ts.Hours} hrs {ts.Minutes} mins";
             else
-                return ts.Days + " days " + ts.Hours + " hrs";
+                return $"{neg}{ts.Days} days  {ts.Hours} hrs";
         }
 
         public static string DurationStrLong(TimeSpan ts)
         {
             // this doesn't work in the static Time library for some reason, and must be copied locally
             double ms = ts.TotalMilliseconds;
+            double msAbs = Math.Abs(ms);
+            string neg = ms < 0 ? "-" : "";
 
-            if (ms < 1)
-                return "0 ms";
-            else if (ms < 1000D * 60)
-                return $"{ts.ToString("s\\.fff")} secs";
-            else if (ms < 1000D * 60 * 60)
-                return $"{ts.Minutes} mins {ts.ToString("s\\.fff")} secs";
-            else if (ms < 1000D * 60 * 60 * 24)
-                return $"{ts.Hours} hrs {ts.Minutes} mins {ts.ToString("s\\.fff")} secs";
+            if (msAbs < 1000D * 60)
+                return $"{neg}{ts.ToString("s\\.fff")} secs";
+            else if (msAbs < 1000D * 60 * 60)
+                return $"{neg}{ts.Minutes} mins {ts.ToString("s\\.fff")} secs";
+            else if (msAbs < 1000D * 60 * 60 * 24)
+                return $"{neg}{ts.Hours} hrs {ts.Minutes} mins {ts.ToString("s\\.fff")} secs";
             else
-                return $"{ts.Days} days {ts.Hours} hrs {ts.Minutes} mins {ts.ToString("s\\.fff")} secs";
+                return $"{neg}{ts.Days} days {ts.Hours} hrs {ts.Minutes} mins {ts.ToString("s\\.fff")} secs";
         }
 
         public static int CompareByTimeOrder(ZMTx a, ZMTx b)
