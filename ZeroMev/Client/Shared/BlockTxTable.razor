@@ -78,7 +78,7 @@ else
                 }
                 @if (MEVWeb.Get(tx.MEVClass).IsVisible)
                 {
-                    <td><abbr title="@tx.MEVDetail"><span class="badge text-light @MEVWeb.CssClass(tx.MEVClass, ZV.OrderBy)">@tx.MEVName</span></abbr></td>
+                    <td><abbr title="@tx.MEVDetail"><span class="badge text-light @MEVWeb.CssClass(tx.MEVClass)">@tx.MEVName</span></abbr></td>
                 }
                 else
                 {
@@ -112,7 +112,7 @@ else
                 }
                 @if (MEVWeb.Get(tx.MEVClass).IsVisible)
                 {
-                    <td><abbr title="@tx.MEVDetail"><span class="badge text-light @MEVWeb.CssClass(tx.MEVClass, ZV.OrderBy)">@tx.MEVName</span></abbr></td>
+                    <td><abbr title="@tx.MEVDetail"><span class="badge text-light @MEVWeb.CssClass(tx.MEVClass)">@tx.MEVName</span></abbr></td>
                 }
                 else
                 {

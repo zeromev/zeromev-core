@@ -1,7 +1,24 @@
 ﻿using System;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace ZeroMev.Shared
 {
+    public class DateTimeConverter : JsonConverter<DateTime>
+    {
+        public override DateTime Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var ticks = JsonSerializer.Deserialize<long>(ref reader, options);
+            return new DateTime(ticks);
+        }
+
+        public override void Write(Utf8JsonWriter writer, DateTime value, JsonSerializerOptions options)
+        {
+            var dto = value.Ticks;
+            JsonSerializer.Serialize(writer, dto, options);
+        }
+    }
+
     public static class Time
     {
         public const string Format = "yyyy-MM-dd HH:mm:ss.fff";

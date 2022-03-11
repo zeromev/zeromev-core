@@ -4,15 +4,16 @@ using System.Text.Json;
 using System.Collections;
 using ZeroMev.Shared;
 using ZeroMev.SharedServer;
+using ZeroMev.Server;
 
 ConfigBuilder.Build();
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
+builder.Services.AddHostedService<CacheService>();
 
 var app = builder.Build();
 

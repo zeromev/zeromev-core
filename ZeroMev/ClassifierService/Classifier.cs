@@ -144,7 +144,7 @@ namespace ZeroMev.ClassifierService
                             try
                             {
                                 bp.Run();
-                                bp.Save();
+                                await bp.Save();
                             }
                             catch (Exception ex)
                             {

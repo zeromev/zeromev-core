@@ -431,6 +431,7 @@ namespace ZeroMev.ClassifierService
 
             // swaps, sandwiches and arbs
             ZMSwap?[] zmSwaps = new ZMSwap[Swaps.Count];
+            long? skippedBlockNumber = null;
             for (int i = 0; i < Swaps.Count; i++)
             {
                 Swap s = Swaps[i];
@@ -438,6 +439,13 @@ namespace ZeroMev.ClassifierService
                 // detect new block number
                 if (mevBlock == null || s.BlockNumber != mevBlock.BlockNumber)
                 {
+                    // process liquidations and nfts along with swaps to ensure we get decent exchange rates
+                    // note that liquidations and nfts xrates are set a block granularity, where as arbs/swaps/sandwiches are set a tx level granularity
+                    var tempMevBlock = mevBlock;
+                    ProcessLiquidations(skippedBlockNumber, s.BlockNumber, ref mevBlock, ref arrivals);
+                    ProcessNfts(skippedBlockNumber, s.BlockNumber, ref mevBlock, ref arrivals);
+                    skippedBlockNumber = s.BlockNumber + 1;
+
                     if (frontrun != null)
                         throw new Exception("new block on unfinished sandwich");
 
@@ -447,6 +455,7 @@ namespace ZeroMev.ClassifierService
                     lastArb = null;
                     sandwiched.Clear();
 
+                    mevBlock = tempMevBlock;
                     if (!GetMEVBlock(s.BlockNumber, ref mevBlock, ref arrivals))
                         continue;
                 }
@@ -535,50 +544,11 @@ namespace ZeroMev.ClassifierService
                 }
             }
 
-            // liquidations
+            // remaining liquidations and nfts
             mevBlock = null;
-            foreach (var l in Liquidations)
-            {
-                if (!GetMEVBlock(l.BlockNumber, ref mevBlock, ref arrivals))
-                    continue;
-
-                var protocol = MEVHelper.GetProtocolLiquidation(l.Protocol);
-                var debtSymbolIndex = MEVHelper.GetSymbolIndex(mevBlock, l.DebtTokenAddress);
-                var debtPurchaseAmountUsd = XRates.ConvertToUsd(l.DebtTokenAddress, l.DebtPurchaseAmount);
-                var receivedSymbolIndex = MEVHelper.GetSymbolIndex(mevBlock, l.ReceivedTokenAddress);
-                var receivedAmountUsd = XRates.ConvertToUsd(l.ReceivedTokenAddress, l.ReceivedAmount);
-                bool? isReverted = l.Error == "Reverted" ? true : null;
-
-                var mevLiquidation = new MEVLiquidation(l.TransactionHash, protocol, l.DebtPurchaseAmount, debtPurchaseAmountUsd, debtSymbolIndex, l.ReceivedAmount, receivedAmountUsd, receivedSymbolIndex, isReverted);
-                mevBlock.Liquidations.Add(mevLiquidation);
-            }
-
-            // nft swaps
+            ProcessLiquidations(skippedBlockNumber ?? 0, long.MaxValue, ref mevBlock, ref arrivals);
             mevBlock = null;
-            foreach (var n in NftTrades)
-            {
-                if (!GetMEVBlock(n.BlockNumber, ref mevBlock, ref arrivals))
-                    continue;
-
-                ProtocolNFT protocol = MEVHelper.GetProtocolNFT(n.Protocol);
-                int paymentSymbolIndex;
-                decimal? paymentAmountUsd;
-                ZMDecimal? paymentAmount;
-                if (n.PaymentTokenAddress == "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee") // mev-inspect seems to use this burn address to signify ETH in nft trades
-                {
-                    paymentSymbolIndex = Symbol.EthSymbolIndex;
-                    paymentAmountUsd = MEVHelper.GetUsdAmount("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", n.PaymentAmount, out paymentAmount); // WETH
-                }
-                else
-                {
-                    paymentSymbolIndex = MEVHelper.GetSymbolIndex(mevBlock, n.PaymentTokenAddress);
-                    paymentAmountUsd = MEVHelper.GetUsdAmount(n.PaymentTokenAddress, n.PaymentAmount, out paymentAmount);
-                }
-                MEVError error = MEVHelper.GetErrorFrom(n.Error);
-                var mevNft = new MEVNFT(n.TransactionPosition, protocol, paymentSymbolIndex, n.CollectionAddress, n.TokenId.ToString(), paymentAmount, paymentAmountUsd, error);
-                if (MEVHelper.DoAddMEV(mevBlock, mevNft.TxIndex))
-                    mevBlock.NFTrades.Add(mevNft);
-            }
+            ProcessNfts(skippedBlockNumber ?? 0, long.MaxValue, ref mevBlock, ref arrivals);
 
             // add any swaps that are not part of a sandwich or arb
             MEVSwap? lastSwap = null;
@@ -608,9 +578,62 @@ namespace ZeroMev.ClassifierService
             //MEVHelper.DebugMevBlocks(_mevBlocks);
         }
 
-        public void Save()
+        private void ProcessLiquidations(long? fromBlockNumber, long toBlockNumber, ref MEVBlock2 mevBlock, ref List<DateTime>? arrivals)
         {
-            DB.QueueWriteMevBlocksAsync(_mevBlocks.Values.ToList());
+            foreach (var l in Liquidations)
+            {
+                if ((fromBlockNumber.HasValue && l.BlockNumber < fromBlockNumber) || l.BlockNumber > toBlockNumber)
+                    continue;
+
+                if (!GetMEVBlock(l.BlockNumber, ref mevBlock, ref arrivals))
+                    continue;
+
+                var protocol = MEVHelper.GetProtocolLiquidation(l.Protocol);
+                var debtSymbolIndex = MEVHelper.GetSymbolIndex(mevBlock, l.DebtTokenAddress);
+                var debtPurchaseAmountUsd = XRates.ConvertToUsd(l.DebtTokenAddress, l.DebtPurchaseAmount);
+                var receivedSymbolIndex = MEVHelper.GetSymbolIndex(mevBlock, l.ReceivedTokenAddress);
+                var receivedAmountUsd = XRates.ConvertToUsd(l.ReceivedTokenAddress, l.ReceivedAmount);
+                bool? isReverted = l.Error == "Reverted" ? true : null;
+
+                var mevLiquidation = new MEVLiquidation(l.TransactionHash, protocol, l.DebtPurchaseAmount, debtPurchaseAmountUsd, debtSymbolIndex, l.ReceivedAmount, receivedAmountUsd, receivedSymbolIndex, isReverted);
+                mevBlock.Liquidations.Add(mevLiquidation);
+            }
+        }
+
+        private void ProcessNfts(long? fromBlockNumber, long toBlockNumber, ref MEVBlock2 mevBlock, ref List<DateTime>? arrivals)
+        {
+            foreach (var n in NftTrades)
+            {
+                if ((fromBlockNumber.HasValue && n.BlockNumber < fromBlockNumber) || n.BlockNumber > toBlockNumber)
+                    continue;
+
+                if (!GetMEVBlock(n.BlockNumber, ref mevBlock, ref arrivals))
+                    continue;
+
+                ProtocolNFT protocol = MEVHelper.GetProtocolNFT(n.Protocol);
+                int paymentSymbolIndex;
+                decimal? paymentAmountUsd;
+                ZMDecimal? paymentAmount;
+                if (n.PaymentTokenAddress == "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee") // mev-inspect seems to use this burn address to signify ETH in nft trades
+                {
+                    paymentSymbolIndex = Symbol.EthSymbolIndex;
+                    paymentAmountUsd = MEVHelper.GetUsdAmount("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2", n.PaymentAmount, out paymentAmount); // WETH
+                }
+                else
+                {
+                    paymentSymbolIndex = MEVHelper.GetSymbolIndex(mevBlock, n.PaymentTokenAddress);
+                    paymentAmountUsd = MEVHelper.GetUsdAmount(n.PaymentTokenAddress, n.PaymentAmount, out paymentAmount);
+                }
+                MEVError error = MEVHelper.GetErrorFrom(n.Error);
+                var mevNft = new MEVNFT(n.TransactionPosition, protocol, paymentSymbolIndex, n.CollectionAddress, n.TokenId.ToString(), paymentAmount, paymentAmountUsd, error);
+                if (MEVHelper.DoAddMEV(mevBlock, mevNft.TxIndex))
+                    mevBlock.NFTrades.Add(mevNft);
+            }
+        }
+
+        public async Task Save()
+        {
+            await DB.QueueWriteMevBlocksAsync(_mevBlocks.Values.ToList());
         }
 
         public void TestMev(MEVBlock2 mb)
@@ -972,6 +995,10 @@ namespace ZeroMev.ClassifierService
                     Debug.Assert(arrivals.Count == zmb.TransactionCount);
                     if (mevBlock.ExistingMEV == null)
                         mevBlock.ExistingMEV = new bool[arrivals.Count];
+                    mevBlock.BlockTime = zmb.BlockTime;
+                    var ethUsd = XRates.GetUsdRate("0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2");
+                    if (ethUsd != null)
+                        mevBlock.EthUsd = (decimal?)ethUsd.Value.ToUsd();
                 }
                 else
                 {

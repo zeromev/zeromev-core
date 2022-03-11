@@ -17,7 +17,7 @@ namespace ZeroMev.Test
     public class ClassifierTest
     {
         [TestMethod]
-        public void BuildDEXsTest()
+        public async Task BuildDEXsTest()
         {
             const int fromBlock = 13358564;
             const int toBlock = 13358564 + 10000;
@@ -25,7 +25,7 @@ namespace ZeroMev.Test
             var dexs = new DEXs();
             var bi = BlockProcess.Load(fromBlock, toBlock, dexs);
             bi.Run();
-            bi.Save();
+            await bi.Save();
             Stopwatch sw = Stopwatch.StartNew();
             sw.Stop();
 

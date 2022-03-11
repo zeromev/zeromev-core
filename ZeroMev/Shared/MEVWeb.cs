@@ -140,11 +140,14 @@ namespace ZeroMev.Shared
         [JsonPropertyName("bn")]
         public long BlockNumber { get; set; }
 
+        [JsonPropertyName("ts")]
+        public DateTime? BlockTime { get; set; }
+
         [JsonPropertyName("sb")]
         public List<Symbol> Symbols { get; set; } = new List<Symbol>();
 
         [JsonPropertyName("eu")]
-        public decimal? ETHUSD { get; set; }
+        public decimal? EthUsd { get; set; }
 
         [JsonPropertyName("s")]
         public List<MEVSwap> Swaps { get; set; } = new List<MEVSwap>();
@@ -1035,7 +1038,7 @@ namespace ZeroMev.Shared
             return Rows[(int)mevClass];
         }
 
-        public static string CssClass(MEVClass mevClass, OrderBy orderBy)
+        public static string CssClass(MEVClass mevClass)
         {
             return Rows[(int)mevClass].CssClass;
         }

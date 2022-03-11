@@ -49,5 +49,7 @@ else
         // fail if we don't have a valid block view by now
         if (zv == null)
             NavigationManager.NavigateTo("searchfailed");
+        else
+            Cache.SetLastBlockNumber(zv.LastBlockNumber);
     }
 }

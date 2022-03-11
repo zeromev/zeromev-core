@@ -43,6 +43,7 @@ namespace ZeroMev.Shared
             Default = new JsonSerializerOptions { IncludeFields = true, PropertyNameCaseInsensitive = true };
             Default.Converters.Add(new BitArrayConverter());
             Default.Converters.Add(new ZMDecimalConverter());
+            Default.Converters.Add(new DateTimeConverter());
 
             StringToInt = new JsonSerializerOptions { IncludeFields = true, PropertyNameCaseInsensitive = true };
             StringToInt.Converters.Add(new StringToIntJsonConverter());
@@ -89,16 +90,19 @@ namespace ZeroMev.Shared
 
     public class ZMBlock
     {
-        [JsonPropertyName("blockNumber")]
+        [JsonPropertyName("blocknum")]
         public long BlockNumber;
 
-        [JsonPropertyName("PoPs")]
+        [JsonPropertyName("last")]
+        public long? LastBlockNumber;
+
+        [JsonPropertyName("pop")]
         public List<PoP> PoPs;
 
-        [JsonPropertyName("fbBundles")]
+        [JsonPropertyName("fb")]
         public BitArray Bundles;
 
-        [JsonPropertyName("mevBlock")]
+        [JsonPropertyName("mev")]
         public MEVBlock2 MevBlock;
 
         [JsonConstructor]
@@ -137,19 +141,19 @@ namespace ZeroMev.Shared
         [JsonPropertyName("name")]
         public string Name;
 
-        [JsonPropertyName("blockTime")]
+        [JsonPropertyName("blocktime")]
         public DateTime BlockTime;
 
-        [JsonPropertyName("pendingCount")]
+        [JsonPropertyName("pending")]
         public int PendingCount;
 
-        [JsonPropertyName("extractorStartTime")]
+        [JsonPropertyName("start")]
         public DateTime ExtractorStartTime;
 
-        [JsonPropertyName("arrivalCount")]
+        [JsonPropertyName("count")]
         public long ArrivalCount;
 
-        [JsonPropertyName("txTimes")]
+        [JsonPropertyName("times")]
         public List<TxTime> TxTimes;
 
         public override string ToString()
@@ -166,6 +170,7 @@ namespace ZeroMev.Shared
         public string BlockHashShort;
 
         // set from zm block
+        public long? LastBlockNumber;
         public List<PoP> PoPs;
         public DateTime BlockTimeAvg;
         public DateTime BlockTimeMin;
@@ -310,6 +315,8 @@ namespace ZeroMev.Shared
         {
             if (zb == null)
                 return false;
+
+            LastBlockNumber = zb.LastBlockNumber;
 
             // basic block members must have already been set and txs initialized
             if (Txs == null || Txs.Length != TxCount)
@@ -903,9 +910,17 @@ namespace ZeroMev.Shared
 
     public class ZMCache
     {
+        public long? LastBlockNumber;
         public ZMViewCache ZMViewCache = new ZMViewCache();
         public TxhCache TxhCache = new TxhCache();
         public AccountCache AccountCache = new AccountCache();
+
+        public long? SetLastBlockNumber(long? lastBlockNumber)
+        {
+            if (lastBlockNumber != null && (LastBlockNumber == null || lastBlockNumber > LastBlockNumber))
+                LastBlockNumber = lastBlockNumber;
+            return LastBlockNumber;
+        }
     }
 
     public class ZMViewCache

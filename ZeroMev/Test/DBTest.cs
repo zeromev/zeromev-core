@@ -15,6 +15,25 @@ namespace ZeroMev.Test
     public class DBTest
     {
         [TestMethod]
+        public async Task ReadLatestMevBlock()
+        {
+            long? b = await DB.ReadLatestMevBlock();
+            Assert.IsNotNull(b);
+        }
+
+        [TestMethod]
+        public async Task ReadMevBlocks()
+        {
+            const long fromBlockNumber = 13359463;
+            const long toBlockNumber = 13359463 + 10;
+
+            var mbs = await DB.ReadMevBlocks(fromBlockNumber, toBlockNumber);
+            long i = fromBlockNumber;
+            foreach (var b in mbs)
+                Assert.AreEqual(b.BlockNumber, i++);
+        }
+
+        [TestMethod]
         public async Task BuildZmBlockJson()
         {
             const long blockNumber = 13359463;

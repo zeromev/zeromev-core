@@ -47,14 +47,24 @@ namespace ZeroMev.SharedServer
         "ON CONFLICT (block_number) DO UPDATE SET " +
         "mev_data = EXCLUDED.mev_data;";
 
+        const string ReadLatestMevBlockSQL = @"SELECT block_number FROM public.latest_mev_block LIMIT 1;";
+
+        const string WriteLatestMevBlockSQL = @"UPDATE public.latest_mev_block SET block_number = @block_number WHERE @block_number > block_number;";
+
         const string ReadMevBlockSQL = @"SELECT mev_data " +
         "FROM public.mev_block " +
         "WHERE block_number = @block_number;";
+
+        const string ReadMevBlocksSQL = @"SELECT mev_data " +
+        "FROM public.mev_block " +
+        "WHERE block_number >= @from_block_number AND block_number < @to_block_number;";
 
         // write cache
         static List<ExtractorBlock> _extractorBlocks = new List<ExtractorBlock>();
         static List<FBBlock> _fbBlocks = new List<FBBlock>();
         static List<MEVBlock2> _mevBlocks = new List<MEVBlock2>();
+        static public long? LastBlockNumber = null;
+        static public string? RecentBlocksJson = null;
 
         public static void QueueWriteExtractorBlockAsync(ExtractorBlock extractorBlock)
         {
@@ -239,36 +249,33 @@ namespace ZeroMev.SharedServer
             return bundle;
         }
 
-        public static void QueueWriteMevBlocksAsync(List<MEVBlock2> mbs)
+        public static async Task QueueWriteMevBlocksAsync(List<MEVBlock2> mbs)
         {
             if (mbs == null || mbs.Count == 0)
                 return;
 
             try
             {
-                lock (_mevBlocks)
+                // employ a simple retry queue for writes so data is not lost even if the DB goes down for long periods (as long as the extractor keeps running)
+                _mevBlocks.AddRange(mbs);
+
+                Stopwatch sw = new Stopwatch();
+                sw.Start();
+
+                using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.DB))
                 {
-                    // employ a simple retry queue for writes so data is not lost even if the DB goes down for long periods (as long as the extractor keeps running)
-                    _mevBlocks.AddRange(mbs);
+                    conn.Open();
 
-                    Stopwatch sw = new Stopwatch();
-                    sw.Start();
-
-                    using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.DB))
+                    while (_mevBlocks.Count > 0)
                     {
-                        conn.Open();
-
-                        while (_mevBlocks.Count > 0)
-                        {
-                            MEVBlock2 nextMevBlock = _mevBlocks[0];
-                            WriteMevBlock(conn, nextMevBlock);
-                            _mevBlocks.RemoveAt(0);
-                        }
+                        MEVBlock2 nextMevBlock = _mevBlocks[0];
+                        await WriteMevBlock(conn, nextMevBlock);
+                        _mevBlocks.RemoveAt(0);
                     }
-
-                    sw.Stop();
-                    Console.WriteLine($"flashbots_block update in {sw.ElapsedMilliseconds} ms");
                 }
+
+                sw.Stop();
+                Console.WriteLine($"flashbots_block update in {sw.ElapsedMilliseconds} ms");
             }
             catch (Exception e)
             {
@@ -277,19 +284,30 @@ namespace ZeroMev.SharedServer
             }
         }
 
-        public static void WriteMevBlock(NpgsqlConnection conn, MEVBlock2 mb)
+        public async static Task WriteMevBlock(NpgsqlConnection conn, MEVBlock2 mb)
         {
             var mevJson = JsonSerializer.Serialize<MEVBlock2>(mb, ZMSerializeOptions.Default);
             var mevJsonComp = Binary.Compress(Encoding.ASCII.GetBytes(mevJson));
 
-            using (var cmd = new NpgsqlCommand(WriteMevBlockSQL, conn))
-            {
-                cmd.Parameters.Add(new NpgsqlParameter<long>("@block_number", mb.BlockNumber));
-                cmd.Parameters.Add(new NpgsqlParameter<byte[]>("@mev_data", mevJsonComp));
+            // mev block
+            var cmdMevBlock = new NpgsqlBatchCommand(WriteMevBlockSQL);
+            cmdMevBlock.Parameters.Add(new NpgsqlParameter<long>("@block_number", mb.BlockNumber));
+            cmdMevBlock.Parameters.Add(new NpgsqlParameter<byte[]>("@mev_data", mevJsonComp));
 
-                cmd.Prepare();
-                cmd.ExecuteNonQuery();
-            }
+            // latest mev block
+            var cmdLatestMevBlock = new NpgsqlBatchCommand(WriteLatestMevBlockSQL);
+            cmdLatestMevBlock.Parameters.Add(new NpgsqlParameter<long>("@block_number", mb.BlockNumber));
+
+            // write them both in a single roundtrip
+            await using var batch = new NpgsqlBatch(conn)
+            {
+                BatchCommands =
+                {
+                    cmdMevBlock,
+                    cmdLatestMevBlock
+                }
+            };
+            await batch.ExecuteNonQueryAsync();
         }
 
         public static ZMBlock BuildZMBlock(List<ExtractorBlock> ebs)
@@ -374,6 +392,8 @@ namespace ZeroMev.SharedServer
             if (zb == null)
                 zb = new ZMBlock(blockNumber, null);
             zb.Bundles = bundles;
+            if (DB.LastBlockNumber != null)
+                zb.LastBlockNumber = DB.LastBlockNumber;
             var json = JsonSerializer.Serialize(zb, ZMSerializeOptions.Default);
 
             // inject mev data into the json
@@ -381,10 +401,60 @@ namespace ZeroMev.SharedServer
             {
                 byte[] mev = Binary.Decompress(mevComp);
                 var mevJson = ASCIIEncoding.ASCII.GetString(mev);
-                json = json.Replace("\"mevBlock\":null", "\"mevBlock\":" + mevJson);
+                json = json.Replace("\"mev\":null", "\"mev\":" + mevJson);
             }
 
             return json;
+        }
+
+        public static async Task<long?> ReadLatestMevBlock()
+        {
+            long? latestBlockNumber = null;
+
+            using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.DB))
+            {
+                conn.Open();
+                using (var cmd = new NpgsqlCommand(ReadLatestMevBlockSQL, conn))
+                {
+                    cmd.Prepare();
+                    var dr = await cmd.ExecuteReaderAsync();
+
+                    while (dr.Read())
+                        latestBlockNumber = (long)dr["block_number"];
+                }
+                conn.Close();
+            }
+
+            return latestBlockNumber;
+        }
+
+        public static async Task<List<MEVBlock2>> ReadMevBlocks(long fromBlockNumber, long toBlockNumber)
+        {
+            List<MEVBlock2> mbs = new List<MEVBlock2>();
+
+            using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.DB))
+            {
+                conn.Open();
+                using (var cmd = new NpgsqlCommand(ReadMevBlocksSQL, conn))
+                {
+                    cmd.Parameters.Add(new NpgsqlParameter<long>("@from_block_number", fromBlockNumber));
+                    cmd.Parameters.Add(new NpgsqlParameter<long>("@to_block_number", toBlockNumber));
+                    cmd.Prepare();
+
+                    var dr = await cmd.ExecuteReaderAsync();
+                    while (dr.Read())
+                    {
+                        byte[] dataComp = (byte[])dr["mev_data"];
+                        var data = Binary.Decompress(dataComp);
+                        var json = ASCIIEncoding.ASCII.GetString(data);
+                        var mb = JsonSerializer.Deserialize<MEVBlock2>(json, ZMSerializeOptions.Default);
+                        mbs.Add(mb);
+                    }
+                }
+                conn.Close();
+            }
+
+            return mbs;
         }
     }
 }
