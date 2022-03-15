@@ -83,7 +83,7 @@ namespace ZeroMev.Shared
         string? MEVDetail { get; set; }
         string? ActionSummary { get; set; }
         string? ActionDetail { get; set; }
-        void Cache(MEVBlock2 mevBlock, int mevIndex); // mevIndex is allows mev instances to find other related instances, eg: backrun can cheaply find related sandwiched and frontun txs without duplicating them
+        void Cache(MEVBlock mevBlock, int mevIndex); // mevIndex is allows mev instances to find other related instances, eg: backrun can cheaply find related sandwiched and frontun txs without duplicating them
     }
 
     public class Symbol
@@ -125,13 +125,128 @@ namespace ZeroMev.Shared
         }
     }
 
-    public class MEVBlock2
+    public class MEVLiteCache
     {
-        public MEVBlock2()
+        public const int CachedMevBlockCount = 300;
+
+        [JsonPropertyName("r")]
+        public List<MEVLiteBlock> Blocks = new List<MEVLiteBlock>();
+
+        [JsonIgnore]
+        public MEVSummary[] Totals = new MEVSummary[Enum.GetValues(typeof(MEVFilter)).Length];
+
+        [JsonConstructor]
+        public MEVLiteCache()
         {
         }
 
-        public MEVBlock2(long blockNumber)
+        public void CalculateSummaries()
+        {
+            foreach (var b in Blocks)
+                b.CalculateSummaries(Totals);
+        }
+
+        public string Duration()
+        {
+            if (Blocks == null || Blocks.Count == 0) return "0 secs";
+            if (Blocks[0].BlockTime == null || Blocks[1].BlockTime == null) return "?";
+            TimeSpan ts = Blocks[0].BlockTime.Value - Blocks[Blocks.Count - 1].BlockTime.Value;
+            return ZMTx.DurationStr(ts);
+        }
+
+        public string BlockCount()
+        {
+            if (Blocks == null) return "0";
+            return Blocks.Count.ToString();
+        }
+    }
+
+    public class MEVLiteBlock
+    {
+        [JsonConstructor]
+        public MEVLiteBlock()
+        {
+        }
+
+        public MEVLiteBlock(long blockNumber, DateTime? blockTime)
+        {
+            BlockNumber = blockNumber;
+            BlockTime = blockTime;
+        }
+
+        [JsonPropertyName("b")]
+        public long BlockNumber { get; set; }
+
+        [JsonPropertyName("t")]
+        public DateTime? BlockTime { get; set; }
+
+        [JsonPropertyName("m")]
+        public List<MEVLite> MEVLite { get; set; }
+
+        [JsonIgnore]
+        public MEVSummary[] MEVSummaries;
+
+        public void CalculateSummaries(MEVSummary[] totals)
+        {
+            MEVSummaries = new MEVSummary[Enum.GetValues(typeof(MEVFilter)).Length];
+            foreach (var m in MEVLite)
+            {
+                MEVWeb.UpdateSummaries((IMEV)m, MEVSummaries);
+                MEVWeb.UpdateSummaries((IMEV)m, totals);
+            }
+        }
+    }
+
+    public class MEVLite : IMEV
+    {
+        public MEVLite(IMEV mev)
+        {
+            MEVType = mev.MEVType;
+            MEVClass = mev.MEVClass;
+            MEVAmountUsd = mev.MEVAmountUsd;
+        }
+
+        [JsonConstructor]
+        public MEVLite()
+        {
+        }
+
+        [JsonIgnore]
+        public int? TxIndex => null;
+
+        [JsonIgnore]
+        public string TxHash => null;
+
+        [JsonPropertyName("m")]
+        public MEVType MEVType { get; set; } = MEVType.None;
+
+        [JsonPropertyName("c")]
+        public MEVClass MEVClass { get; set; } = MEVClass.All;
+
+        [JsonPropertyName("u")]
+        public decimal? MEVAmountUsd { get; set; } = null;
+
+        [JsonIgnore]
+        public string? MEVDetail { get; set; } = null;
+
+        [JsonIgnore]
+        public string? ActionSummary { get; set; } = null;
+
+        [JsonIgnore]
+        public string? ActionDetail { get; set; } = null;
+
+        public void Cache(MEVBlock mevBlock, int mevIndex)
+        {
+        }
+    }
+
+    public class MEVBlock
+    {
+        public MEVBlock()
+        {
+        }
+
+        public MEVBlock(long blockNumber)
         {
             BlockNumber = blockNumber;
         }
@@ -291,7 +406,7 @@ namespace ZeroMev.Shared
         [JsonIgnore]
         public string? ActionDetail { get; set; }
 
-        public void Cache(MEVBlock2 mevBlock, int mevIndex)
+        public void Cache(MEVBlock mevBlock, int mevIndex)
         {
             StringBuilder sb = new StringBuilder();
             BuildActionSummary(mevBlock, sb);
@@ -302,7 +417,7 @@ namespace ZeroMev.Shared
             ActionDetail = sb.ToString();
         }
 
-        public void BuildActionSummary(MEVBlock2 mevBlock, StringBuilder sb)
+        public void BuildActionSummary(MEVBlock mevBlock, StringBuilder sb)
         {
             sb.Append("<img src=\"");
             sb.Append(mevBlock.GetImage(SymbolInIndex));
@@ -311,7 +426,7 @@ namespace ZeroMev.Shared
             sb.Append("\" width=\"20\" height=\"20\">");
         }
 
-        public void BuildActionDetail(MEVBlock2 mevBlock, StringBuilder sb)
+        public void BuildActionDetail(MEVBlock mevBlock, StringBuilder sb)
         {
             sb.Append(Protocol);
             sb.Append(" ");
@@ -369,7 +484,7 @@ namespace ZeroMev.Shared
         [JsonIgnore]
         public string? ActionDetail { get; set; }
 
-        public void Cache(MEVBlock2 mevBlock, int mevIndex)
+        public void Cache(MEVBlock mevBlock, int mevIndex)
         {
             StringBuilder sb = new StringBuilder();
             BuildActionSummary(mevBlock, sb);
@@ -380,7 +495,7 @@ namespace ZeroMev.Shared
             ActionDetail = sb.ToString();
         }
 
-        public string BuildActionSummary(MEVBlock2 mevBlock, StringBuilder sb)
+        public string BuildActionSummary(MEVBlock mevBlock, StringBuilder sb)
         {
             if (Swaps == null || Swaps.Count == 0) return "no swaps";
             Swaps[0].BuildActionSummary(mevBlock, sb);
@@ -393,7 +508,7 @@ namespace ZeroMev.Shared
             return sb.ToString();
         }
 
-        public string BuildActionDetail(MEVBlock2 mevBlock, StringBuilder sb)
+        public string BuildActionDetail(MEVBlock mevBlock, StringBuilder sb)
         {
             sb.Append(Swaps.Count);
             sb.AppendLine(" swaps in contract.");
@@ -445,7 +560,7 @@ namespace ZeroMev.Shared
         [JsonIgnore]
         public string? ActionDetail { get; set; }
 
-        public void Cache(MEVBlock2 mevBlock, int mevIndex)
+        public void Cache(MEVBlock mevBlock, int mevIndex)
         {
             StringBuilder sb = new StringBuilder();
             Swap.BuildActionSummary(mevBlock, sb);
@@ -497,7 +612,7 @@ namespace ZeroMev.Shared
         [JsonIgnore]
         public string? ActionDetail { get; set; }
 
-        public void Cache(MEVBlock2 mevBlock, int mevIndex)
+        public void Cache(MEVBlock mevBlock, int mevIndex)
         {
             StringBuilder sb = new StringBuilder();
             Swap.BuildActionSummary(mevBlock, sb);
@@ -549,7 +664,7 @@ namespace ZeroMev.Shared
         [JsonIgnore]
         public string? ActionDetail { get; set; }
 
-        public void Cache(MEVBlock2 mevBlock, int mevIndex)
+        public void Cache(MEVBlock mevBlock, int mevIndex)
         {
             var frontrun = mevBlock.Frontruns[mevIndex].Swap;
             if (frontrun.AmountInUsd == null || Swap.AmountOutUsd == null)
@@ -614,7 +729,7 @@ namespace ZeroMev.Shared
         [JsonIgnore]
         public string? ActionDetail { get; set; }
 
-        public void Cache(MEVBlock2 mevBlock, int mevIndex)
+        public void Cache(MEVBlock mevBlock, int mevIndex)
         {
             StringBuilder sb = new StringBuilder();
 
@@ -648,7 +763,7 @@ namespace ZeroMev.Shared
             ActionDetail = sb.ToString();
         }
 
-        public string BuildActionSummary(MEVBlock2 mevBlock, StringBuilder sb)
+        public string BuildActionSummary(MEVBlock mevBlock, StringBuilder sb)
         {
             if (Swaps == null || Swaps.Count == 0) return "no swaps.";
             Swaps[0].BuildActionSummary(mevBlock, sb);
@@ -661,7 +776,7 @@ namespace ZeroMev.Shared
             return sb.ToString();
         }
 
-        public string BuildActionDetail(MEVBlock2 mevBlock, StringBuilder sb)
+        public string BuildActionDetail(MEVBlock mevBlock, StringBuilder sb)
         {
             sb.Append(Swaps.Count);
             sb.AppendLine(" swaps in arb.");
@@ -738,7 +853,7 @@ namespace ZeroMev.Shared
         [JsonIgnore]
         public string? ActionDetail { get; set; }
 
-        public void Cache(MEVBlock2 mevBlock, int mevIndex)
+        public void Cache(MEVBlock mevBlock, int mevIndex)
         {
             StringBuilder sb = new StringBuilder();
             BuildActionSummary(mevBlock, sb);
@@ -749,7 +864,7 @@ namespace ZeroMev.Shared
             ActionDetail = sb.ToString();
         }
 
-        public string BuildActionSummary(MEVBlock2 mevBlock, StringBuilder sb)
+        public string BuildActionSummary(MEVBlock mevBlock, StringBuilder sb)
         {
             sb.Append("<img src=\"");
             sb.Append(mevBlock.GetImage(DebtSymbolIndex));
@@ -759,7 +874,7 @@ namespace ZeroMev.Shared
             return sb.ToString();
         }
 
-        public string BuildActionDetail(MEVBlock2 mevBlock, StringBuilder sb)
+        public string BuildActionDetail(MEVBlock mevBlock, StringBuilder sb)
         {
             // aave protocol liquidation.
             // debt purchase amount symbolA $143.11 (2784324.33).
@@ -851,7 +966,7 @@ namespace ZeroMev.Shared
         [JsonIgnore]
         public string? ActionDetail { get; set; }
 
-        public void Cache(MEVBlock2 mevBlock, int mevIndex)
+        public void Cache(MEVBlock mevBlock, int mevIndex)
         {
             // Opensea nft protocol
             // link https://opensea.io/assets/0xac3d871d3431847bdff9eebb42eb51ae06e131c3/6016
@@ -906,71 +1021,6 @@ namespace ZeroMev.Shared
                 sb.AppendLine(Error.ToString());
             }
             ActionDetail = sb.ToString();
-        }
-    }
-
-    public class MEVBlock
-    {
-        public long BlockNumber { get; private set; }
-        public MEVSummary[] MEVSummaries { get; private set; }
-        public int MEVCount { get; private set; }
-        public int MEVOtherCount { get; private set; }
-        public int MEVToxicCount { get; private set; }
-        public decimal MEVAmount { get; private set; }
-        public decimal MEVOtherAmount { get; private set; }
-        public decimal MEVToxicAmount { get; private set; }
-
-        public MEVRow[] Rows;
-
-        public MEVBlock(long blockNumber)
-        {
-            this.BlockNumber = blockNumber;
-        }
-
-        public void BuildMEVSummaries()
-        {
-            if (Rows == null)
-                return;
-
-            MEVSummaries = new MEVSummary[MEVWeb.Rows.Length];
-
-            MEVCount = 0;
-            MEVOtherCount = 0;
-            MEVToxicCount = 0;
-
-            MEVAmount = 0;
-            MEVOtherAmount = 0;
-            MEVToxicAmount = 0;
-
-            foreach (var row in Rows)
-            {
-                if (row.MEVType == MEVType.None) continue;
-                int mi = (int)row.MEVType;
-                MEVSummaries[mi].Count++;
-                decimal mevAmount = 0;
-                if (row.MEVAmount.HasValue)
-                    mevAmount = row.MEVAmount.Value;
-
-                MEVSummaries[mi].AmountUsd += mevAmount;
-
-                if (MEVWeb.Rows[mi].IsVisible)
-                {
-                    /*
-                    if (MEV.Rows[mi].IsToxic)
-                    {
-                        MEVToxicCount++;
-                        MEVToxicAmount += mevAmount;
-                    }
-                    else
-                    {
-                        MEVOtherCount++;
-                        MEVOtherAmount += mevAmount;
-                    }
-                    MEVCount++;
-                    MEVAmount += mevAmount;
-                    */
-                }
-            }
         }
     }
 
@@ -1058,6 +1108,19 @@ namespace ZeroMev.Shared
                 default:
                     return MEVFilter.Info;
             }
+        }
+
+        public static void UpdateSummaries(IMEV mev, MEVSummary[] mevSummaries)
+        {
+            var mevFilter = MEVWeb.GetMEVFilter(mev.MEVClass);
+            mevSummaries[(int)MEVFilter.All].Count++;
+            mevSummaries[(int)MEVFilter.All].AmountUsd += mev.MEVAmountUsd ?? 0;
+            if (mevFilter == MEVFilter.Toxic || mevFilter == MEVFilter.Other)
+            {
+                mevSummaries[(int)mevFilter].Count++;
+                mevSummaries[(int)mevFilter].AmountUsd += mev.MEVAmountUsd ?? 0;
+            }
+
         }
     }
 }

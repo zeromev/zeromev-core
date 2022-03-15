@@ -55,12 +55,12 @@ a, .btn-link {
 
 /* zeromev specific */
 abbr[title] {
-    text-decoration: none !important;
+    text-decoration: none;
 }
 
 a {
-    color: rgb(33, 37, 41) !important;
-    text-decoration: none !important;
+    color: rgb(33, 37, 41);
+    text-decoration: none;
 }
 
 /* mev classes */

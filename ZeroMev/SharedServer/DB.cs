@@ -57,14 +57,16 @@ namespace ZeroMev.SharedServer
 
         const string ReadMevBlocksSQL = @"SELECT mev_data " +
         "FROM public.mev_block " +
-        "WHERE block_number >= @from_block_number AND block_number < @to_block_number;";
+        "WHERE block_number >= @from_block_number AND block_number < @to_block_number " +
+        "ORDER BY block_number DESC;";
 
         // write cache
         static List<ExtractorBlock> _extractorBlocks = new List<ExtractorBlock>();
         static List<FBBlock> _fbBlocks = new List<FBBlock>();
-        static List<MEVBlock2> _mevBlocks = new List<MEVBlock2>();
+        static List<MEVBlock> _mevBlocks = new List<MEVBlock>();
+
         static public long? LastBlockNumber = null;
-        static public string? RecentBlocksJson = null;
+        static public string? MEVLiteCacheJson = JsonSerializer.Serialize<MEVLiteCache>(new MEVLiteCache(), ZMSerializeOptions.Default);
 
         public static void QueueWriteExtractorBlockAsync(ExtractorBlock extractorBlock)
         {
@@ -249,7 +251,7 @@ namespace ZeroMev.SharedServer
             return bundle;
         }
 
-        public static async Task QueueWriteMevBlocksAsync(List<MEVBlock2> mbs)
+        public static async Task QueueWriteMevBlocksAsync(List<MEVBlock> mbs)
         {
             if (mbs == null || mbs.Count == 0)
                 return;
@@ -268,7 +270,7 @@ namespace ZeroMev.SharedServer
 
                     while (_mevBlocks.Count > 0)
                     {
-                        MEVBlock2 nextMevBlock = _mevBlocks[0];
+                        MEVBlock nextMevBlock = _mevBlocks[0];
                         await WriteMevBlock(conn, nextMevBlock);
                         _mevBlocks.RemoveAt(0);
                     }
@@ -284,9 +286,9 @@ namespace ZeroMev.SharedServer
             }
         }
 
-        public async static Task WriteMevBlock(NpgsqlConnection conn, MEVBlock2 mb)
+        public async static Task WriteMevBlock(NpgsqlConnection conn, MEVBlock mb)
         {
-            var mevJson = JsonSerializer.Serialize<MEVBlock2>(mb, ZMSerializeOptions.Default);
+            var mevJson = JsonSerializer.Serialize<MEVBlock>(mb, ZMSerializeOptions.Default);
             var mevJsonComp = Binary.Compress(Encoding.ASCII.GetBytes(mevJson));
 
             // mev block
@@ -428,9 +430,9 @@ namespace ZeroMev.SharedServer
             return latestBlockNumber;
         }
 
-        public static async Task<List<MEVBlock2>> ReadMevBlocks(long fromBlockNumber, long toBlockNumber)
+        public static async Task<List<MEVBlock>> ReadMevBlocks(long fromBlockNumber, long toBlockNumber)
         {
-            List<MEVBlock2> mbs = new List<MEVBlock2>();
+            List<MEVBlock> mbs = new List<MEVBlock>();
 
             using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.DB))
             {
@@ -447,7 +449,7 @@ namespace ZeroMev.SharedServer
                         byte[] dataComp = (byte[])dr["mev_data"];
                         var data = Binary.Decompress(dataComp);
                         var json = ASCIIEncoding.ASCII.GetString(data);
-                        var mb = JsonSerializer.Deserialize<MEVBlock2>(json, ZMSerializeOptions.Default);
+                        var mb = JsonSerializer.Deserialize<MEVBlock>(json, ZMSerializeOptions.Default);
                         mbs.Add(mb);
                     }
                 }

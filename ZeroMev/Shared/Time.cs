@@ -19,9 +19,33 @@ namespace ZeroMev.Shared
         }
     }
 
+    public class DateTimeNullableConverter : JsonConverter<DateTime?>
+    {
+        public override DateTime? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        {
+            var ticks = JsonSerializer.Deserialize<long>(ref reader, options);
+            if (ticks == 0)
+                return null;
+            return new DateTime(ticks);
+        }
+
+        public override void Write(Utf8JsonWriter writer, DateTime? value, JsonSerializerOptions options)
+        {
+            if (value == null)
+            {
+                JsonSerializer.Serialize(writer, 0, options);
+                return;
+            }
+
+            var dto = value.Value.Ticks;
+            JsonSerializer.Serialize(writer, dto, options);
+        }
+    }
+
     public static class Time
     {
         public const string Format = "yyyy-MM-dd HH:mm:ss.fff";
+        public const string FormatShort = "yyyy-MM-dd HH:mm:ss";
 
         // these are needed due to the inconsistent behaviour of timezones on Blazor/Azure (see https://github.com/dotnet/runtime/issues/60175)
         const string US = @"Central Standard Time;-360;(UTC-06:00) Central Time (US & Canada);Central Standard Time;Central Summer Time;[01:01:0001;12:31:2006;60;[0;02:00:00;4;1;0;];[0;02:00:00;10;5;0;];][01:01:2007;12:31:9999;60;[0;02:00:00;3;2;0;];[0;02:00:00;11;1;0;];];";

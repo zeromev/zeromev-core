@@ -43,6 +43,8 @@ app.MapFallbackToFile("index.html");
 
 app.MapGet("/zmhealth", () => "ok");
 
+app.MapGet("/zmsummary", () => DB.MEVLiteCacheJson);
+
 app.MapGet("/zmblock/{id}", async (long id) =>
 {
     return Results.Text(await DB.GetZmBlockJson(id));

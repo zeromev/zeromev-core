@@ -24,6 +24,11 @@ namespace ZeroMev.Shared
             return await http.GetFromJsonAsync<ZMBlock>(@"zmblock/" + blockNumber, ZMSerializeOptions.Default);
         }
 
+        public static async Task<MEVLiteCache?> GetMEVLiteCache(HttpClient http)
+        {
+            return await http.GetFromJsonAsync<MEVLiteCache>(@"zmsummary", ZMSerializeOptions.Default);
+        }
+
         public static async Task<GetTxnByHash?> GetTxByHash(HttpClient http, string fromTxh)
         {
             return await http.GetFromJsonAsync<GetTxnByHash>(string.Format(API.UrlGetTransactionByHash, fromTxh, Config.Settings.EtherscanAPIKey));

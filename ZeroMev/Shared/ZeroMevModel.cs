@@ -44,6 +44,7 @@ namespace ZeroMev.Shared
             Default.Converters.Add(new BitArrayConverter());
             Default.Converters.Add(new ZMDecimalConverter());
             Default.Converters.Add(new DateTimeConverter());
+            Default.Converters.Add(new DateTimeNullableConverter());
 
             StringToInt = new JsonSerializerOptions { IncludeFields = true, PropertyNameCaseInsensitive = true };
             StringToInt.Converters.Add(new StringToIntJsonConverter());
@@ -103,7 +104,7 @@ namespace ZeroMev.Shared
         public BitArray Bundles;
 
         [JsonPropertyName("mev")]
-        public MEVBlock2 MevBlock;
+        public MEVBlock MevBlock;
 
         [JsonConstructor]
         public ZMBlock()
@@ -466,7 +467,7 @@ namespace ZeroMev.Shared
             }
         }
 
-        public void SetMev(MEVBlock2 mb)
+        public void SetMev(MEVBlock mb)
         {
             if (mb == null) return;
             MEVSummaries.Initialize();
@@ -483,24 +484,16 @@ namespace ZeroMev.Shared
             for (int i = 0; i < mb.Frontruns.Count; i++) SetMev(mb.Frontruns[i], mb, i);
         }
 
-        private void SetMev(IMEV mev, MEVBlock2 mb, int mevIndex)
+        private void SetMev(IMEV mev, MEVBlock mb, int mevIndex)
         {
             // calculate members
             mev.Cache(mb, mevIndex);
 
             // calculate summaries
-            var mevFilter = MEVWeb.GetMEVFilter(mev.MEVClass);
-
-            MEVSummaries[(int)MEVFilter.All].Count++;
-            MEVSummaries[(int)MEVFilter.All].AmountUsd += mev.MEVAmountUsd ?? 0;
-            if (mevFilter == MEVFilter.Toxic || mevFilter == MEVFilter.Other)
-            {
-                MEVSummaries[(int)mevFilter].Count++;
-                MEVSummaries[(int)mevFilter].AmountUsd += mev.MEVAmountUsd ?? 0;
-            }
+            MEVWeb.UpdateSummaries(mev, MEVSummaries);
 
             // allocate to transactions by index where possible
-            if (mev.TxIndex != null)
+            if (mev.TxIndex != null && mev.TxIndex < Txs.Length)
             {
                 MEVSummaries[(int)MEVFilter.Info].Count++;
                 Txs[mev.TxIndex.Value].MEV = mev;

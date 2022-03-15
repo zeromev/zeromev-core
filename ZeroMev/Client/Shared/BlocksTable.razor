@@ -2,57 +2,49 @@
 @inject ZMCache Cache
 @inject NavigationManager NavigationManager
 
-<div class=row>
-    <div class="col">
-        <span class="badge text-light mx-2 @MEVWeb.CssClass(MEVClass.Toxic)">Toxic MEV</span>
-        <span class="badge text-light mx-2 @MEVWeb.CssClass(MEVClass.Unclassified)">Other MEV</span>
+@if (MEVLiteCache != null)
+{
+    MEVLiteCache.CalculateSummaries();
+    <div class=row>
+        <div class="col">
+            <p>
+            <span class="badge text-light mx-2 @MEVWeb.CssClass(MEVClass.Toxic)">Toxic MEV</span> $@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00"))
+            <span class="badge text-light mx-2 @MEVWeb.CssClass(MEVClass.Unclassified)">Other MEV</span> $@(MEVLiteCache.Totals[(int)MEVFilter.Other].AmountUsd.ToString("0.00"))
+            <span class="mx-2"><img src="/time.svg" width=24 height=24> over @MEVLiteCache.Duration()</span>
+            </p>
+        </div>
     </div>
-</div>
-<div class="row">
-    <div class="col">
-        @if (MEVBlocks != null)
-        {
-                            /*
-            <Virtualize Items="@MEVBlocks" Context="mb">
+    <div class="row">
+        <div class="col">
+            <Virtualize Items="@MEVLiteCache.Blocks" Context="mb">
                 <hr />
-                <span>block </span><a href="block?num=@mb.BlockNumber">@mb.BlockNumber</a>
-                <hr />
-                <div class="col">
-                    <a href="block?num=@mb.BlockNumber">
-                        <span class="badge text-light mx-2 my-2 @MEV.CssClass(MEVClass.Toxic, OrderBy.Block)">Toxic MEV Total</span>
+                <p>
+                    <a href="block?num=@mb.BlockNumber" class="link-primary"><img src="/block.svg" width=24 height=24> @mb.BlockNumber
+                    <br /><img src="/time.svg" width=24 height=24> @(mb.BlockTime == null ? "?" : mb.BlockTime.Value.ToString(Time.FormatShort))
                     </a>
-                    @("$"+mb.MEVToxicAmount.ToString("0.00"))
-                    <a href="block?num=@mb.BlockNumber">
-                        <span class="badge text-light mx-2 my-2 @MEV.CssClass(MEVClass.Unclassified, OrderBy.Block)">Other MEV Total</span>
-                    </a>
-                    @("$"+mb.MEVOtherAmount.ToString("0.00"))
-                </div>
-                @foreach (var m in mb.Rows)
+                </p>
+                @foreach (var m in mb.MEVLite)
             {
-                @if (MEV.Get(m.MEVType).DoDisplay && m.MEVAmount.HasValue)
+                <a href="block?num=@mb.BlockNumber">
+                    <span class="badge text-light mx-2 @MEVWeb.CssClass(m.MEVClass)">@m.MEVType.ToString()</span>
+                </a>
+                @if (m.MEVAmountUsd.HasValue)
                 {
-                    <a href="block?num=@mb.BlockNumber&txi=@m.Index">
-                        <span class="badge text-light mx-2 @MEV.CssClass(m.MEVType, OrderBy.Block)">@MEV.Get(m.MEVType).Name</span>
-                    </a>
-                    @if (m.MEVAmount.HasValue)
-                    {
-                        @("$"+m.MEVAmount.Value.ToString("0.00"))
-                    }
+                    @("$"+m.MEVAmountUsd.Value.ToString("0.00"))
                 }
             }
         </Virtualize>
-                        */
-        }
-        else
-        {
-            <div class="alert alert-warning" role="alert">
-                no blocks to display
-            </div>
-        }
+        <hr />
     </div>
 </div>
+}
+else
+{
+    <hr />
+<p><em>loading recent mev...</em></p>
+}
 
 @code {
     [Parameter]
-    public List<MEVBlock> MEVBlocks { get; set; }
+    public MEVLiteCache MEVLiteCache { get; set; }
 }

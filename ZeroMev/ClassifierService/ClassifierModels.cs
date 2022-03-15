@@ -55,7 +55,7 @@ namespace ZeroMev.ClassifierService
             return profit_decimal;
         }
 
-        public static int GetSymbolIndex(MEVBlock2? mb, string? tokenAddress)
+        public static int GetSymbolIndex(MEVBlock? mb, string? tokenAddress)
         {
             if (mb == null || tokenAddress == null) return -1;
             int index = mb.Symbols.FindIndex(x => { return x.TokenAddress == tokenAddress; });
@@ -106,13 +106,13 @@ namespace ZeroMev.ClassifierService
             }
         }
 
-        public static void AddArbSwap(MEVArb arb, MEVBlock2 mb, Swap swap, ZMSwap zmSwap)
+        public static void AddArbSwap(MEVArb arb, MEVBlock mb, Swap swap, ZMSwap zmSwap)
         {
             var arbSwap = BuildMEVSwap(mb, swap, zmSwap);
             arb.Swaps.Add(arbSwap);
         }
 
-        public static void AddSwap(MEVBlock2 mevBlock, Swap s, ZMSwap zmSwap, ref MEVSwap lastSwap, ref MEVContractSwaps lastContractSwaps)
+        public static void AddSwap(MEVBlock mevBlock, Swap s, ZMSwap zmSwap, ref MEVSwap lastSwap, ref MEVContractSwaps lastContractSwaps)
         {
             var newSwap = MEVHelper.BuildMEVSwap(mevBlock, s, zmSwap);
             if (lastSwap != null && lastSwap.TxIndex == newSwap.TxIndex)
@@ -139,7 +139,7 @@ namespace ZeroMev.ClassifierService
             lastSwap = newSwap;
         }
 
-        public static MEVSwap BuildMEVSwap(MEVBlock2 mb, Swap swap, ZMSwap zmSwap)
+        public static MEVSwap BuildMEVSwap(MEVBlock mb, Swap swap, ZMSwap zmSwap)
         {
             int symbolIn = GetSymbolIndex(mb, swap.TokenInAddress);
             int symbolOut = GetSymbolIndex(mb, swap.TokenOutAddress);
@@ -148,7 +148,7 @@ namespace ZeroMev.ClassifierService
             return mevSwap;
         }
 
-        public static bool DoAddMEV(MEVBlock2 mb, int? txIndex)
+        public static bool DoAddMEV(MEVBlock mb, int? txIndex)
         {
             if (txIndex == null) return true;
             if (!mb.ExistingMEV[txIndex.Value])
@@ -231,13 +231,13 @@ namespace ZeroMev.ClassifierService
             return null;
         }
 
-        public static void DebugMevBlocks(Dictionary<long, MEVBlock2> mevBlocks)
+        public static void DebugMevBlocks(Dictionary<long, MEVBlock> mevBlocks)
         {
             foreach (var mb in mevBlocks.Values)
                 DebugMevBlock(mb);
         }
 
-        public static void DebugMevBlock(MEVBlock2 mb)
+        public static void DebugMevBlock(MEVBlock mb)
         {
             Debug.WriteLine(mb.BlockNumber);
             for (int i = 0; i < mb.Swaps.Count; i++) DebugMEV(mb.Swaps[i], mb, i);
@@ -252,12 +252,12 @@ namespace ZeroMev.ClassifierService
             for (int i = 0; i < mb.NFTrades.Count; i++) DebugMEV(mb.NFTrades[i], mb, i);
             Debug.WriteLine("");
 
-            var json = JsonSerializer.Serialize<MEVBlock2>(mb, ZMSerializeOptions.Default);
+            var json = JsonSerializer.Serialize<MEVBlock>(mb, ZMSerializeOptions.Default);
             var compJson = Binary.Compress(Encoding.ASCII.GetBytes(json));
             Debug.WriteLine($"{mb.BlockNumber} {json.Length} bytes {compJson.Length} comp bytes {json}");
         }
 
-        private static void DebugMEV(IMEV mev, MEVBlock2 mb, int mevIndex)
+        private static void DebugMEV(IMEV mev, MEVBlock mb, int mevIndex)
         {
             Debug.WriteLine($"{mev.MEVType} {mev.MEVClass}");
             mev.Cache(mb, mevIndex);
@@ -307,7 +307,7 @@ namespace ZeroMev.ClassifierService
         public List<ZmBlock> ZmBlocks { get; set; }
 
         DEXs _dexs = null;
-        Dictionary<long, MEVBlock2> _mevBlocks = new Dictionary<long, MEVBlock2>();
+        Dictionary<long, MEVBlock> _mevBlocks = new Dictionary<long, MEVBlock>();
 
         const string UNISWAP_V2_ROUTER = "0x7a250d5630b4cf539739df2c5dacb4c659f2488d";
         const string UNISWAP_V3_ROUTER = "0xe592427a0aece92de3edee1f18e0157c05861564";
@@ -425,7 +425,7 @@ namespace ZeroMev.ClassifierService
             string? lastArbHash = null;
             MEVArb? lastArb = null;
 
-            MEVBlock2? mevBlock = null;
+            MEVBlock? mevBlock = null;
             List<DateTime>? arrivals = null;
             List<MEVSandwiched> sandwiched = new List<MEVSandwiched>();
 
@@ -578,7 +578,7 @@ namespace ZeroMev.ClassifierService
             //MEVHelper.DebugMevBlocks(_mevBlocks);
         }
 
-        private void ProcessLiquidations(long? fromBlockNumber, long toBlockNumber, ref MEVBlock2 mevBlock, ref List<DateTime>? arrivals)
+        private void ProcessLiquidations(long? fromBlockNumber, long toBlockNumber, ref MEVBlock mevBlock, ref List<DateTime>? arrivals)
         {
             foreach (var l in Liquidations)
             {
@@ -600,7 +600,7 @@ namespace ZeroMev.ClassifierService
             }
         }
 
-        private void ProcessNfts(long? fromBlockNumber, long toBlockNumber, ref MEVBlock2 mevBlock, ref List<DateTime>? arrivals)
+        private void ProcessNfts(long? fromBlockNumber, long toBlockNumber, ref MEVBlock mevBlock, ref List<DateTime>? arrivals)
         {
             foreach (var n in NftTrades)
             {
@@ -636,7 +636,7 @@ namespace ZeroMev.ClassifierService
             await DB.QueueWriteMevBlocksAsync(_mevBlocks.Values.ToList());
         }
 
-        public void TestMev(MEVBlock2 mb)
+        public void TestMev(MEVBlock mb)
         {
             if (mb == null) return;
             IMEV[] mevs = new IMEV[5000];
@@ -653,7 +653,7 @@ namespace ZeroMev.ClassifierService
             for (int i = 0; i < mb.Frontruns.Count; i++) TestMev(mb.Frontruns[i], mb, i, mevs);
         }
 
-        private void TestMev(IMEV mev, MEVBlock2 mb, int mevIndex, IMEV[] mevs)
+        private void TestMev(IMEV mev, MEVBlock mb, int mevIndex, IMEV[] mevs)
         {
             // calculate members
             mev.Cache(mb, mevIndex);
@@ -662,9 +662,7 @@ namespace ZeroMev.ClassifierService
             if (mev.TxIndex != null)
             {
                 if (mevs[mev.TxIndex.Value] != null)
-                {
-                    Debug.WriteLine($"{mevs[mev.TxIndex.Value]} overwritten by {mev}");
-                }
+                    Console.WriteLine($"{mevs[mev.TxIndex.Value]} overwritten by {mev}");
                 mevs[mev.TxIndex.Value] = mev;
                 return;
             }
@@ -685,7 +683,7 @@ namespace ZeroMev.ClassifierService
             List<SwapRecord> revertableArbSwaps = new List<SwapRecord>();
             MEVContractSwaps? lastContractSwaps = null;
 
-            MEVBlock2? mevBlock = null;
+            MEVBlock? mevBlock = null;
             List<DateTime>? arrivals = null;
             List<MEVSandwiched> sandwiched = new List<MEVSandwiched>();
 
@@ -896,7 +894,7 @@ namespace ZeroMev.ClassifierService
             Tokens.Load();
             List<DateTime>? arrivals = null;
             DEXs dexs = new DEXs();
-            MEVBlock2 mevBlock = null;
+            MEVBlock mevBlock = null;
 
             foreach (var s in Swaps)
             {
@@ -943,7 +941,7 @@ namespace ZeroMev.ClassifierService
             }
         }
 
-        private bool GetMEVBlock(long blockNumber, ref MEVBlock2? mevBlock, ref List<DateTime>? arrivals)
+        private bool GetMEVBlock(long blockNumber, ref MEVBlock? mevBlock, ref List<DateTime>? arrivals)
         {
             // only get new references if we have changed block number (iterate sorted by block number to minimize this)
             if (mevBlock == null || blockNumber != mevBlock.BlockNumber)
@@ -951,7 +949,7 @@ namespace ZeroMev.ClassifierService
                 // get or create mev block
                 if (!_mevBlocks.TryGetValue(blockNumber, out mevBlock))
                 {
-                    mevBlock = new MEVBlock2(blockNumber);
+                    mevBlock = new MEVBlock(blockNumber);
                     _mevBlocks.Add(blockNumber, mevBlock);
                 }
 
