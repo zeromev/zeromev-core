@@ -24,13 +24,19 @@ namespace ZeroMev.Shared
 
     public static class ZMDecimalExtensions
     {
-        public static decimal ToUsd(this ZMDecimal value)
+        public static decimal? ToUsd(this ZMDecimal value)
         {
+            if (value > decimal.MaxValue || value < decimal.MinValue)
+                return null;
+
             return (decimal)value.RoundAwayFromZero(2);
         }
 
-        public static ZMDecimal Shorten(this ZMDecimal value)
+        public static ZMDecimal? Shorten(this ZMDecimal value)
         {
+            if (value > decimal.MaxValue || value < decimal.MinValue)
+                return null;
+
             if (value < 1)
                 return (decimal)value.RoundAwayFromZero(7);
             else if (value < 10)

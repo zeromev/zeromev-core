@@ -20,6 +20,7 @@ namespace ZeroMev.ClassifierService
         const int PollTimeoutSecs = 180;
         const int LogEvery = 100;
         const int GetNewTokensEverySecs = 240;
+        const int ProcessChunkSize = 2000;
 
         readonly ILogger<Classifier> _logger;
 
@@ -32,6 +33,78 @@ namespace ZeroMev.ClassifierService
             _logger = logger;
         }
 
+        private async Task<bool> Startup(CancellationToken stoppingToken)
+        {
+            // process from 15 days before the last processed zeromev block up until the last processed mev-inspect block in manageable chunks
+            // only save rows we haven't written before (ie: after the last zeromev block)
+
+            long lastZmBlock;
+            using (var db = new zeromevContext())
+            {
+                lastZmBlock = db.GetLastZmProcessedBlock();
+            }
+
+            long lastMiBlock;
+            using (var db = new zeromevContext())
+            {
+                lastMiBlock = db.GetLastProcessedMevInspectBlock();
+            }
+
+            long first = lastZmBlock - Config.Settings.BlockBufferSize ?? 7200 * 15;
+            long last = lastMiBlock + 1;
+            long? importToBlock = Config.Settings.ImportZmBlocksTo;
+            if (importToBlock != null && last > importToBlock.Value)
+                last = importToBlock.Value;
+
+            try
+            {
+                for (long from = first; from <= lastMiBlock; from += ProcessChunkSize)
+                {
+                    long to = from + ProcessChunkSize;
+                    if (to > last)
+                        to = last;
+
+                    double warmupProgress = (double)(from - first) / (lastZmBlock - first);
+                    double totalProgress = (double)(from - first) / (last - first);
+                    if (from < lastZmBlock)
+                    {
+                        _logger.LogInformation($"{from} to {to} (warmup to {lastZmBlock} {warmupProgress.ToString("P")}, backfill to {lastMiBlock} {totalProgress.ToString("P")})");
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"{from} to {to} (backfill to {lastMiBlock} {totalProgress.ToString("P")})");
+                    }
+
+
+                    var bp = BlockProcess.Load(from, to, _dexs);
+                    if (stoppingToken.IsCancellationRequested)
+                        return false;
+
+                    bp.Run();
+                    if (stoppingToken.IsCancellationRequested)
+                        return false;
+
+                    await bp.Save(lastZmBlock);
+                    if (stoppingToken.IsCancellationRequested)
+                        return false;
+
+                    // set the last processed block
+                    using (var db = new zeromevContext())
+                    {
+                        await db.SetLastProcessedBlock(to - 1);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // important as network errors may make the RPC node or DB unavailable and we don't want gaps in the data
+                _logger.LogError("startup aborted due to an unexpected error: " + ex.ToString());
+                return false;
+            }
+
+            return true;
+        }
+
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             // initialize
@@ -42,16 +115,19 @@ namespace ZeroMev.ClassifierService
 
             try
             {
+                // get latest tokens before any processing
+                await UpdateNewTokens(_http);
+
+                // startup and backfill
+                bool started = await Startup(stoppingToken);
+                if (!started)
+                    return;
+
                 // get the last recorded processed block
                 long nextBlockNumber;
                 using (var db = new zeromevContext())
                 {
-                    nextBlockNumber = db.GetLastProcessedBlock();
-                }
-                if (nextBlockNumber < 0)
-                {
-                    _logger.LogInformation($"zm classifier failed to get last processed block");
-                    return;
+                    nextBlockNumber = db.GetLastZmProcessedBlock();
                 }
 
                 // start from one after the last processed

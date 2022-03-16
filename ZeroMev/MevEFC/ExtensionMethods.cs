@@ -14,7 +14,7 @@ namespace ZeroMev.MevEFC
             return (long)db.LatestBlockUpdates.Max(x => x.BlockNumber);
         }
 
-        public static long GetLastProcessedBlock(this zeromevContext db)
+        public static long GetLastZmProcessedBlock(this zeromevContext db)
         {
             return (long)db.ZmLatestBlockUpdates.Max(x => x.BlockNumber);
         }
@@ -43,8 +43,11 @@ namespace ZeroMev.MevEFC
 
         public static async Task SetLastProcessedBlock(this zeromevContext db, long blockNumber)
         {
-            // remove any previous rows
+            // only update a higher value
             var lastProcessed = await db.ZmLatestBlockUpdates.ToListAsync();
+            if (blockNumber <= lastProcessed[0].BlockNumber) return;
+
+            // remove any previous rows
             if (lastProcessed != null)
                 foreach (var update in lastProcessed)
                     db.Remove(update);

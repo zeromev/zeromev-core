@@ -406,6 +406,18 @@ namespace ZeroMev.Shared
         [JsonIgnore]
         public string? ActionDetail { get; set; }
 
+        public ZMDecimal? InUsdRate()
+        {
+            if (AmountInUsd == null || AmountIn == 0) return null;
+            return (ZMDecimal)AmountInUsd / AmountIn;
+        }
+
+        public ZMDecimal? OutUsdRate()
+        {
+            if (AmountOutUsd == null || AmountOut == 0) return null;
+            return (ZMDecimal)AmountOutUsd / AmountOut;
+        }
+
         public void Cache(MEVBlock mevBlock, int mevIndex)
         {
             StringBuilder sb = new StringBuilder();
@@ -667,15 +679,35 @@ namespace ZeroMev.Shared
         public void Cache(MEVBlock mevBlock, int mevIndex)
         {
             var frontrun = mevBlock.Frontruns[mevIndex].Swap;
-            if (frontrun.AmountInUsd == null || Swap.AmountOutUsd == null)
+            var backrun = Swap;
+
+            // see https://github.com/flashbots/mev-inspect-py/issues/283
+            if (frontrun != null && backrun != null && frontrun.AmountInUsd != null && frontrun.AmountOutUsd != null && backrun.AmountInUsd != null && backrun.AmountOutUsd != null && backrun.AmountInUsd.Value != 0 && frontrun.AmountOutUsd != 0)
             {
-                MEVAmountUsd = null;
-                MEVDetail = "missing exchange rates, can't calculate";
+                //MEVAmountUsd = frontrun.AmountInUsd - Swap.AmountOutUsd;
+                //MEVDetail = $"backrun (in) ${frontrun.AmountInUsd} - frontrun (out) ${Swap.AmountOutUsd} = victim impact ${frontrun.AmountInUsd - Swap.AmountOutUsd}";
+
+                decimal frontIn = frontrun.AmountInUsd.Value;
+                decimal frontOut = frontrun.AmountOutUsd.Value;
+                decimal backIn = backrun.AmountInUsd.Value;
+                decimal backOut = backrun.AmountOutUsd.Value;
+
+                decimal profitFrontrun = (frontOut * (backOut / backIn) - frontIn);
+                decimal profitBackrun = (backOut - (backIn * (frontIn / frontOut)));
+
+                decimal sandwichProfit;
+                if (Math.Abs(profitFrontrun) < Math.Abs(profitBackrun))
+                    sandwichProfit = profitFrontrun;
+                else
+                    sandwichProfit = profitBackrun;
+
+                MEVAmountUsd = -sandwichProfit;
+                MEVDetail = $"victim impact ${MEVAmountUsd}";
             }
             else
             {
-                MEVAmountUsd = frontrun.AmountInUsd - Swap.AmountOutUsd;
-                MEVDetail = $"backrun (in) ${frontrun.AmountInUsd} - frontrun (out) ${Swap.AmountOutUsd} = victim impact ${frontrun.AmountInUsd - Swap.AmountOutUsd}";
+                MEVAmountUsd = null;
+                MEVDetail = "missing swap data, can't calculate";
             }
 
             StringBuilder sb = new StringBuilder();

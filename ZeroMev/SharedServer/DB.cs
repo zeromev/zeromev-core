@@ -277,12 +277,12 @@ namespace ZeroMev.SharedServer
                 }
 
                 sw.Stop();
-                Console.WriteLine($"flashbots_block update in {sw.ElapsedMilliseconds} ms");
+                Console.WriteLine($"mev blocks update in {sw.ElapsedMilliseconds} ms");
             }
             catch (Exception e)
             {
                 // try catch is vital in this thread to avoid crashing the app
-                Console.WriteLine($"error QueueWriteFlashbotsBlockAsync {e.Message}, with {_mevBlocks.Count} remaining");
+                Console.WriteLine($"error QueueWriteMevBlocksAsync {e.Message}, with {_mevBlocks.Count} remaining");
             }
         }
 
