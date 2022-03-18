@@ -15,7 +15,7 @@ namespace ZeroMev.SharedServer
         {
             var config = new ConfigurationBuilder()
                     .AddEnvironmentVariables()
-                    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+                    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                     .Build();
 
             Config.Settings = config.GetSection("AppSettings").Get<AppSettings>();

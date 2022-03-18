@@ -36,15 +36,27 @@ namespace ZeroMev.SharedServer
                 if (RawTxTimes != null)
                 {
                     byte[] uncomp = Binary.Decompress(RawTxTimes);
-                    _txTimes = Binary.ReadTxData(uncomp);
-
-                    // convert timezones until we've done a datafix
-                    for (int i = 0; i < _txTimes.Count; i++)
-                        _txTimes[i].ArrivalTime = Time.ToUTC(this.Extractor, _txTimes[i].ArrivalTime);
-                    return _txTimes;
+                    return Binary.ReadTxData(uncomp);
                 }
                 return null;
             }
+        }
+
+        public List<TxTime> TxTimesDataFix()
+        {
+            // call before calling TxTimes to convert local timezone arrival times to UTC so they can be written back as UTC
+            if (_txTimes != null) return _txTimes;
+            if (RawTxTimes != null)
+            {
+                byte[] uncomp = Binary.Decompress(RawTxTimes);
+                _txTimes = Binary.ReadTxData(uncomp);
+
+                // convert timezones until we've done a datafix
+                for (int i = 0; i < _txTimes.Count; i++)
+                    _txTimes[i].ArrivalTime = Time.ToUTC(this.Extractor, DateTime.SpecifyKind(_txTimes[i].ArrivalTime, DateTimeKind.Unspecified));
+                return _txTimes;
+            }
+            return null;
         }
 
         public ExtractorBlock(long blockNumber, short extractorIndex, DateTime blockTime, DateTime extractorStartTime, long arrivalCount, int pendingCount, List<TxTimeHash> txTimes)

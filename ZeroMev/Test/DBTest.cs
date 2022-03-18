@@ -137,7 +137,7 @@ namespace ZeroMev.Test
                 }
                 int txIndex = 0;
                 foreach (TxTime tx in b.TxTimes)
-                    Console.WriteLine(Time.DurationStr(Time.ToUTC(b.Extractor, tx.ArrivalTime), b.BlockTime));
+                    Console.WriteLine(Time.DurationStr(tx.ArrivalTime, b.BlockTime));
             }
             Console.WriteLine("");
         }

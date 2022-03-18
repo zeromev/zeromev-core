@@ -20,4 +20,10 @@
     <ProjectReference Include="..\SharedServer\ZeroMev.SharedServer.csproj" />
     <ProjectReference Include="..\Shared\ZeroMev.Shared.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Content Update="appsettings.json">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 </Project>

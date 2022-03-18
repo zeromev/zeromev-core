@@ -53,7 +53,7 @@ namespace ZeroMev.SharedServer
                 while (i < txData.Length)
                 {
                     TxTime tt = new TxTime();
-                    tt.ArrivalTime = DateTime.FromBinary(BitConverter.ToInt64(txData, i));
+                    tt.ArrivalTime = new DateTime(BitConverter.ToInt64(txData, i), DateTimeKind.Utc);
                     i += 8;
                     tt.ArrivalBlockNumber = BitConverter.ToInt64(txData, i);
                     i += 8;
@@ -67,7 +67,7 @@ namespace ZeroMev.SharedServer
                 {
                     TxTime tt = new TxTime();
                     Array.Reverse(txData, i, 8);
-                    tt.ArrivalTime = DateTime.FromBinary(BitConverter.ToInt64(txData, i));
+                    tt.ArrivalTime = new DateTime(BitConverter.ToInt64(txData, i), DateTimeKind.Utc);
                     i += 8;
                     Array.Reverse(txData, i, 8);
                     tt.ArrivalBlockNumber = BitConverter.ToInt64(txData, i);

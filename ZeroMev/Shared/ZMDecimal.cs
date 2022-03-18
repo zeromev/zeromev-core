@@ -44,6 +44,21 @@ namespace ZeroMev.Shared
             else
                 return (decimal)value.RoundAwayFromZero(2);
         }
+
+        public static ZMDecimal Pow(this ZMDecimal x, uint y)
+        {
+            BitArray e = new BitArray(BitConverter.GetBytes(y));
+            int t = e.Count;
+
+            ZMDecimal A = 1;
+            for (int i = t - 1; i >= 0; --i)
+            {
+                A *= A;
+                if (e[i] == true)
+                    A *= x;
+            }
+            return A;
+        }
     }
 
     /// sourced from the BigDecimal classes in the Netherum .net integrtion library https://github.com/Nethereum/Nethereum under the MIT license

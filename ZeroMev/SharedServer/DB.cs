@@ -108,26 +108,31 @@ namespace ZeroMev.SharedServer
 
         public static void WriteExtractorBlock(ExtractorBlock eb)
         {
-            byte[] txData = Binary.WriteTxData(eb.TxTimes);
-            byte[] txDataComp = Binary.Compress(txData);
-
             using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.DB))
             {
                 conn.Open();
-                using (var cmd = new NpgsqlCommand(WriteExtractorBlockSQL, conn))
-                {
-                    cmd.Parameters.Add(new NpgsqlParameter<long>("@block_number", eb.BlockNumber));
-                    cmd.Parameters.Add(new NpgsqlParameter<short>("@extractor_index", eb.ExtractorIndex));
-                    cmd.Parameters.Add(new NpgsqlParameter<DateTime>("@block_time", eb.BlockTime.ToUniversalTime()));
-                    cmd.Parameters.Add(new NpgsqlParameter<DateTime>("@extractor_start_time", eb.ExtractorStartTime.ToUniversalTime()));
-                    cmd.Parameters.Add(new NpgsqlParameter<long>("@arrival_count", eb.ArrivalCount));
-                    cmd.Parameters.Add(new NpgsqlParameter<int>("@pending_count", eb.PendingCount));
-                    cmd.Parameters.Add(new NpgsqlParameter<byte[]>("@tx_data", txDataComp));
-
-                    cmd.Prepare();
-                    cmd.ExecuteNonQuery();
-                }
+                WriteExtractorBlock(eb, conn);
                 conn.Close();
+            }
+        }
+
+        public static void WriteExtractorBlock(ExtractorBlock eb, NpgsqlConnection conn)
+        {
+            byte[] txData = Binary.WriteTxData(eb.TxTimes);
+            byte[] txDataComp = Binary.Compress(txData);
+
+            using (var cmd = new NpgsqlCommand(WriteExtractorBlockSQL, conn))
+            {
+                cmd.Parameters.Add(new NpgsqlParameter<long>("@block_number", eb.BlockNumber));
+                cmd.Parameters.Add(new NpgsqlParameter<short>("@extractor_index", eb.ExtractorIndex));
+                cmd.Parameters.Add(new NpgsqlParameter<DateTime>("@block_time", eb.BlockTime));
+                cmd.Parameters.Add(new NpgsqlParameter<DateTime>("@extractor_start_time", eb.ExtractorStartTime));
+                cmd.Parameters.Add(new NpgsqlParameter<long>("@arrival_count", eb.ArrivalCount));
+                cmd.Parameters.Add(new NpgsqlParameter<int>("@pending_count", eb.PendingCount));
+                cmd.Parameters.Add(new NpgsqlParameter<byte[]>("@tx_data", txDataComp));
+
+                cmd.Prepare();
+                cmd.ExecuteNonQuery();
             }
         }
 
@@ -159,8 +164,8 @@ namespace ZeroMev.SharedServer
                 //extractor_index, block_time, extractor_start_time, arrival_count, pending_count, tx_data
                 ExtractorBlock eb = new ExtractorBlock(blockNumber,
                     (short)dr["extractor_index"],
-                    ((DateTime)dr["block_time"]).ToUniversalTime(),
-                    ((DateTime)dr["extractor_start_time"]).ToUniversalTime(),
+                    DateTime.SpecifyKind((DateTime)dr["block_time"], DateTimeKind.Utc),
+                    DateTime.SpecifyKind((DateTime)dr["extractor_start_time"], DateTimeKind.Utc),
                     (long)dr["arrival_count"],
                     (int)dr["pending_count"],
                     (byte[])dr["tx_data"]);

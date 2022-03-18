@@ -45,7 +45,7 @@ namespace ZeroMev.ExtractorService
         long _lastBlock;
         static Nethereum.Hex.HexTypes.HexBigInteger _lastFlashbotsBlock;
         bool _isStopped = false;
-        DateTime _nextPurge = DateTime.Now.Date.AddDays(1);
+        DateTime _nextPurge = DateTime.Now.ToUniversalTime().Date.AddDays(1);
         HttpClient _http = new HttpClient();
 
         public bool HadConnectionException { get; private set; }
@@ -70,7 +70,7 @@ namespace ZeroMev.ExtractorService
         public async void Start()
         {
              // initialize
-            _extractorStartTime = DateTime.Now;
+            _extractorStartTime = DateTime.Now.ToUniversalTime();
             _arrivalCount = 0;
             _lastBlock = 0;
             _recentBlockIndex = 0;
@@ -163,7 +163,7 @@ namespace ZeroMev.ExtractorService
         private void NewPendingTx(string txh)
         {
             // record new pending txs as they arrive
-            DateTime timestamp = DateTime.Now;
+            DateTime timestamp = DateTime.Now.ToUniversalTime();
             var tt = new TxTimeHash();
             tt.TxHash = txh;
             tt.ArrivalTime = timestamp;
@@ -177,7 +177,7 @@ namespace ZeroMev.ExtractorService
             // record block details with low latency
             long blockNumber = (long)(BigInteger)block.Number;
             _lastBlock = blockNumber;
-            DateTime timestamp = DateTime.Now;
+            DateTime timestamp = DateTime.Now.ToUniversalTime();
 
             // get block txs
             Task<BlockWithTransactions> blockTxsReq = null;
@@ -292,10 +292,10 @@ namespace ZeroMev.ExtractorService
             if (_logger != null) _logger.LogInformation($"new block {block.Number} size {tts.Count} arrivals {_arrivalCount} pending {pendingCount}");
 
             // purge pending transactions daily (we cannot tell between txs that are censored and cancelled until address/nonce data is recorded with pending txs, so until then old pendings must be expired)
-            if (DateTime.Now > _nextPurge)
+            if (DateTime.Now.ToUniversalTime() > _nextPurge)
             {
                 PurgePending();
-                _nextPurge = DateTime.Now.Date.AddDays(1);
+                _nextPurge = DateTime.Now.ToUniversalTime().Date.AddDays(1);
             }
         }
 
@@ -312,7 +312,7 @@ namespace ZeroMev.ExtractorService
 
         private void PurgePending()
         {
-            DateTime purgeBefore = DateTime.Now.AddDays(-Config.Settings.PurgeAfterDays);
+            DateTime purgeBefore = DateTime.Now.ToUniversalTime().AddDays(-Config.Settings.PurgeAfterDays);
             List<string> purge = new List<string>();
 
             Stopwatch sw = new Stopwatch();
