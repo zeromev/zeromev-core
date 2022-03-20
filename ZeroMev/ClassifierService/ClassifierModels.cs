@@ -37,14 +37,14 @@ namespace ZeroMev.ClassifierService
                     // a to b
                     a[i] = x * ((ZMDecimal)(amountFrac * r.NextDouble())); // input amount as a random % of pool (to stop the pool going to zero)
                     a[i] = 100;
-                    b[i] = DoSwap(ref x, ref y, c, ref a[i]);
+                    b[i] = SwapOutputAmount(ref x, ref y, c, a[i]);
                 }
                 else
                 {
                     // b to a
                     b[i] = y * ((ZMDecimal)(amountFrac * r.NextDouble())); // input amount as a random % of pool (to stop the pool going to zero)
                     b[i] = 0.1;
-                    a[i] = DoSwap(ref y, ref x, c, ref b[i]);
+                    a[i] = SwapOutputAmount(ref y, ref x, c, b[i]);
                 }
 
                 xOut[i] = x;
@@ -53,7 +53,7 @@ namespace ZeroMev.ClassifierService
             }
         }
 
-        private static ZMDecimal DoSwap(ref ZMDecimal reserveIn, ref ZMDecimal reserveOut, ZMDecimal c, ref ZMDecimal amountIn)
+        public static ZMDecimal SwapOutputAmount(ref ZMDecimal reserveIn, ref ZMDecimal reserveOut, ZMDecimal c, ZMDecimal amountIn)
         {
             // see UniswapV2Library.sol getAmountOut()
 
@@ -70,6 +70,24 @@ namespace ZeroMev.ClassifierService
             return amountOut;
         }
 
+        public static void ABABAB(ZMDecimal[] a, ZMDecimal[] b, ZMDecimal c, ZMDecimal x, ZMDecimal y)
+        {
+            /*
+            b1 = ((a1 * c) * y) / (x + (a1 * c))
+            b2 = ((a2 * c) * (y - b1)) / ((x + a1) + (a2 * c))
+            b3 = ((a3 * c) * (y - b1 - b2)) / ((x + a1 + a2) + (a3 * c))
+            
+            a1,a2,a3,b1,b2,b3,c are known, find x,y
+             */
+
+            ZMDecimal[] b_ = new ZMDecimal[b.Length];
+            b_[0] = ((a[1] * c) * y) / (x + (a[1] * c));
+            b_[1] = ((a[2] * c) * (y - b[1])) / ((x + a[1]) + (a[2] * c));
+            b_[2] = ((a[3] * c) * (y - b[1] - b[2])) / ((x + a[1] + a[2]) + (a[3] * c));
+
+            Debug.WriteLine(Util.DisplayCompareAB("b", "b_", b, b_, 5, true, 3));
+        }
+
         public static void RunSimUniswap()
         {
             ZMDecimal c = 0.997;
@@ -77,6 +95,8 @@ namespace ZeroMev.ClassifierService
 
             //SimUniswap2(100, double.MaxValue, 1, 10000, 10, out var real_a, out var real_b, out var xOut, out var yOut, out var isBA);
             SimUniswap2(100, double.MaxValue, c, 10000, 10, out var real_a, out var real_b, out var xOut, out var yOut, out var isBA);
+
+            ABABAB(real_a, real_b, c, 10000, 10);
 
             ZMDecimal ab_x, ab_y, ab_k;
             ZMDecimal ba_x, ba_y, ba_k;

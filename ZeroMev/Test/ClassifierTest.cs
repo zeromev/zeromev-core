@@ -64,6 +64,22 @@ namespace ZeroMev.Test
                         if (j < real_a.Length - 1)
                         {
                             // ab swap
+                            a[j] = real_a[j];
+                            b[j] = MEVHelper.SwapOutputAmount(ref ab_x, ref ab_y, c, real_a[j]);
+                        }
+                        else
+                        {
+                            // ba swap
+                            a[j] = MEVHelper.SwapOutputAmount(ref ab_y, ref ab_x, c, real_b[j]);
+                            b[j] = real_b[j];
+                        }
+                    }
+                    /*
+                    for (int j = 0; j < real_a.Length; j++)
+                    {
+                        if (j < real_a.Length - 1)
+                        {
+                            // ab swap
                             b[j] = MEVCalc.SwapAB(real_a[j], j == 0 ? 0 : b[j - 1], ab_x, ab_y, ab_k, c, out ab_x, out ab_y);
 
                             // maintain ba pool
@@ -78,6 +94,7 @@ namespace ZeroMev.Test
                             b[j] = MEVCalc.SwapAB(a[j], j == 0 ? 0 : b[j - 1], ab_x, ab_y, ab_k, c, out ab_x, out ab_y);
                         }
                     }
+                    */
 
                     /*
                     Debug.WriteLine("calculated");

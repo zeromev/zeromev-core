@@ -28,19 +28,22 @@ namespace ZeroMev.SharedServer
             return sb.ToString();
         }
 
-        public static string DisplayCompareAB(string aLabel,string bLabel, ZMDecimal[] a, ZMDecimal[] b, int decimals, bool doShowZeroPercent = true)
+        public static string DisplayCompareAB(string aLabel, string bLabel, ZMDecimal[] a, ZMDecimal[] b, int decimals, bool doShowZeroPercent = true, int? toIndex = null)
         {
             StringBuilder sb = new StringBuilder();
 
+            if (toIndex == null)
+                toIndex = a.Length;
+
             sb.AppendLine($"{aLabel}\t{bLabel}\terror %");
-            for (int i = 0; i < a.Length; i++)
+            for (int i = 0; i < toIndex; i++)
             {
                 var p = 1 - (a[i] / b[i]);
                 if (doShowZeroPercent || p > 0.00000001 || p < -0.00000001)
                     sb.AppendLine($"{a[i].RoundAwayFromZero(decimals)}\t{b[i].RoundAwayFromZero(decimals)}\t{((decimal)p).ToString("P")}");
 #if (DEBUG)
-                if (p > 0.001 || p < -0.001)
-                    Debug.WriteLine("inaccurate");
+                //if (p > 0.001 || p < -0.001)
+                //Debug.WriteLine("inaccurate");
 #endif
             }
             return sb.ToString();
