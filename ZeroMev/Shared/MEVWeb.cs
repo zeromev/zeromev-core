@@ -1157,13 +1157,19 @@ namespace ZeroMev.Shared
 
     public static class MEVCalc
     {
-        public static void KPoolFromSwaps(ZMDecimal[] a, ZMDecimal[] b, ZMDecimal c, out ZMDecimal x, out ZMDecimal y, out ZMDecimal k)
+        public static void PoolFromSwapsAB(ZMDecimal[] a, ZMDecimal[] b, ZMDecimal c, out ZMDecimal x, out ZMDecimal y, out ZMDecimal k)
         {
-            if (a.Length < 3 || b.Length < 3) throw new ArgumentException("KPoolFromSwaps requires min 3 data points.");
-            KPoolFromSwaps(a[0], a[1], a[2], b[0], b[1], b[2], c, out x, out y, out k);
+            if (a.Length < 3 || b.Length < 3) throw new ArgumentException("min 3 data points.");
+            PoolFromSwapsAB(a[0], a[1], a[2], b[0], b[1], b[2], c, out x, out y, out k);
         }
 
-        public static void KPoolFromSwaps(ZMDecimal a1, ZMDecimal a2, ZMDecimal a3, ZMDecimal b1, ZMDecimal b2, ZMDecimal b3, ZMDecimal c, out ZMDecimal x, out ZMDecimal y, out ZMDecimal k)
+        public static void PoolFromSwapsBA(ZMDecimal[] a, ZMDecimal[] b, ZMDecimal c, out ZMDecimal x, out ZMDecimal y, out ZMDecimal k)
+        {
+            if (a.Length < 3 || b.Length < 3) throw new ArgumentException("min 3 data points.");
+            PoolFromSwapsBA(a[0], a[1], a[2], b[0], b[1], b[2], c, out x, out y, out k);
+        }
+
+        public static void PoolFromSwapsAB(ZMDecimal a1, ZMDecimal a2, ZMDecimal a3, ZMDecimal b1, ZMDecimal b2, ZMDecimal b3, ZMDecimal c, out ZMDecimal x, out ZMDecimal y, out ZMDecimal k)
         {
             ZMDecimal a2pow2 = a2.Pow(2);
             ZMDecimal a3pow2 = a3.Pow(2);
@@ -1180,6 +1186,22 @@ namespace ZeroMev.Shared
             k = c * ((b2 * ((a2 * a3pow2 * b3pow2) + (a2pow2 * a3 * b3pow2))) + (b2pow2 * ((a2 * a3pow2 * b3) + (a2pow2 * a3b3)))) / ((a2pow2 * b3pow2) - (2 * a2 * a3b2 * b3) + (a3pow2 * b2pow2));
         }
 
+        public static void PoolFromSwapsBA(ZMDecimal a1, ZMDecimal a2, ZMDecimal a3, ZMDecimal b1, ZMDecimal b2, ZMDecimal b3, ZMDecimal c, out ZMDecimal x, out ZMDecimal y, out ZMDecimal k)
+        {
+            ZMDecimal a2pow2 = a2.Pow(2);
+            ZMDecimal a3pow2 = a3.Pow(2);
+            ZMDecimal b2pow2 = b2.Pow(2);
+            ZMDecimal b3pow2 = b3.Pow(2);
+
+            ZMDecimal a3b2 = a3 * b2;
+            ZMDecimal a2b3 = a2 * b3;
+            ZMDecimal a3b3 = a3 * b3;
+
+            x = ((((a1 * a3b2) - (a1 * a2b3)) - (a2 * a3b3) - (a2pow2 * b3)) * c) / (a3b2 - a2b3);
+            y = -((b1 * (a3b2 - a2b3)) + (a3b2 * b3) + (a3 * b2pow2)) / (a3b2 - a2b3);
+            k = (((b2 * ((a2 * a3pow2 * b3pow2) + (a2pow2 * a3 * b3pow2))) + (b2pow2 * ((a2 * a3pow2 * b3) + (a2pow2 * a3b3)))) * c) / ((a2pow2 * b3pow2) - (2 * a2 * a3b2 * b3) + (a3pow2 * b2pow2));
+        }
+
         public static ZMDecimal[] KFromSwapsAndPool(ZMDecimal a1, ZMDecimal a2, ZMDecimal a3, ZMDecimal b1, ZMDecimal b2, ZMDecimal b3, ZMDecimal c, ZMDecimal x, ZMDecimal y)
         {
             var k = new ZMDecimal[3];
@@ -1189,21 +1211,32 @@ namespace ZeroMev.Shared
             return k;
         }
 
-        public static ZMDecimal SwapAForB(ZMDecimal a, ZMDecimal x, ZMDecimal y, ZMDecimal k, ZMDecimal c, out ZMDecimal xOut, out ZMDecimal yOut)
+        public static ZMDecimal SwapAB(ZMDecimal a, ZMDecimal prev_b, ZMDecimal x, ZMDecimal y, ZMDecimal k, ZMDecimal c, out ZMDecimal xOut, out ZMDecimal yOut)
         {
+            /*
+            Xout2=Xout+a2
+            Yout2=Yout-b1c 
+            b2= ((Xout2*Yout2)-k)/(c*Xout2)
+             */
+
             ZMDecimal b;
             xOut = x + a;
-            b = ((xOut * y) - k) / (c * xOut);
-            yOut = y - (b * c);
-            return b;
+            yOut = y - (prev_b * c);
+            return b = ((xOut * yOut) - k) / (c * xOut);
         }
 
-        public static ZMDecimal SwapBForA(ZMDecimal b, ZMDecimal x, ZMDecimal y, ZMDecimal k, ZMDecimal c, out ZMDecimal xOut, out ZMDecimal yOut)
+        public static ZMDecimal SwapBA(ZMDecimal b, ZMDecimal prev_a, ZMDecimal x, ZMDecimal y, ZMDecimal k, ZMDecimal c, out ZMDecimal xOut, out ZMDecimal yOut)
         {
+            /*
+            Xout2=Xout-a1c
+            Yout2=Yout+b2
+            a2= ((Xout2*Yout2)-k)/(c*Yout2)
+            */
+
             ZMDecimal a;
+            xOut = x - (prev_a * c);
             yOut = y + b;
-            a = ((yOut * x) - k) / (c * yOut);
-            xOut = x - (b * c);
+            a = ((xOut * yOut) - k) / (c * yOut);
             return a;
         }
     }

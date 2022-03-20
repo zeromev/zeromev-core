@@ -24,19 +24,24 @@ namespace ZeroMev.SharedServer
             StringBuilder sb = new StringBuilder();
 
             for (int i = 0; i < a.Length; i++)
-                sb.AppendLine($"{a[i].RoundAwayFromZero(decimals)}\t\t\t\t{b[i].RoundAwayFromZero(decimals)}");
+                sb.AppendLine($"{a[i].RoundAwayFromZero(decimals)}\t{b[i].RoundAwayFromZero(decimals)}");
             return sb.ToString();
         }
 
-        public static string DisplayCompareAB(ZMDecimal[] a, ZMDecimal[] b, int decimals, bool doShowZeroPercent = true)
+        public static string DisplayCompareAB(string aLabel,string bLabel, ZMDecimal[] a, ZMDecimal[] b, int decimals, bool doShowZeroPercent = true)
         {
             StringBuilder sb = new StringBuilder();
 
+            sb.AppendLine($"{aLabel}\t{bLabel}\terror %");
             for (int i = 0; i < a.Length; i++)
             {
                 var p = 1 - (a[i] / b[i]);
                 if (doShowZeroPercent || p > 0.00000001 || p < -0.00000001)
-                    sb.AppendLine($"{a[i].RoundAwayFromZero(decimals)}\t\t\t{b[i].RoundAwayFromZero(decimals)}\t\t\t{((decimal)p).ToString("P")}");
+                    sb.AppendLine($"{a[i].RoundAwayFromZero(decimals)}\t{b[i].RoundAwayFromZero(decimals)}\t{((decimal)p).ToString("P")}");
+#if (DEBUG)
+                if (p > 0.001 || p < -0.001)
+                    Debug.WriteLine("inaccurate");
+#endif
             }
             return sb.ToString();
         }

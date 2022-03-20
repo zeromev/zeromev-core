@@ -13,6 +13,85 @@ namespace ZeroMev.ClassifierService
     // lessens the code needed in light client classes such as MEVBlock
     public static class MEVHelper
     {
+        public static void SimUniswap2(int count, double isBaAbove, ZMDecimal c, ZMDecimal x, ZMDecimal y, out ZMDecimal[] a, out ZMDecimal[] b, out ZMDecimal[] xOut, out ZMDecimal[] yOut, out bool[] isBA)
+        {
+            // for 0.3% commission, c = 0.997 
+
+            double amountFrac = 0.01;
+
+            a = new ZMDecimal[count];
+            b = new ZMDecimal[count];
+            xOut = new ZMDecimal[count];
+            yOut = new ZMDecimal[count];
+            isBA = new bool[count];
+
+            Random r = new Random();
+
+            ZMDecimal k = x * y;
+            for (int i = 0; i < count; i++)
+            {
+                isBA[i] = (r.NextDouble() > isBaAbove);
+
+                if (!isBA[i])
+                {
+                    // a to b
+                    a[i] = x * ((ZMDecimal)(amountFrac * r.NextDouble())); // input amount as a random % of pool (to stop the pool going to zero)
+                    a[i] = 100;
+                    b[i] = DoSwap(ref x, ref y, c, ref a[i]);
+                }
+                else
+                {
+                    // b to a
+                    b[i] = y * ((ZMDecimal)(amountFrac * r.NextDouble())); // input amount as a random % of pool (to stop the pool going to zero)
+                    b[i] = 0.1;
+                    a[i] = DoSwap(ref y, ref x, c, ref b[i]);
+                }
+
+                xOut[i] = x;
+                yOut[i] = y;
+                k = xOut[i] * yOut[i];
+            }
+        }
+
+        private static ZMDecimal DoSwap(ref ZMDecimal reserveIn, ref ZMDecimal reserveOut, ZMDecimal c, ref ZMDecimal amountIn)
+        {
+            // see UniswapV2Library.sol getAmountOut()
+
+            // get amount out
+            var aLessFee = (amountIn * c);
+            var numerator = aLessFee * reserveOut;
+            var denominator = reserveIn + aLessFee;
+            var amountOut = numerator / denominator;
+
+            // update reserves
+            reserveIn += amountIn; // include fees
+            reserveOut -= amountOut;
+
+            return amountOut;
+        }
+
+        public static void RunSimUniswap()
+        {
+            ZMDecimal c = 0.997;
+            const int dec = 5;
+
+            //SimUniswap2(100, double.MaxValue, 1, 10000, 10, out var real_a, out var real_b, out var xOut, out var yOut, out var isBA);
+            SimUniswap2(100, double.MaxValue, c, 10000, 10, out var real_a, out var real_b, out var xOut, out var yOut, out var isBA);
+
+            ZMDecimal ab_x, ab_y, ab_k;
+            ZMDecimal ba_x, ba_y, ba_k;
+            MEVCalc.PoolFromSwapsAB(real_a, real_b, c, out ab_x, out ab_y, out ab_k);
+            MEVCalc.PoolFromSwapsBA(real_a, real_b, c, out ba_x, out ba_y, out ba_k);
+
+            Debug.WriteLine($"x\t(ab)\t{ab_x.RoundAwayFromZero(dec)}\t(ba)\t{ba_x.RoundAwayFromZero(dec)}");
+            Debug.WriteLine($"y\t(ab)\t{ab_y.RoundAwayFromZero(dec)}\t(ba)\t{ba_y.RoundAwayFromZero(dec)}");
+            Debug.WriteLine($"k\t(ab)\t{ab_k.RoundAwayFromZero(dec)}\t(ba)\t{ba_k.RoundAwayFromZero(dec)}");
+
+            Debug.WriteLine($"ba?\ta\tb\tx\ty\tk");
+            for (int i = 0; i < real_a.Length; i++)
+                Debug.WriteLine($"{isBA[i]}\t{real_a[i].Shorten()}\t{real_b[i].Shorten()}\t{xOut[i].Shorten()}\t{yOut[i].Shorten()}\t{(xOut[i] * yOut[i]).Shorten()}");
+        }
+
         public static bool GetSandwichParameters(MEVBlock mb, int index, out ZMDecimal[] a, out ZMDecimal[] b, ProtocolSwap protocol = ProtocolSwap.Unknown)
         {
             a = null;
