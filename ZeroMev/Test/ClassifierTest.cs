@@ -18,9 +18,15 @@ namespace ZeroMev.Test
     public class ClassifierTest
     {
         [TestMethod]
-        public void SimUniswap()
+        public void RunSimUniswapABAB()
         {
-            MEVHelper.RunSimUniswap();
+            MEVHelper.RunSimUniswap(false);
+        }
+
+        [TestMethod]
+        public void RunSimUniswapABBA()
+        {
+            MEVHelper.RunSimUniswap(true);
         }
 
         [TestMethod]
@@ -43,18 +49,15 @@ namespace ZeroMev.Test
                         continue;
 
                     ZMDecimal c = 0.997; // 0.3% commission
-                    ZMDecimal ab_x, ab_y, ab_k;
-                    ZMDecimal ba_x, ba_y, ba_k;
-                    MEVCalc.PoolFromSwapsABABAB(real_a, real_b, c, out ab_x, out ab_y, out ab_k);
-                    MEVCalc.PoolFromSwapsBABABA(real_a, real_b, c, out ba_x, out ba_y, out ba_k);
+                    ZMDecimal x, y;
+                    MEVCalc.PoolFromSwapsABAB(real_a, real_b, c, out x, out y);
 
                     Debug.WriteLine($"block {mb.BlockNumber}");
                     Debug.WriteLine($"swap count {real_a.Length}");
                     if (real_a.Length > 3)
                         Debug.WriteLine(">3");
-                    Debug.WriteLine($"x\t(ab)\t{ab_x.RoundAwayFromZero(dec)}\t(ba)\t{ba_x.RoundAwayFromZero(dec)}");
-                    Debug.WriteLine($"y\t(ab)\t{ab_y.RoundAwayFromZero(dec)}\t(ba)\t{ba_y.RoundAwayFromZero(dec)}");
-                    Debug.WriteLine($"k\t(ab)\t{ab_k.RoundAwayFromZero(dec)}\t(ba)\t{ba_k.RoundAwayFromZero(dec)}");
+                    Debug.WriteLine($"x\t(ab)\t{x.RoundAwayFromZero(dec)}");
+                    Debug.WriteLine($"y\t(ab)\t{y.RoundAwayFromZero(dec)}");
                     Debug.WriteLine("");
 
                     ZMDecimal[] a = new ZMDecimal[real_a.Length];
@@ -65,43 +68,15 @@ namespace ZeroMev.Test
                         {
                             // ab swap
                             a[j] = real_a[j];
-                            b[j] = MEVHelper.SwapOutputAmount(ref ab_x, ref ab_y, c, real_a[j]);
+                            b[j] = MEVHelper.SwapOutputAmount(ref x, ref y, c, real_a[j]);
                         }
                         else
                         {
                             // ba swap
-                            a[j] = MEVHelper.SwapOutputAmount(ref ab_y, ref ab_x, c, real_b[j]);
+                            a[j] = MEVHelper.SwapOutputAmount(ref y, ref x, c, real_b[j]);
                             b[j] = real_b[j];
                         }
                     }
-                    /*
-                    for (int j = 0; j < real_a.Length; j++)
-                    {
-                        if (j < real_a.Length - 1)
-                        {
-                            // ab swap
-                            b[j] = MEVCalc.SwapAB(real_a[j], j == 0 ? 0 : b[j - 1], ab_x, ab_y, ab_k, c, out ab_x, out ab_y);
-
-                            // maintain ba pool
-                            a[j] = MEVCalc.SwapBA(b[j], j == 0 ? 0 : a[j - 1], ba_x, ba_y, ba_k, c, out ba_x, out ba_y);
-                        }
-                        else
-                        {
-                            // ba swap
-                            a[j] = MEVCalc.SwapBA(real_b[j], j == 0 ? 0 : a[j - 1], ba_x, ba_y, ba_k, c, out ba_x, out ba_y);
-
-                            // maintain ab pool
-                            b[j] = MEVCalc.SwapAB(a[j], j == 0 ? 0 : b[j - 1], ab_x, ab_y, ab_k, c, out ab_x, out ab_y);
-                        }
-                    }
-                    */
-
-                    /*
-                    Debug.WriteLine("calculated");
-                    Debug.WriteLine(Util.DisplayArrayAB(a, b, dec));
-                    Debug.WriteLine("real world");
-                    Debug.WriteLine(Util.DisplayArrayAB(real_a, real_b, dec));
-                    */
 
                     Debug.WriteLine("compare a");
                     Debug.WriteLine(Util.DisplayCompareAB("calculated", "real", a, real_a, dec));
@@ -111,7 +86,7 @@ namespace ZeroMev.Test
 
                     //if (a.Length > 3)
                     //if (mb.BlockNumber == 13358716)
-                        //Console.WriteLine("whopper!");
+                    //Console.WriteLine("whopper!");
                     Debug.WriteLine("-----------------------");
                 }
             }

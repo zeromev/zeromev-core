@@ -42,8 +42,8 @@ namespace ZeroMev.SharedServer
                 if (doShowZeroPercent || p > 0.00000001 || p < -0.00000001)
                     sb.AppendLine($"{a[i].RoundAwayFromZero(decimals)}\t{b[i].RoundAwayFromZero(decimals)}\t{((decimal)p).ToString("P")}");
 #if (DEBUG)
-                //if (p > 0.001 || p < -0.001)
-                //Debug.WriteLine("inaccurate");
+                if (p > 0.0001 || p < -0.0001)
+                    Debug.WriteLine("inaccurate");
 #endif
             }
             return sb.ToString();

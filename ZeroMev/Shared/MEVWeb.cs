@@ -1157,55 +1157,15 @@ namespace ZeroMev.Shared
 
     public static class MEVCalc
     {
-        public static void PoolFromSwapsABABAB(ZMDecimal[] a, ZMDecimal[] b, ZMDecimal c, out ZMDecimal x, out ZMDecimal y, out ZMDecimal k)
-        {
-            if (a.Length < 3 || b.Length < 3) throw new ArgumentException("min 3 data points.");
-            PoolFromSwapsABABAB(a[0], a[1], a[2], b[0], b[1], b[2], c, out x, out y, out k);
-        }
-
-        public static void PoolFromSwapsBABABA(ZMDecimal[] a, ZMDecimal[] b, ZMDecimal c, out ZMDecimal x, out ZMDecimal y, out ZMDecimal k)
-        {
-            if (a.Length < 3 || b.Length < 3) throw new ArgumentException("min 3 data points.");
-            PoolFromSwapsBABABA(a[0], a[1], a[2], b[0], b[1], b[2], c, out x, out y, out k);
-        }
-
         public static void PoolFromSwapsABAB(ZMDecimal[] a, ZMDecimal[] b, ZMDecimal c, out ZMDecimal x, out ZMDecimal y)
         {
             x = ((a[0] * a[1] * b[1] * c) + (a[0].Pow(2) * b[1])) / ((a[1] * b[0]) - (a[0] * b[1]));
             y = ((((b[0] * ((a[1] * b[1]) - (a[0] * b[1]))) + (a[1] * b[0].Pow(2))) * c) + (a[0] * b[0] * b[1])) / ((a[1] * b[0] * c) - (a[0] * b[1] * c));
         }
 
-        public static void PoolFromSwapsABABAB(ZMDecimal a1, ZMDecimal a2, ZMDecimal a3, ZMDecimal b1, ZMDecimal b2, ZMDecimal b3, ZMDecimal c, out ZMDecimal x, out ZMDecimal y, out ZMDecimal k)
+        public static void PoolFromSwapsABBA(ZMDecimal[] a, ZMDecimal[] b, ZMDecimal c, out ZMDecimal x, out ZMDecimal y)
         {
-            ZMDecimal a2pow2 = a2.Pow(2);
-            ZMDecimal a3pow2 = a3.Pow(2);
-            ZMDecimal b2pow2 = b2.Pow(2);
-            ZMDecimal b3pow2 = b3.Pow(2);
-
-            ZMDecimal a3b2 = a3 * b2;
-            ZMDecimal a2b3 = a2 * b3;
-            ZMDecimal a3b3 = a3 * b3;
-            ZMDecimal a3b2_a2b3 = a3b2 - a2b3;
-
-            x = -((a1 * a3b2_a2b3) - (a2 * a3b3) - (a2pow2 * b3)) / a3b2_a2b3;
-            y = c * ((b1 * (a3b2 - a2b3)) + (a3b2 * b3) + (a3 * b2pow2)) / a3b2_a2b3;
-            k = c * ((b2 * ((a2 * a3pow2 * b3pow2) + (a2pow2 * a3 * b3pow2))) + (b2pow2 * ((a2 * a3pow2 * b3) + (a2pow2 * a3b3)))) / ((a2pow2 * b3pow2) - (2 * a2 * a3b2 * b3) + (a3pow2 * b2pow2));
-        }
-
-        public static void PoolFromSwapsBABABA(ZMDecimal a1, ZMDecimal a2, ZMDecimal a3, ZMDecimal b1, ZMDecimal b2, ZMDecimal b3, ZMDecimal c, out ZMDecimal x, out ZMDecimal y, out ZMDecimal k)
-        {
-            ZMDecimal a2pow2 = a2.Pow(2);
-            ZMDecimal a3pow2 = a3.Pow(2);
-            ZMDecimal b2pow2 = b2.Pow(2);
-            ZMDecimal b3pow2 = b3.Pow(2);
-
-            ZMDecimal a3b2 = a3 * b2;
-            ZMDecimal a2b3 = a2 * b3;
-            ZMDecimal a3b3 = a3 * b3;
-
-            x = ((((a1 * a3b2) - (a1 * a2b3)) - (a2 * a3b3) - (a2pow2 * b3)) * c) / (a3b2 - a2b3);
-            y = -((b1 * (a3b2 - a2b3)) + (a3b2 * b3) + (a3 * b2pow2)) / (a3b2 - a2b3);
-            k = (((b2 * ((a2 * a3pow2 * b3pow2) + (a2pow2 * a3 * b3pow2))) + (b2pow2 * ((a2 * a3pow2 * b3) + (a2pow2 * a3b3)))) * c) / ((a2pow2 * b3pow2) - (2 * a2 * a3b2 * b3) + (a3pow2 * b2pow2));
+            throw new NotImplementedException();
         }
 
         public static ZMDecimal[] KFromSwapsAndPool(ZMDecimal a1, ZMDecimal a2, ZMDecimal a3, ZMDecimal b1, ZMDecimal b2, ZMDecimal b3, ZMDecimal c, ZMDecimal x, ZMDecimal y)

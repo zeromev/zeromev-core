@@ -13,7 +13,7 @@ namespace ZeroMev.ClassifierService
     // lessens the code needed in light client classes such as MEVBlock
     public static class MEVHelper
     {
-        public static void SimUniswap2(int count, double isBaAbove, ZMDecimal c, ZMDecimal x, ZMDecimal y, out ZMDecimal[] a, out ZMDecimal[] b, out ZMDecimal[] xOut, out ZMDecimal[] yOut, out bool[] isBA)
+        public static void SimUniswap2(int count, double isBaAbove, bool isABBA, ZMDecimal c, ZMDecimal x, ZMDecimal y, out ZMDecimal[] a, out ZMDecimal[] b, out ZMDecimal[] xOut, out ZMDecimal[] yOut, out bool[] isBA)
         {
             // for 0.3% commission, c = 0.997 
 
@@ -28,12 +28,22 @@ namespace ZeroMev.ClassifierService
             Random r = new Random();
 
             ZMDecimal k = x * y;
+            bool nextIsBA = false;
             for (int i = 0; i < count; i++)
             {
-                isBA[i] = (r.NextDouble() > isBaAbove);
-
-                // TODO temporarily create ABABBA
-                //if (i == 2) isBA[i] = !isBA[i];
+                // force the first two txs to be either ABAB or ABBA (based on isABBA), and the rest trade random directions (based on isBaAbove)
+                if (i == 0)
+                {
+                    isBA[0] = false;
+                }
+                else if (i == 1)
+                {
+                    isBA[1] = isABBA ? true : false;
+                }
+                else
+                {
+                    isBA[i] = (r.NextDouble() > isBaAbove);
+                }
 
                 if (!isBA[i])
                 {
@@ -73,85 +83,36 @@ namespace ZeroMev.ClassifierService
             return amountOut;
         }
 
-        public static void ABABAB(ZMDecimal[] a, ZMDecimal[] b, ZMDecimal c, ZMDecimal x, ZMDecimal y)
+        public static void RunSimUniswap(bool isABBA)
         {
-            /*
-            b1 = ((a1 * c) * y) / (x + (a1 * c))
-            b2 = ((a2 * c) * (y - b1)) / ((x + a1) + (a2 * c))
-            b3 = ((a3 * c) * (y - b1 - b2)) / ((x + a1 + a2) + (a3 * c))
-            
-            a1,a2,a3,b1,b2,b3,c are known, find x,y
-             */
-
-            ZMDecimal[] b_ = new ZMDecimal[b.Length];
-
-            b_[0] = ((a[0] * c) * y) / (x + (a[0] * c));
-            b_[1] = ((a[1] * c) * (y - b[0])) / ((x + a[0]) + (a[1] * c));
-            b_[2] = ((a[2] * c) * (y - b[0] - b[1])) / ((x + a[0] + a[1]) + (a[2] * c));
-
-            Debug.WriteLine(Util.DisplayCompareAB("b", "b_", b, b_, 5, true, 3));
-        }
-
-        public static void ABABBA(ZMDecimal[] a, ZMDecimal[] b, ZMDecimal c, ZMDecimal x, ZMDecimal y)
-        {
-            /*
-            b1 = ((a1 * c) * y) / (x + (a1 * c))
-            b2 = ((a2 * c) * (y - b1)) / ((x + a1) + (a2 * c))
-            a3 = ((b3 * c) * (x + a1 + a2)) / ((y - b1 - b2) + (b3 * c))
-            
-            a1,a2,a3,b1,b2,b3,c are known, find x,y
-             */
-
-            ZMDecimal[] a_ = new ZMDecimal[b.Length];
-            ZMDecimal[] b_ = new ZMDecimal[b.Length];
-
-            a_[0] = a[0];
-            b_[0] = ((a[0] * c) * y) / (x + (a[0] * c));
-            a_[1] = a[1];
-            b_[1] = ((a[1] * c) * (y - b[0])) / ((x + a[0]) + (a[1] * c));
-            a_[2] = ((b[2] * c) * (x + a[0] + a[1])) / ((y - b[0] - b[1]) + (b[2] * c));
-            b_[2] = b[2];
-
-            Debug.WriteLine(Util.DisplayCompareAB("b", "b_", b, b_, 5, true, 3));
-            Debug.WriteLine(Util.DisplayCompareAB("a", "a_", a, a_, 5, true, 3));
-        }
-
-        public static void RunSimUniswap()
-        {
+            // test our uniswap pool solvers for ABAB or ABBA (based on isABBA)
             ZMDecimal x = 10000;
             ZMDecimal y = 10;
             ZMDecimal c = 0.997;
             const int dec = 5;
 
-            //SimUniswap2(100, double.MaxValue, 1, 10000, 10, out var real_a, out var real_b, out var xOut, out var yOut, out var isBA);
-            SimUniswap2(100, double.MaxValue, c, 10000, 10, out var real_a, out var real_b, out var xOut, out var yOut, out var isBA);
-
-            //ABABAB(real_a, real_b, c, 10000, 10);
-            //ABABBA(real_a, real_b, c, 10000, 10);
-
-            /*
-            ZMDecimal ab_x, ab_y, ab_k;
-            ZMDecimal ba_x, ba_y, ba_k;
-            MEVCalc.PoolFromSwapsABABAB(real_a, real_b, c, out ab_x, out ab_y, out ab_k);
-            MEVCalc.PoolFromSwapsBABABA(real_a, real_b, c, out ba_x, out ba_y, out ba_k);
-
-            Debug.WriteLine($"x\t(ab)\t{ab_x.RoundAwayFromZero(dec)}\t(ba)\t{ba_x.RoundAwayFromZero(dec)}");
-            Debug.WriteLine($"y\t(ab)\t{ab_y.RoundAwayFromZero(dec)}\t(ba)\t{ba_y.RoundAwayFromZero(dec)}");
-            Debug.WriteLine($"k\t(ab)\t{ab_k.RoundAwayFromZero(dec)}\t(ba)\t{ba_k.RoundAwayFromZero(dec)}");
-            */
+            SimUniswap2(100, 0.5, isABBA, c, 10000, 10, out var real_a, out var real_b, out var xOut, out var yOut, out var isBA);
 
             ZMDecimal x_, y_;
-            MEVCalc.PoolFromSwapsABAB(real_a, real_b, c, out x_, out y_);
+            if (!isABBA)
+                MEVCalc.PoolFromSwapsABAB(real_a, real_b, c, out x_, out y_);
+            else
+                MEVCalc.PoolFromSwapsABBA(real_a, real_b, c, out x_, out y_);
+
             Debug.WriteLine("_ = calculated");
             Debug.WriteLine($"x\t{x.RoundAwayFromZero(dec)}\tx_\t{x_.RoundAwayFromZero(dec)}");
             Debug.WriteLine($"y\t{y.RoundAwayFromZero(dec)}\ty_\t{y_.RoundAwayFromZero(dec)}");
             Debug.WriteLine("");
 
-            Debug.WriteLine($"ba?\ta\tb\tb_\tx\tx_\ty\ty_");
+            Debug.WriteLine($"ba?\ta\tb\tout_\tx\tx_\ty\ty_");
             for (int i = 0; i < real_a.Length; i++)
             {
-                var b_ = MEVHelper.SwapOutputAmount(ref x_, ref y_, c, real_a[i]);
-                Debug.WriteLine($"{isBA[i]}\t{real_a[i].Shorten()}\t{real_b[i].Shorten()}\t{b_.Shorten()}\t{xOut[i].Shorten()}\t{x_.Shorten()}\t{yOut[i].Shorten()}\t{y_.Shorten()}");
+                ZMDecimal out_;
+                if (!isBA[i])
+                    out_ = MEVHelper.SwapOutputAmount(ref x_, ref y_, c, real_a[i]);
+                else
+                    out_ = MEVHelper.SwapOutputAmount(ref y_, ref x_, c, real_b[i]);
+                Debug.WriteLine($"{isBA[i]}\t{real_a[i].Shorten()}\t{real_b[i].Shorten()}\t{out_.Shorten()}\t{xOut[i].Shorten()}\t{x_.Shorten()}\t{yOut[i].Shorten()}\t{y_.Shorten()}");
             }
         }
 
