@@ -45,8 +45,8 @@ namespace ZeroMev.Test
                     ZMDecimal c = 0.997; // 0.3% commission
                     ZMDecimal ab_x, ab_y, ab_k;
                     ZMDecimal ba_x, ba_y, ba_k;
-                    MEVCalc.PoolFromSwapsAB(real_a, real_b, c, out ab_x, out ab_y, out ab_k);
-                    MEVCalc.PoolFromSwapsBA(real_a, real_b, c, out ba_x, out ba_y, out ba_k);
+                    MEVCalc.PoolFromSwapsABABAB(real_a, real_b, c, out ab_x, out ab_y, out ab_k);
+                    MEVCalc.PoolFromSwapsBABABA(real_a, real_b, c, out ba_x, out ba_y, out ba_k);
 
                     Debug.WriteLine($"block {mb.BlockNumber}");
                     Debug.WriteLine($"swap count {real_a.Length}");
