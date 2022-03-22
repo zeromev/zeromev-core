@@ -106,19 +106,9 @@ namespace ZeroMev.ClassifierService
             }
         }
 
-        public static bool GetSandwichParameters(MEVBlock mb, int index, out ZMDecimal[] a, out ZMDecimal[] b, ProtocolSwap protocol = ProtocolSwap.Unknown)
+        public static bool GetSandwichParametersFiltered(MEVBlock mb, int index, out ZMDecimal[]? a, out ZMDecimal[]? b, ProtocolSwap protocol = ProtocolSwap.Unknown)
         {
-            a = null;
-            b = null;
-
-            var front = mb.Frontruns[index];
-            var back = mb.Backruns[index];
-            var sandwiched = mb.Sandwiched[index];
-
-            if (index >= mb.Frontruns.Count ||
-                index >= mb.Backruns.Count ||
-                index >= mb.Sandwiched.Count)
-                return false;
+            bool success = MEVCalc.GetSandwichParameters(mb, index, out a, out b, out var front, out var back, out var sandwiched);
 
             // optionally filter by protocol (unknown means any)
             if (protocol != ProtocolSwap.Unknown &&
@@ -127,30 +117,7 @@ namespace ZeroMev.ClassifierService
                 sandwiched[0].Swap.Protocol != protocol))
                 return false;
 
-            a = new ZMDecimal[sandwiched.Length + 2];
-            b = new ZMDecimal[sandwiched.Length + 2];
-
-            int txIndex = front.Swap.TxIndex.Value;
-            a[0] = front.Swap.AmountIn;
-            b[0] = front.Swap.AmountOut;
-
-            for (int i = 0; i < sandwiched.Length; i++)
-            {
-                if (++txIndex != sandwiched[i].TxIndex.Value) return false;
-                a[i + 1] = sandwiched[i].Swap.AmountIn;
-                b[i + 1] = sandwiched[i].Swap.AmountOut;
-
-                Debug.Assert(front.Swap.SymbolInIndex == sandwiched[i].Swap.SymbolInIndex);
-                Debug.Assert(front.Swap.SymbolOutIndex == sandwiched[i].Swap.SymbolOutIndex);
-            }
-
-            if (++txIndex != back.TxIndex.Value) return false;
-            a[sandwiched.Length + 1] = back.Swap.AmountOut; // amounts reversed as backruns trade against frontrun and sandwiched
-            b[sandwiched.Length + 1] = back.Swap.AmountIn;
-
-            Debug.Assert(back.Swap.SymbolInIndex == front.Swap.SymbolOutIndex);
-            Debug.Assert(back.Swap.SymbolOutIndex == front.Swap.SymbolInIndex);
-            return true;
+            return success;
         }
 
         public static ZMDecimal SandwichProfitDireV2(ZMSwap front, ZMSwap back, ZMDecimal front_in_decimal)
