@@ -13,10 +13,9 @@ namespace ZeroMev.ClassifierService
     // lessens the code needed in light client classes such as MEVBlock
     public static class MEVHelper
     {
+        // for 0.3% commission, c = 0.997 
         public static void SimUniswap2(int count, double isBaAbove, bool isABBA, ZMDecimal c, ZMDecimal x, ZMDecimal y, out ZMDecimal[] a, out ZMDecimal[] b, out ZMDecimal[] xOut, out ZMDecimal[] yOut, out bool[] isBA)
         {
-            // for 0.3% commission, c = 0.997 
-
             double amountFrac = 0.01;
 
             a = new ZMDecimal[count];
@@ -27,60 +26,34 @@ namespace ZeroMev.ClassifierService
 
             Random r = new Random();
 
-            ZMDecimal k = x * y;
-            bool nextIsBA = false;
             for (int i = 0; i < count; i++)
             {
                 // force the first two txs to be either ABAB or ABBA (based on isABBA), and the rest trade random directions (based on isBaAbove)
                 if (i == 0)
-                {
                     isBA[0] = false;
-                }
                 else if (i == 1)
-                {
                     isBA[1] = isABBA ? true : false;
-                }
                 else
-                {
                     isBA[i] = (r.NextDouble() > isBaAbove);
-                }
 
                 if (!isBA[i])
                 {
                     // a to b
                     a[i] = x * ((ZMDecimal)(amountFrac * r.NextDouble())); // input amount as a random % of pool (to stop the pool going to zero)
                     a[i] = 100;
-                    b[i] = SwapOutputAmount(ref x, ref y, c, a[i]);
+                    b[i] = MEVCalc.SwapOutputAmount(ref x, ref y, c, a[i]);
                 }
                 else
                 {
                     // b to a
                     b[i] = y * ((ZMDecimal)(amountFrac * r.NextDouble())); // input amount as a random % of pool (to stop the pool going to zero)
                     b[i] = 0.1;
-                    a[i] = SwapOutputAmount(ref y, ref x, c, b[i]);
+                    a[i] = MEVCalc.SwapOutputAmount(ref y, ref x, c, b[i]);
                 }
 
                 xOut[i] = x;
                 yOut[i] = y;
-                k = xOut[i] * yOut[i];
             }
-        }
-
-        public static ZMDecimal SwapOutputAmount(ref ZMDecimal reserveIn, ref ZMDecimal reserveOut, ZMDecimal c, ZMDecimal amountIn)
-        {
-            // see UniswapV2Library.sol getAmountOut()
-
-            // get amount out
-            var aLessFee = (amountIn * c);
-            var numerator = aLessFee * reserveOut;
-            var denominator = reserveIn + aLessFee;
-            var amountOut = numerator / denominator;
-
-            // update reserves
-            reserveIn += amountIn; // include fees
-            reserveOut -= amountOut;
-
-            return amountOut;
         }
 
         public static void RunSimUniswap(bool isABBA)
@@ -104,15 +77,32 @@ namespace ZeroMev.ClassifierService
             Debug.WriteLine($"y\t{y.RoundAwayFromZero(dec)}\ty_\t{y_.RoundAwayFromZero(dec)}");
             Debug.WriteLine("");
 
+            // test forwards
             Debug.WriteLine($"ba?\ta\tb\tout_\tx\tx_\ty\ty_");
             for (int i = 0; i < real_a.Length; i++)
             {
                 ZMDecimal out_;
                 if (!isBA[i])
-                    out_ = MEVHelper.SwapOutputAmount(ref x_, ref y_, c, real_a[i]);
+                    out_ = MEVCalc.SwapOutputAmount(ref x_, ref y_, c, real_a[i]);
                 else
-                    out_ = MEVHelper.SwapOutputAmount(ref y_, ref x_, c, real_b[i]);
+                    out_ = MEVCalc.SwapOutputAmount(ref y_, ref x_, c, real_b[i]);
                 Debug.WriteLine($"{isBA[i]}\t{real_a[i].Shorten()}\t{real_b[i].Shorten()}\t{out_.Shorten()}\t{xOut[i].Shorten()}\t{x_.Shorten()}\t{yOut[i].Shorten()}\t{y_.Shorten()}");
+            }
+
+            Debug.WriteLine("");
+            Debug.WriteLine("in reverse");
+            Debug.WriteLine("");
+
+            // test backwards
+            Debug.WriteLine($"ba?\ta\tb\tin_\tx\tx_\ty\ty_");
+            for (int i = real_a.Length - 1; i >= 0; i--)
+            {
+                ZMDecimal in_;
+                if (!isBA[i])
+                    in_ = MEVCalc.SwapOutputAmountReversed(ref y_, ref x_, c, real_b[i]);
+                else
+                    in_ = MEVCalc.SwapOutputAmountReversed(ref x_, ref y_, c, real_a[i]);
+                Debug.WriteLine($"{isBA[i]}\t{real_a[i].Shorten()}\t{real_b[i].Shorten()}\t{in_.Shorten()}\t{xOut[i].Shorten()}\t{x_.Shorten()}\t{yOut[i].Shorten()}\t{y_.Shorten()}");
             }
         }
 

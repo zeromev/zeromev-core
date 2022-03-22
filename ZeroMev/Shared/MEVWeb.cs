@@ -1165,45 +1165,51 @@ namespace ZeroMev.Shared
 
         public static void PoolFromSwapsABBA(ZMDecimal[] a, ZMDecimal[] b, ZMDecimal c, out ZMDecimal x, out ZMDecimal y)
         {
-            throw new NotImplementedException();
+            var cPow2 = c.Pow(2);
+            x = -(((a[0].Pow(2) * b[1]) - (a[0] * a[1] * b[1])) * cPow2) / ((a[0] * b[1] * cPow2) - (a[1] * b[0]));
+            y = ((a[0] * b[0] * b[1] * cPow2) + (b[0] * a[1] * b[1] * c) - (b[0] * a[0] * b[1] * c) - (a[1] * b[0].Pow(2))) / ((a[0] * b[1] * cPow2) - (a[1] * b[0]));
         }
 
-        public static ZMDecimal[] KFromSwapsAndPool(ZMDecimal a1, ZMDecimal a2, ZMDecimal a3, ZMDecimal b1, ZMDecimal b2, ZMDecimal b3, ZMDecimal c, ZMDecimal x, ZMDecimal y)
+        public static void PoolFromSwapsABBA(ZMDecimal a0, ZMDecimal a1, ZMDecimal b0, ZMDecimal b1, ZMDecimal c, out ZMDecimal x, out ZMDecimal y)
         {
-            var k = new ZMDecimal[3];
-            k[0] = (x + a1) * (y - b1 * c);
-            k[1] = (x + a1 + a2) * (y - b1 * c - b2 * c);
-            k[2] = (x + a1 + a2 + a3) * (y - b1 * c - b2 * c - b3 * c);
-            return k;
+            var cPow2 = c.Pow(2);
+            x = -(((a0.Pow(2) * b1) - (a0 * a1 * b1)) * cPow2) / ((a0 * b1 * cPow2) - (a1 * b0));
+            y = ((a0 * b0 * b1 * cPow2) + (b0 * a1 * b1 * c) - (b0 * a0 * b1 * c) - (a1 * b0.Pow(2))) / ((a0 * b1 * cPow2) - (a1 * b0));
         }
 
-        public static ZMDecimal SwapAB(ZMDecimal a, ZMDecimal prev_b, ZMDecimal x, ZMDecimal y, ZMDecimal k, ZMDecimal c, out ZMDecimal xOut, out ZMDecimal yOut)
+        public static ZMDecimal SwapOutputAmount(ref ZMDecimal reserveIn, ref ZMDecimal reserveOut, ZMDecimal c, ZMDecimal amountIn)
         {
-            /*
-            Xout2=Xout+a2
-            Yout2=Yout-b1c 
-            b2= ((Xout2*Yout2)-k)/(c*Xout2)
-             */
+            // see UniswapV2Library.sol getAmountOut()
 
-            ZMDecimal b;
-            xOut = x + a;
-            yOut = y - (prev_b * c);
-            return b = ((xOut * yOut) - k) / (c * xOut);
+            // get amount out
+            var aLessFee = (amountIn * c);
+            var numerator = aLessFee * reserveOut;
+            var denominator = reserveIn + aLessFee;
+            var amountOut = numerator / denominator;
+
+            // update reserves
+            reserveIn += amountIn; // include fees
+            reserveOut -= amountOut;
+
+            return amountOut;
         }
 
-        public static ZMDecimal SwapBA(ZMDecimal b, ZMDecimal prev_a, ZMDecimal x, ZMDecimal y, ZMDecimal k, ZMDecimal c, out ZMDecimal xOut, out ZMDecimal yOut)
+        public static ZMDecimal SwapOutputAmountReversed(ref ZMDecimal reserveIn, ref ZMDecimal reserveOut, ZMDecimal c, ZMDecimal amountIn)
         {
-            /*
-            Xout2=Xout-a1c
-            Yout2=Yout+b2
-            a2= ((Xout2*Yout2)-k)/(c*Yout2)
-            */
+            // as above but with commission applied in reverse
+            // the caller is expected to have switched amounts and reserves
 
-            ZMDecimal a;
-            xOut = x - (prev_a * c);
-            yOut = y + b;
-            a = ((xOut * yOut) - k) / (c * yOut);
-            return a;
+            // get amount out
+            var aLessFee = (amountIn * (1 + (1 - c)));
+            var numerator = aLessFee * reserveOut;
+            var denominator = reserveIn + aLessFee;
+            var amountOut = numerator / denominator;
+
+            // update reserves
+            reserveIn += amountIn; // include fees
+            reserveOut -= amountOut;
+
+            return amountOut;
         }
     }
 }

@@ -18,13 +18,48 @@ namespace ZeroMev.Test
     public class ClassifierTest
     {
         [TestMethod]
-        public void RunSimUniswapABAB()
+        public void TestIntegerABAB()
+        {
+            int dec = 5;
+            ZMDecimal c = 0.997;
+            ZMDecimal[] a = new ZMDecimal[] { ZMDecimal.Parse("1929237324395184128"), ZMDecimal.Parse("8000000000000000000"), ZMDecimal.Parse("2079637922679304552") };
+            ZMDecimal[] b = new ZMDecimal[] { ZMDecimal.Parse("31757263432589627776854"), ZMDecimal.Parse("122078801090749462527559"), ZMDecimal.Parse("31123075729408622079362") };
+            ZMDecimal[] a_ = new ZMDecimal[a.Length];
+            ZMDecimal[] b_ = new ZMDecimal[b.Length];
+
+            MEVCalc.PoolFromSwapsABAB(a, b, c, out var x, out var y);
+
+            int j = 0;
+            a_[j] = a[j];
+            b_[j] = MEVCalc.SwapOutputAmount(ref x, ref y, c, a[j]);
+            j++;
+
+            a_[j] = a[j];
+            b_[j] = MEVCalc.SwapOutputAmount(ref x, ref y, c, a[j]);
+            j++;
+
+            a_[j] = MEVCalc.SwapOutputAmount(ref y, ref x, c, b[j]);
+            b_[j] = b[j];
+
+
+            Debug.WriteLine($"x\t(ab)\t{x.RoundAwayFromZero(dec)}");
+            Debug.WriteLine($"y\t(ab)\t{y.RoundAwayFromZero(dec)}");
+
+            Debug.WriteLine("compare a");
+            Debug.WriteLine(Util.DisplayCompareAB("a_", "a", a_, a, dec));
+
+            Debug.WriteLine("compare b");
+            Debug.WriteLine(Util.DisplayCompareAB("b_", "b", b_, b, dec));
+        }
+
+        [TestMethod]
+        public void TestSimUniswapABAB()
         {
             MEVHelper.RunSimUniswap(false);
         }
 
         [TestMethod]
-        public void RunSimUniswapABBA()
+        public void TestSimUniswapABBA()
         {
             MEVHelper.RunSimUniswap(true);
         }
@@ -45,7 +80,7 @@ namespace ZeroMev.Test
                     if (mb.BlockNumber == 13358968)
                         Console.Write("");
 
-                    if (!MEVHelper.GetSandwichParameters(mb, i, out var real_a, out var real_b, ProtocolSwap.Uniswap2))
+                    if (!MEVHelper.GetSandwichParameters(mb, i, out var real_a, out var real_b, ProtocolSwap.Unknown))
                         continue;
 
                     ZMDecimal c = 0.997; // 0.3% commission
@@ -68,12 +103,12 @@ namespace ZeroMev.Test
                         {
                             // ab swap
                             a[j] = real_a[j];
-                            b[j] = MEVHelper.SwapOutputAmount(ref x, ref y, c, real_a[j]);
+                            b[j] = MEVCalc.SwapOutputAmount(ref x, ref y, c, real_a[j]);
                         }
                         else
                         {
                             // ba swap
-                            a[j] = MEVHelper.SwapOutputAmount(ref y, ref x, c, real_b[j]);
+                            a[j] = MEVCalc.SwapOutputAmount(ref y, ref x, c, real_b[j]);
                             b[j] = real_b[j];
                         }
                     }
