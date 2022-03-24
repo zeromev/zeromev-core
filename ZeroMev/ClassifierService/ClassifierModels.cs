@@ -120,48 +120,6 @@ namespace ZeroMev.ClassifierService
             return success;
         }
 
-        public static ZMDecimal SandwichProfitDireV2(ZMSwap front, ZMSwap back, ZMDecimal front_in_decimal)
-        {
-            var front_in_amount = front.InAmount;
-            var front_out_amount = front.OutAmount;
-            var back_in_amount = back.InAmount;
-            var back_out_amount = back.OutAmount;
-
-            var in_price = front_in_amount / front_out_amount;
-            if (front_out_amount > front_in_amount)
-                in_price = front_out_amount / front_in_amount;
-
-            var out_price = back_in_amount / back_out_amount;
-            bool out_price_per_out = false;
-            if (back_out_amount > back_in_amount)
-            {
-                out_price = back_out_amount / back_in_amount;
-                out_price_per_out = true;
-            }
-
-            ZMDecimal profit_decimal = 0;
-            if (back_in_amount > front_out_amount)
-            {
-                if (out_price_per_out)
-                    profit_decimal = front_out_amount * (out_price - in_price);
-                else
-                    profit_decimal = front_out_amount / out_price - front_out_amount / in_price;
-            }
-
-            if (back_in_amount < front_out_amount)
-            {
-                if (out_price_per_out)
-                    profit_decimal = back_in_amount * (out_price - in_price);
-                else
-                    profit_decimal = back_in_amount / out_price - back_in_amount / in_price;
-            }
-
-            if (back_in_amount == front_out_amount)
-                profit_decimal = back_out_amount - front_in_amount;
-
-            return profit_decimal;
-        }
-
         public static int GetSymbolIndex(MEVBlock? mb, string? tokenAddress)
         {
             if (mb == null || tokenAddress == null) return -1;
@@ -338,39 +296,75 @@ namespace ZeroMev.ClassifierService
             return null;
         }
 
-        public static void DebugMevBlocks(Dictionary<long, MEVBlock> mevBlocks)
+        public static void DebugMevBlock(MEVBlock mb, StreamWriter sw)
         {
-            foreach (var mb in mevBlocks.Values)
-                DebugMevBlock(mb);
-        }
-
-        public static void DebugMevBlock(MEVBlock mb)
-        {
-            Debug.WriteLine(mb.BlockNumber);
-            for (int i = 0; i < mb.Swaps.Count; i++) DebugMEV(mb.Swaps[i], mb, i);
-            for (int i = 0; i < mb.ContractSwaps.Count; i++) DebugMEV(mb.ContractSwaps[i], mb, i);
-            for (int i = 0; i < mb.Backruns.Count; i++) DebugMEV(mb.Backruns[i], mb, i);
+            for (int i = 0; i < mb.Swaps.Count; i++) DebugMev(mb.Swaps[i], mb, i, sw);
+            for (int i = 0; i < mb.ContractSwaps.Count; i++) DebugMev(mb.ContractSwaps[i], mb, i, sw);
+            for (int i = 0; i < mb.Backruns.Count; i++) DebugMev(mb.Backruns[i], mb, i, sw);
             for (int i = 0; i < mb.Sandwiched.Count; i++)
                 foreach (var s in mb.Sandwiched[i])
-                    DebugMEV(s, mb, i);
-            for (int i = 0; i < mb.Frontruns.Count; i++) DebugMEV(mb.Frontruns[i], mb, i);
-            for (int i = 0; i < mb.Arbs.Count; i++) DebugMEV(mb.Arbs[i], mb, i);
-            for (int i = 0; i < mb.Liquidations.Count; i++) DebugMEV(mb.Liquidations[i], mb, i);
-            for (int i = 0; i < mb.NFTrades.Count; i++) DebugMEV(mb.NFTrades[i], mb, i);
-            Debug.WriteLine("");
-
-            var json = JsonSerializer.Serialize<MEVBlock>(mb, ZMSerializeOptions.Default);
-            var compJson = Binary.Compress(Encoding.ASCII.GetBytes(json));
-            Debug.WriteLine($"{mb.BlockNumber} {json.Length} bytes {compJson.Length} comp bytes {json}");
+                    DebugMev(s, mb, i, sw);
+            for (int i = 0; i < mb.Frontruns.Count; i++) DebugMev(mb.Frontruns[i], mb, i, sw);
+            for (int i = 0; i < mb.Arbs.Count; i++) DebugMev(mb.Arbs[i], mb, i, sw);
+            for (int i = 0; i < mb.Liquidations.Count; i++) DebugMev(mb.Liquidations[i], mb, i, sw);
+            for (int i = 0; i < mb.NFTrades.Count; i++) DebugMev(mb.NFTrades[i], mb, i, sw);
         }
 
-        private static void DebugMEV(IMEV mev, MEVBlock mb, int mevIndex)
+        private static void DebugMev(IMEV mev, MEVBlock mb, int mevIndex, StreamWriter sw)
         {
-            Debug.WriteLine($"{mev.MEVType} {mev.MEVClass}");
             mev.Cache(mb, mevIndex);
-            Debug.WriteLine("summary: " + mev.ActionSummary);
-            Debug.WriteLine(" detail: " + mev.ActionDetail);
-            Debug.WriteLine("    mev: " + mev.MEVDetail);
+            DebugSandwiches(mev, mb, mevIndex, sw);
+        }
+
+        private static void DebugSandwiches(IMEV mev, MEVBlock mb, int mevIndex, StreamWriter sw)
+        {
+            if (mev.MEVType == MEVType.Frontrun)
+            {
+                if (mevIndex >= mb.Backruns.Count) return;
+                MEVBackrun br = mb.Backruns[mevIndex];
+                if (br == null) return;
+
+                if (mevIndex >= mb.Sandwiched.Count) return;
+                MEVSandwiched[] sd = mb.Sandwiched[mevIndex];
+                if (sd == null) return;
+                decimal sumVictimImpact = 0;
+                foreach (var s in sd)
+                    sumVictimImpact += s.MEVAmountUsd ?? 0;
+
+                var fr = (MEVFrontrun)mev;
+
+                AltSandwichProfit(mev, mb, mevIndex, out var profitNaive, out var profitFrontrun, out var profitBackrun, out var profitRateDiff2Way, out var profitFbOnePercent);
+                ZMDecimal? maxXY = null;
+                if (fr.X != null && fr.Y != null)
+                    maxXY = (fr.X.Value / fr.Y.Value > fr.Y.Value / fr.X.Value ? fr.X.Value / fr.Y.Value : fr.Y.Value / fr.X.Value).Shorten();
+                sw.WriteLine($"{mb.BlockNumber}\t{mev.TxIndex}\t{maxXY}\t{sumVictimImpact}\t{br.MEVAmountUsd}\t{fr.SandwichProfitUsd}\t{MEVCalc.SwapUsd(br.Swap, profitNaive)}\t{MEVCalc.SwapUsd(br.Swap, profitFrontrun)}\t{MEVCalc.SwapUsd(br.Swap, profitBackrun)}\t{MEVCalc.SwapUsd(br.Swap, profitRateDiff2Way)}\t{MEVCalc.SwapUsd(br.Swap, profitFbOnePercent)}");
+            }
+        }
+
+        public static void AltSandwichProfit(IMEV mev, MEVBlock mb, int mevIndex, out ZMDecimal? profitNaive, out ZMDecimal? profitFrontrun, out ZMDecimal? profitBackrun, out ZMDecimal? profitRateDiff2Way, out ZMDecimal? profitFbOnePercent)
+        {
+            profitFbOnePercent = null;
+            profitNaive = null;
+            profitFrontrun = null;
+            profitBackrun = null;
+            profitRateDiff2Way = null;
+
+            if (!MEVCalc.GetSandwichParameters(mb, mevIndex, out var a, out var b, out var front, out var back, out var sandwiched))
+                return;
+
+            int backIndex = a.Length - 1;
+
+            profitNaive = a[backIndex] - a[0];
+
+            profitFrontrun = (b[0] * (a[backIndex] / b[backIndex]) - a[0]);
+            profitBackrun = (a[backIndex] - (b[backIndex] * (a[0] / b[0])));
+            var profitFrontrunABS = profitFrontrun < 0 ? -profitFrontrun : profitFrontrun;
+            var profitBackrunABS = profitBackrun < 0 ? -profitBackrun : profitBackrun;
+            profitRateDiff2Way = profitFrontrunABS < profitBackrunABS ? profitFrontrun : profitBackrun;
+
+            var amount_percent_difference = (b[0] / b[backIndex]) - 1.0;
+            if (amount_percent_difference < 0.01)
+                profitFbOnePercent = profitNaive;
         }
     }
 
@@ -788,227 +782,6 @@ namespace ZeroMev.ClassifierService
             }
         }
 
-        public void Test()
-        {
-            Tokens.Load();
-
-            Swap frontSwap = null;
-            ZMSwap? zmFrontrun = null;
-            MEVFrontrun? frontrun = null;
-            ZMDecimal? sandwichedOut = 0;
-            int frontrunIndex = 0;
-            string? lastArbHash = null;
-            MEVArb? lastArb = null;
-            MEVSwap? lastSwap = null;
-            List<SwapRecord> revertableArbSwaps = new List<SwapRecord>();
-            MEVContractSwaps? lastContractSwaps = null;
-
-            MEVBlock? mevBlock = null;
-            List<DateTime>? arrivals = null;
-            List<MEVSandwiched> sandwiched = new List<MEVSandwiched>();
-
-            ZMDecimal? sandwichNaive = 0;
-            ZMDecimal? sandwichProfitBackrun = 0;
-            ZMDecimal? sandwichProfitConservative = 0;
-            ZMDecimal? sandwichProfitDire = 0;
-            ZMDecimal? sandwichProfitDireV2 = 0;
-            ZMDecimal? sandwichProfitFrontrun = 0;
-            ZMDecimal? sandwichProfitSandwiched = 0;
-            ZMDecimal? sandwichVictimImpact = 0;
-            ZMDecimal? sandwichTotalUsd = 0;
-            ZMDecimal? sandwichNaiveFiltered = 0;
-            ZMDecimal? arbTotalUsd = 0;
-            ZMDecimal? victimImpact = 0;
-
-            // swaps, sandwiches and arbs
-            foreach (Swap s in Swaps)
-            {
-                // detect new block number
-                if (mevBlock == null || s.BlockNumber != mevBlock.BlockNumber)
-                {
-                    if (frontrun != null)
-                        throw new Exception("new block on unfinished sandwich");
-
-                    // reset on block boundaries
-                    zmFrontrun = null;
-                    frontSwap = null;
-                    frontrun = null;
-                    frontrunIndex = 0;
-                    lastArbHash = null;
-                    lastArb = null;
-                    revertableArbSwaps.Clear();
-                    lastSwap = null;
-                    lastContractSwaps = null;
-                    sandwiched.Clear();
-
-                    if (!GetMEVBlock(s.BlockNumber, ref mevBlock, ref arrivals))
-                        continue;
-                }
-
-                if (s.TransactionPosition == null || s.Error != null) continue;
-                var zmSwap = _dexs.Add(s, arrivals[s.TransactionPosition.Value], out var pair);
-
-                bool isSandwichTx = false, isArbTx = false;
-                string sKey = MEVHelper.TxKey(s);
-
-                // sandwiches
-                if (this.SandwichesFrontrun.TryGetValue(sKey, out var sandwichFrontrun))
-                {
-                    isSandwichTx = true;
-
-                    if (frontrun != null)
-                        throw new Exception("sandwich reentry");
-
-                    // sandwich frontrun
-                    frontSwap = s;
-                    frontrun = new MEVFrontrun(frontrunIndex, MEVHelper.BuildMEVSwap(mevBlock, s, zmSwap));
-                    zmFrontrun = zmSwap;
-                    sandwichedOut = 0;
-                    victimImpact = 0;
-                }
-                else if (this.SandwichesBackrun.TryGetValue(sKey, out var sandwichBackrun))
-                {
-                    isSandwichTx = true;
-
-                    if (frontrun == null)
-                        throw new Exception("sandwich backrun when frontrun not set");
-
-                    // sandwich backrun
-                    ZMDecimal? frontIn = zmFrontrun.InAmount;
-                    ZMDecimal? frontOut = zmFrontrun.OutAmount;
-                    ZMDecimal? backIn = zmSwap.InAmount;
-                    ZMDecimal? backOut = zmSwap.OutAmount;
-
-                    // sandwiched profit
-                    ZMDecimal? frontRate = frontIn / frontOut;
-                    ZMDecimal? backRate = backOut / backIn; // reversed to make it comparable (this is enforced in sandwich detection, and so will always be valid)
-                    ZMDecimal? rateDiff = backRate - frontRate; // gets us the rate difference
-
-                    // dire profit
-                    ZMDecimal? direProfitFrontrun = (frontOut * (backOut / backIn) - frontIn) * zmSwap.OutRateUsd;
-                    ZMDecimal? direProfitBackrun = (backOut - (backIn * (frontIn / frontOut))) * zmSwap.OutRateUsd;
-                    ZMDecimal? direProfitFrontrunAbs = direProfitFrontrun < 0 ? -direProfitFrontrun : direProfitFrontrun;
-                    ZMDecimal? direProfitBackrunAbs = direProfitBackrun < 0 ? -direProfitBackrun : direProfitBackrun;
-                    ZMDecimal? direProfitConservative = direProfitFrontrunAbs < direProfitBackrunAbs ? direProfitFrontrun : direProfitBackrun;
-                    sandwichProfitDire += direProfitConservative;
-
-                    // dire v2 profit
-                    string symbolIn = Tokens.GetSymbol(frontSwap.TokenInAddress, out var inDivisor);
-                    var direV2 = MEVHelper.SandwichProfitDireV2(zmFrontrun, zmSwap, inDivisor) * zmSwap.OutRateUsd;
-                    sandwichProfitDireV2 += direV2;
-
-                    // rate difference calculation
-                    ZMDecimal? profitFrontrun = frontOut * rateDiff * zmSwap.OutRateUsd;
-                    ZMDecimal? profitBackrun = backIn * rateDiff * zmSwap.OutRateUsd;
-                    ZMDecimal? profitFrontrunAbs = profitFrontrun < 0 ? -profitFrontrun : profitFrontrun;
-                    ZMDecimal? profitBackrunAbs = profitBackrun < 0 ? -profitBackrun : profitBackrun;
-                    ZMDecimal? profitConservative = profitFrontrunAbs < profitBackrunAbs ? profitFrontrun : profitBackrun;
-
-                    // sandwiched naive
-                    ZMDecimal? naive = (backOut - frontIn) * zmSwap.OutRateUsd;
-                    sandwichNaive += naive;
-
-                    // flashbots filtering <=1% profits
-                    double amount_percent_difference = Math.Abs((double)((frontOut / backIn)) - 1.0);
-                    ZMDecimal? naiveFiltered = 0;
-                    if (amount_percent_difference <= 0.01)
-                    {
-                        sandwichNaiveFiltered += naive;
-                        naiveFiltered = naive;
-                    }
-
-                    sandwichProfitFrontrun += profitFrontrun;
-                    sandwichProfitBackrun += profitBackrun;
-                    sandwichProfitConservative += profitConservative;
-
-                    double ratio = ((double)(frontIn / (backOut + frontIn)) - 0.5) * 2;
-                    Debug.WriteLine($"k,{s.TokenInAmount * s.TokenOutAmount},backTx,{s.TransactionHash},ratio,{ratio},frontIn,{frontIn},backOut,{backOut},naive,{naive.Value.ToUsd()},direProfit,{direProfitFrontrun.Value.ToUsd()},direV2,{direV2.Value.ToUsd()},profitConservative,{profitConservative.Value.ToUsd()},profitFrontrun,{profitFrontrun.Value.ToUsd()},profitBackrun,{profitBackrun.Value.ToUsd()},victimLoss,{(victimImpact == null ? string.Empty : victimImpact.Value.ToUsd())}");
-
-                    var backrun = new MEVBackrun(s.TransactionPosition.Value, MEVHelper.BuildMEVSwap(mevBlock, s, zmSwap));
-
-                    // front/sandwiched and backrun instances can access each other using the same index across each collection
-                    mevBlock.Frontruns.Add(frontrun);
-                    mevBlock.Sandwiched.Add(sandwiched.ToArray());
-                    mevBlock.Backruns.Add(backrun);
-
-                    frontSwap = null;
-                    frontrun = null;
-                    zmFrontrun = null;
-                    sandwiched.Clear();
-                }
-                else if (this.SandwichedSwaps.TryGetValue(sKey, out var sandwichedSwap))
-                {
-                    isSandwichTx = true;
-
-                    if (frontrun == null)
-                        throw new Exception("sandwich swap when frontrun not set");
-
-                    // sandwiched
-                    sandwiched.Add(new MEVSandwiched(s.TransactionPosition, MEVHelper.BuildMEVSwap(mevBlock, s, zmSwap)));
-                    sandwichedOut += zmSwap.OutAmount;
-                }
-
-                // arbs
-                if (this.ArbitrageSwaps.TryGetValue(sKey, out var arb))
-                {
-                    if (isSandwichTx)
-                    {
-                        // if we were mid arb, remove it, reverting it's swaps to normal swaps
-                        if (arb.Swap.SwapTransactionHash == lastArbHash)
-                        {
-                            mevBlock.Arbs.Remove(lastArb);
-                            foreach (var revertArbSwap in revertableArbSwaps)
-                                MEVHelper.AddSwap(mevBlock, revertArbSwap.Swap, revertArbSwap.ZMSwap, ref lastSwap, ref lastContractSwaps);
-                        }
-
-                        // set to skip any further legs of this arb
-                        lastArb = null;
-                        revertableArbSwaps.Clear();
-                        lastArbHash = arb.Swap.SwapTransactionHash;
-                        isArbTx = false;
-                    }
-                    else if (arb.Swap.SwapTransactionHash != lastArbHash)
-                    {
-                        // create the mev arb on the first arb swap
-                        ZMDecimal? newAmount;
-                        decimal? arbProfitUsd = -MEVHelper.GetUsdAmount(arb.Arb.ProfitTokenAddress, arb.Arb.ProfitAmount, out newAmount);
-                        var mevArb = new MEVArb(s.TransactionPosition, MEVClass.Unclassified, arbProfitUsd);
-                        revertableArbSwaps.Clear();
-                        lastArb = mevArb;
-                        lastArbHash = arb.Swap.SwapTransactionHash;
-                        MEVHelper.AddArbSwap(mevArb, mevBlock, s, zmSwap);
-                        revertableArbSwaps.Add(new SwapRecord(s, zmSwap));
-                        mevBlock.Arbs.Add(mevArb);
-                        isArbTx = true;
-                    }
-                    else
-                    {
-                        // then add the remaining swaps
-                        if (lastArb != null) // will be null if we're skipping due to a clash with sandwiches
-                        {
-                            MEVHelper.AddArbSwap(lastArb, mevBlock, s, zmSwap);
-                            revertableArbSwaps.Add(new SwapRecord(s, zmSwap));
-                        }
-                        isArbTx = true;
-                    }
-                }
-
-                // add as simple swap or contract swaps
-                if (!isSandwichTx && !isArbTx)
-                    MEVHelper.AddSwap(mevBlock, s, zmSwap, ref lastSwap, ref lastContractSwaps);
-            }
-
-            Debug.WriteLine($"{sandwichNaive.Value.ToUsd()} sandwich naive profit");
-            Debug.WriteLine($"{sandwichNaiveFiltered.Value.ToUsd()} sandwich naive profit filtered");
-            Debug.WriteLine($"{sandwichProfitDire.Value.ToUsd()} sandwich dire profit");
-            Debug.WriteLine($"{sandwichProfitDireV2.Value.ToUsd()} sandwich dire V2 profit");
-            Debug.WriteLine($"{sandwichProfitFrontrun.Value.ToUsd()} sandwich frontrun rate diff profit");
-            Debug.WriteLine($"{sandwichProfitBackrun.Value.ToUsd()} sandwich backrun rate diff profit");
-            Debug.WriteLine($"{sandwichProfitConservative.Value.ToUsd()} sandwich conservative rate diff profit");
-            Debug.WriteLine($"{sandwichVictimImpact.Value.ToUsd()} sandwich victim impact");
-            Debug.WriteLine($"{arbTotalUsd.Value.ToUsd()} arb victim loss");
-        }
-
         public void DebugSwaps(long blockNumber)
         {
             Tokens.Load();
@@ -1156,6 +929,8 @@ namespace ZeroMev.ClassifierService
     // not threadsafe
     public static class XRates
     {
+        public static ZMDecimal MaxRateMove = 1.5;
+
         public static ZMDecimal? ETHBaseRate { get; set; }
         private static Dictionary<string, XRate> _usdBaseRate = new Dictionary<string, XRate>();
         public static Dictionary<string, BaseCurrency> _baseTokens;
@@ -1211,7 +986,8 @@ namespace ZeroMev.ClassifierService
                 rate = new XRate();
                 _usdBaseRate.Add(token, rate);
             }
-            rate.Rate = newRate;
+            if (rate.Rate == 0 || (newRate / rate.Rate < XRates.MaxRateMove && rate.Rate / newRate < XRates.MaxRateMove))
+                rate.Rate = newRate;
         }
 
         public static decimal? ConvertToUsd(string? token, ZMDecimal? amount)
@@ -1452,21 +1228,28 @@ namespace ZeroMev.ClassifierService
             // some dexs are responsible for setting base rates
             if (DoSetXRates)
             {
-                if (BaseCurrencyA == BaseCurrency.ETH && BaseCurrencyB == BaseCurrency.USD)
+                var newRate = zmSwap.ExchangeRate();
+                if (newRate != 0)
                 {
-                    XRates.ETHBaseRate = zmSwap.ExchangeRate();
-                    XRates.SetUsdBaseRate(TokenA, zmSwap.ExchangeRate());
-                }
-                else if (BaseCurrencyA == null && BaseCurrencyB == BaseCurrency.USD)
-                {
-                    XRates.SetUsdBaseRate(TokenA, zmSwap.ExchangeRate());
-                }
-                else if (BaseCurrencyA == null && BaseCurrencyB == BaseCurrency.ETH)
-                {
-                    if (XRates.ETHBaseRate.HasValue)
+                    if (BaseCurrencyA == BaseCurrency.ETH && BaseCurrencyB == BaseCurrency.USD)
                     {
-                        ZMDecimal usd = zmSwap.ExchangeRate() * XRates.ETHBaseRate.Value;
-                        XRates.SetUsdBaseRate(TokenA, usd);
+                        if (XRates.ETHBaseRate == null || XRates.ETHBaseRate == 0 || (newRate / XRates.ETHBaseRate < XRates.MaxRateMove && XRates.ETHBaseRate / newRate < 1.5))
+                        {
+                            XRates.ETHBaseRate = newRate;
+                            XRates.SetUsdBaseRate(TokenA, newRate);
+                        }
+                    }
+                    else if (BaseCurrencyA == null && BaseCurrencyB == BaseCurrency.USD)
+                    {
+                        XRates.SetUsdBaseRate(TokenA, newRate);
+                    }
+                    else if (BaseCurrencyA == null && BaseCurrencyB == BaseCurrency.ETH)
+                    {
+                        if (XRates.ETHBaseRate.HasValue)
+                        {
+                            ZMDecimal usd = newRate * XRates.ETHBaseRate.Value;
+                            XRates.SetUsdBaseRate(TokenA, usd);
+                        }
                     }
                 }
             }

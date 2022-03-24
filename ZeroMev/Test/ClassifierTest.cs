@@ -1,5 +1,7 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.Text;
+using System.IO;
 using System.Diagnostics;
 using System.Numerics;
 using System.Text.Json;
@@ -86,13 +88,37 @@ namespace ZeroMev.Test
         }
 
         [TestMethod]
+        public async Task TestSandwichesExport()
+        {
+            const long first = 13793168; //13358564;
+            const long last = 13882400;
+            const long chunk = 1000;
+
+            using (StreamWriter sw = new StreamWriter(@"E:\TestSandwiches.csv"))
+            {
+                sw.WriteLine("block\ttxIndex\tXYMax\tfrontrunImpact\tbackrunImpact\tprofitPoolExtract\tprofitNaive\tprofitFrontrun\tprofitBackrun\tprofitRateDiff2Way\tprofitFbOnePercent");
+                for (long from = first; from <= last; from += chunk)
+                {
+                    long to = from + chunk;
+                    if (to > last)
+                        to = last;
+
+                    var mevBlocks = await DB.ReadMevBlocks(from, to);
+                    foreach (var mb in mevBlocks)
+                        MEVHelper.DebugMevBlock(mb, sw);
+                }
+            }
+        }
+
+        [TestMethod]
         public async Task TestMevBlockCalcs()
         {
             const int dec = 5;
-            var mevBlocks = await DB.ReadMevBlocks(13358565, 13358565 + 1000);
+            var mevBlocks = await DB.ReadMevBlocks(13389128 - 500, 13389128 + 500);
 
             foreach (var mb in mevBlocks)
             {
+                if (mb.EthUsd > 4000) Debug.WriteLine($"{mb.BlockNumber},{mb.EthUsd}");
                 var zv = new ZMView(mb.BlockNumber);
                 zv.RefreshOffline(null, 10000); // fake the tx count
                 zv.SetMev(mb);

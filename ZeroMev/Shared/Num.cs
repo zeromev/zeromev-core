@@ -12,6 +12,8 @@ namespace ZeroMev.Shared
         private const long DivBeforeValue = 100000000000;
         private const long DivAfterValue = 10000000;
 
+        public static ZMDecimal EpsilonAmount = 0.00000001;
+
         public static bool IsValidHex(string hex)
         {
             BigInteger r;
