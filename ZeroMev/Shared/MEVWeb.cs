@@ -682,7 +682,7 @@ namespace ZeroMev.Shared
 
             var sandwichProfitUsd = MEVCalc.SwapUsd(back.Swap, sandwichProfit);
             SandwichProfitUsd = sandwichProfitUsd;
-            //back.MEVAmountUsd = MEVCalc.SwapUsd(back.Swap, backrunVictimImpact, true); TODO TEMPORARILY REMOVED
+            //back.MEVAmountUsd = MEVCalc.SwapUsd(back.Swap, backrunVictimImpact, true); TODO TEMPORARILY REMOVED, CALCULATE BY DIFFERENCING SANDWICH PROFIT BELOW WITH NAIVE P&L where back in> front out
 
             // use negated sandwich profits in place of the victim impact where
             // exchange rates are not available for the frontrun calc

@@ -20,6 +20,12 @@ namespace ZeroMev.Test
     public class ClassifierTest
     {
         [TestMethod]
+        public void TestCalculateSandwiches()
+        {
+            var bp = BlockProcess.Load(13843608, 13843609, new DEXs());
+        }
+
+        [TestMethod]
         public void TestSimUniswapABAB()
         {
             MEVHelper.RunSimUniswap(false);
