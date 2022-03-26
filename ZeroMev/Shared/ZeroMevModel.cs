@@ -472,8 +472,7 @@ namespace ZeroMev.Shared
             if (mb == null) return;
             MEVSummaries.Initialize();
 
-            for (int i = 0; i < mb.Swaps.Count; i++) SetMev(mb.Swaps[i], mb, i);
-            for (int i = 0; i < mb.ContractSwaps.Count; i++) SetMev(mb.ContractSwaps[i], mb, i);
+            for (int i = 0; i < mb.SwapsTx.Count; i++) SetMev(mb.SwapsTx[i], mb, i);
             for (int i = 0; i < mb.Arbs.Count; i++) SetMev(mb.Arbs[i], mb, i);
             for (int i = 0; i < mb.Liquidations.Count; i++) SetMev(mb.Liquidations[i], mb, i);
             for (int i = 0; i < mb.NFTrades.Count; i++) SetMev(mb.NFTrades[i], mb, i);

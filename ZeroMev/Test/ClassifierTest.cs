@@ -22,7 +22,7 @@ namespace ZeroMev.Test
         [TestMethod]
         public void TestCalculateSandwiches()
         {
-            var bp = BlockProcess.Load(13843608, 13843609, new DEXs());
+            var bp = BlockProcess.Load(13255737, 13255737 + 1, new DEXs());
         }
 
         [TestMethod]

@@ -81,9 +81,10 @@ namespace ZeroMev.Shared
         MEVClass MEVClass { get; }
         decimal? MEVAmountUsd { get; set; }
         string? MEVDetail { get; set; }
-        string? ActionSummary { get; set; }
-        string? ActionDetail { get; set; }
+        string? ActionSummary { get; }
+        string? ActionDetail { get; }
         void Cache(MEVBlock mevBlock, int mevIndex); // mevIndex is allows mev instances to find other related instances, eg: backrun can cheaply find related sandwiched and frontun txs without duplicating them
+        int? AddSwap(MEVSwap swap);
     }
 
     public class Symbol
@@ -238,6 +239,11 @@ namespace ZeroMev.Shared
         public void Cache(MEVBlock mevBlock, int mevIndex)
         {
         }
+
+        public int? AddSwap(MEVSwap swap)
+        {
+            return null;
+        }
     }
 
     public class MEVBlock
@@ -265,10 +271,7 @@ namespace ZeroMev.Shared
         public decimal? EthUsd { get; set; }
 
         [JsonPropertyName("s")]
-        public List<MEVSwap> Swaps { get; set; } = new List<MEVSwap>();
-
-        [JsonPropertyName("c")]
-        public List<MEVContractSwaps> ContractSwaps { get; set; } = new List<MEVContractSwaps>();
+        public List<MEVSwapsTx> SwapsTx { get; set; } = new List<MEVSwapsTx>();
 
         [JsonPropertyName("f")]
         public List<MEVFrontrun> Frontruns { get; set; } = new List<MEVFrontrun>();
@@ -296,7 +299,7 @@ namespace ZeroMev.Shared
         [JsonIgnore]
         public int[] MEVClassAmount { get; private set; }
         [JsonIgnore]
-        public bool[] ExistingMEV { get; set; }
+        public IMEV[] ExistingMEV { get; set; }
 
         public Symbol? GetSymbol(int symbolIndex)
         {
@@ -332,15 +335,64 @@ namespace ZeroMev.Shared
         }
     }
 
-    public class MEVSwap : IMEV
+    public class MEVSwapsTx : IMEV
+    {
+        public MEVSwapsTx()
+        {
+        }
+
+        public MEVSwapsTx(int? txIndex)
+        {
+            TxIndex = txIndex;
+        }
+
+        [JsonPropertyName("s")]
+        public MEVSwaps Swaps { get; set; } = new MEVSwaps();
+
+        [JsonPropertyName("i")]
+        public int? TxIndex { get; set; }
+
+        [JsonIgnore]
+        public string TxHash => null;
+
+        [JsonIgnore]
+        public MEVType MEVType => MEVType.Swap;
+
+        [JsonIgnore]
+        public MEVClass MEVClass => MEVClass.Info;
+
+        [JsonIgnore]
+        public decimal? MEVAmountUsd { get; set; }
+
+        [JsonIgnore]
+        public string? MEVDetail { get; set; }
+
+        [JsonIgnore]
+        public string? ActionSummary => Swaps.ActionSummary;
+
+        [JsonIgnore]
+        public string? ActionDetail => Swaps.ActionDetail;
+
+        public void Cache(MEVBlock mevBlock, int mevIndex)
+        {
+            Swaps.Cache(mevBlock, mevIndex);
+        }
+
+        public int? AddSwap(MEVSwap swap)
+        {
+            return Swaps.AddSwap(swap);
+        }
+    }
+
+    public class MEVSwap : IMEV, IComparable<MEVSwap>
     {
         public MEVSwap()
         {
         }
 
-        public MEVSwap(int txIndex, ProtocolSwap protocol, int symbolInIndex, int symbolOutIndex, ZMDecimal amountIn, ZMDecimal amountOut, ZMDecimal? inUsdRate, ZMDecimal? outUsdRate)
+        public MEVSwap(TraceAddress traceAddress, ProtocolSwap protocol, int symbolInIndex, int symbolOutIndex, ZMDecimal amountIn, ZMDecimal amountOut, ZMDecimal? inUsdRate, ZMDecimal? outUsdRate)
         {
-            TxIndex = txIndex;
+            TraceAddress = traceAddress;
             Protocol = protocol;
             SymbolInIndex = symbolInIndex;
             SymbolOutIndex = symbolOutIndex;
@@ -352,11 +404,15 @@ namespace ZeroMev.Shared
             if (outUsdRate.HasValue) AmountOutUsd = (amountOut * outUsdRate.Value).ToUsd();
         }
 
-        [JsonPropertyName("i")]
-        public int? TxIndex { get; set; }
+        // maintained by the owner parent IMEV instance
+        [JsonIgnore]
+        public int? TxIndex => null;
 
         [JsonIgnore]
         public string TxHash => null;
+
+        [JsonPropertyName("t")]
+        public TraceAddress TraceAddress { get; set; }
 
         [JsonPropertyName("a")]
         public int SymbolInIndex { get; set; }
@@ -406,6 +462,22 @@ namespace ZeroMev.Shared
         [JsonIgnore]
         public string? ActionDetail { get; set; }
 
+        public void Cache(MEVBlock mevBlock, int mevIndex)
+        {
+            StringBuilder sb = new StringBuilder();
+            BuildActionSummary(mevBlock, sb);
+            ActionSummary = sb.ToString();
+
+            sb.Clear();
+            BuildActionDetail(mevBlock, sb);
+            ActionDetail = sb.ToString();
+        }
+
+        public int? AddSwap(MEVSwap swap)
+        {
+            return null;
+        }
+
         public ZMDecimal? InUsdRate()
         {
             if (AmountInUsd == null) return null;
@@ -418,17 +490,6 @@ namespace ZeroMev.Shared
             if (AmountOutUsd == null) return null;
             if (AmountOut < Num.EpsilonAmount) return null;
             return (ZMDecimal)AmountOutUsd / AmountOut;
-        }
-
-        public void Cache(MEVBlock mevBlock, int mevIndex)
-        {
-            StringBuilder sb = new StringBuilder();
-            BuildActionSummary(mevBlock, sb);
-            ActionSummary = sb.ToString();
-
-            sb.Clear();
-            BuildActionDetail(mevBlock, sb);
-            ActionDetail = sb.ToString();
         }
 
         public void BuildActionSummary(MEVBlock mevBlock, StringBuilder sb)
@@ -458,24 +519,29 @@ namespace ZeroMev.Shared
             sb.Append(") @");
             sb.Append(Rate.Shorten());
         }
+
+        public int CompareTo(MEVSwap other)
+        {
+            return this.TraceAddress.CompareTo(other.TraceAddress);
+        }
     }
 
-    public class MEVContractSwaps : IMEV
+    public class MEVSwaps : IMEV
     {
-        public MEVContractSwaps()
+        public MEVSwaps()
         {
         }
 
-        public MEVContractSwaps(int? txIndex)
+        public MEVSwaps(MEVSwap swap)
         {
-            TxIndex = txIndex;
+            Swaps.Add(swap);
         }
 
         [JsonPropertyName("s")]
         public List<MEVSwap> Swaps { get; set; } = new List<MEVSwap>();
 
-        [JsonPropertyName("i")]
-        public int? TxIndex { get; set; }
+        [JsonIgnore]
+        public int? TxIndex => null;
 
         [JsonIgnore]
         public string TxHash => null;
@@ -497,6 +563,44 @@ namespace ZeroMev.Shared
 
         [JsonIgnore]
         public string? ActionDetail { get; set; }
+
+        public int? AddSwap(MEVSwap swap)
+        {
+            // add and return if we are the first
+            if (Swaps.Count == 0)
+            {
+                Swaps.Add(swap);
+                return 0;
+            }
+
+            // swaps are sorted by trace address, so look for where to insert it
+            int insertIndex = 0;
+            for (int i = 0; i < Swaps.Count; i++)
+            {
+                var other = Swaps[i];
+                int comp = swap.CompareTo(other);
+
+                // return if we already have the swap
+                if (comp == 0)
+                    return null;
+
+                if (comp > 0)
+                    insertIndex = i + 1;
+            }
+
+            Swaps.Insert(insertIndex, swap);
+            return insertIndex;
+        }
+
+        public static int? Shuffle(int? insertedIndex, int? trackIndex)
+        {
+            if (insertedIndex == null || trackIndex == null)
+                return trackIndex;
+
+            if (trackIndex.Value >= insertedIndex)
+                return trackIndex.Value + 1;
+            return trackIndex.Value;
+        }
 
         public void Cache(MEVBlock mevBlock, int mevIndex)
         {
@@ -525,7 +629,7 @@ namespace ZeroMev.Shared
         public string BuildActionDetail(MEVBlock mevBlock, StringBuilder sb)
         {
             sb.Append(Swaps.Count);
-            sb.AppendLine(" swaps in contract.");
+            sb.AppendLine(" swaps.");
             foreach (var swap in Swaps)
             {
                 swap.BuildActionDetail(mevBlock, sb);
@@ -539,6 +643,7 @@ namespace ZeroMev.Shared
     {
         private const string ErrorParameters = "can't get parameters to calculate.";
         private const string ErrorPool = "can't extract AMM pool to calculate.";
+        private const string ErrorUndetectedRevert = "possible undetected revert- failed to calculate.";
 
         public MEVFrontrun()
         {
@@ -547,14 +652,21 @@ namespace ZeroMev.Shared
         public MEVFrontrun(int? txIndex, MEVSwap swap)
         {
             TxIndex = txIndex;
-            Swap = swap;
+            Swaps = new MEVSwaps(swap);
+            FrontrunSwapIndex = 0;
         }
 
         [JsonPropertyName("s")]
-        public MEVSwap Swap { get; set; }
+        public MEVSwaps Swaps { get; set; }
 
         [JsonPropertyName("i")]
         public int? TxIndex { get; set; }
+
+        [JsonPropertyName("f")]
+        public int? FrontrunSwapIndex { get; set; }
+
+        [JsonIgnore]
+        public MEVSwap Swap => FrontrunSwapIndex != null && Swaps != null ? Swaps.Swaps[FrontrunSwapIndex.Value] : null;
 
         [JsonIgnore]
         public string TxHash => null;
@@ -572,10 +684,10 @@ namespace ZeroMev.Shared
         public string? MEVDetail { get; set; } = null;
 
         [JsonIgnore]
-        public string? ActionSummary { get; set; }
+        public string? ActionSummary => Swaps.ActionSummary;
 
         [JsonIgnore]
-        public string? ActionDetail { get; set; }
+        public string? ActionDetail => Swaps.ActionDetail;
 
         [JsonIgnore]
         public decimal? SandwichProfitUsd { get; set; }
@@ -588,24 +700,21 @@ namespace ZeroMev.Shared
 
         public void Cache(MEVBlock mevBlock, int mevIndex)
         {
-            // mev
             CalculateMev(mevBlock, mevIndex);
+            Swaps.Cache(mevBlock, mevIndex);
+        }
 
-            // action
-            StringBuilder sb = new StringBuilder();
-            Swap.BuildActionSummary(mevBlock, sb);
-            ActionSummary = sb.ToString();
-
-            sb.Clear();
-            Swap.BuildActionDetail(mevBlock, sb);
-            ActionDetail = sb.ToString();
-            return;
+        public int? AddSwap(MEVSwap swap)
+        {
+            var insertedIndex = Swaps.AddSwap(swap);
+            FrontrunSwapIndex = MEVSwaps.Shuffle(insertedIndex, FrontrunSwapIndex);
+            return null;
         }
 
         private void CalculateMev(MEVBlock mevBlock, int mevIndex)
         {
 #if (DEBUG)
-            if (mevBlock.BlockNumber == 13389128)
+            if (mevBlock.BlockNumber == 13255737)
                 Console.Write("");
 #endif
 
@@ -620,7 +729,14 @@ namespace ZeroMev.Shared
             // extract AMM x y pool values
             ZMDecimal c = 0.997; // our baseline protocol model of Uniswap 2 with 0.3% commission
             ZMDecimal x, y;
-            MEVCalc.PoolFromSwapsABAB(a, b, c, out x, out y);
+            if (!MEVCalc.PoolFromSwapsABAB(a, b, c, out x, out y))
+            {
+                // pool values must be positive
+                MEVDetail = ErrorUndetectedRevert;
+                back.MEVDetail = ErrorUndetectedRevert;
+                return;
+            }
+
             if (x < 0 || y < 0)
             {
                 // pool values must be positive
@@ -728,14 +844,18 @@ namespace ZeroMev.Shared
         public MEVSandwiched(int? txIndex, MEVSwap swap)
         {
             TxIndex = txIndex;
-            Swap = swap;
+            Swaps = new MEVSwaps(swap);
+            SandwichedSwapIndex = new List<int?>() { 0 };
         }
 
         [JsonPropertyName("s")]
-        public MEVSwap Swap { get; set; }
+        public MEVSwaps Swaps { get; set; }
 
         [JsonPropertyName("i")]
         public int? TxIndex { get; set; }
+
+        [JsonPropertyName("w")]
+        public List<int?> SandwichedSwapIndex { get; set; }
 
         [JsonIgnore]
         public string TxHash => null;
@@ -753,21 +873,36 @@ namespace ZeroMev.Shared
         public string? MEVDetail { get; set; } = null;
 
         [JsonIgnore]
-        public string? ActionSummary { get; set; }
+        public string? ActionSummary => Swaps.ActionSummary;
 
         [JsonIgnore]
-        public string? ActionDetail { get; set; }
+        public string? ActionDetail => Swaps.ActionDetail;
 
         public void Cache(MEVBlock mevBlock, int mevIndex)
         {
-            StringBuilder sb = new StringBuilder();
-            Swap.BuildActionSummary(mevBlock, sb);
-            ActionSummary = sb.ToString();
+            Swaps.Cache(mevBlock, mevIndex);
+        }
 
-            sb.Clear();
-            Swap.BuildActionDetail(mevBlock, sb);
-            ActionDetail = sb.ToString();
-            return;
+        public int? AddSwap(MEVSwap swap)
+        {
+            var insertedIndex = Swaps.AddSwap(swap);
+            for (int i = 0; i < SandwichedSwapIndex.Count; i++)
+                SandwichedSwapIndex[i] = MEVSwaps.Shuffle(insertedIndex, SandwichedSwapIndex[i]);
+            return null;
+        }
+
+        public void AddSandwichedSwap(MEVSwap sandwiched)
+        {
+            var index = Swaps.AddSwap(sandwiched);
+            SandwichedSwapIndex.Add(index);
+        }
+
+        public List<MEVSwap> SandwichedSwaps()
+        {
+            List<MEVSwap> sandwichedSwaps = new List<MEVSwap>(Swaps.Swaps.Count);
+            for (int i = 0; i < SandwichedSwapIndex.Count; i++)
+                sandwichedSwaps.Add(Swaps.Swaps[i]);
+            return sandwichedSwaps;
         }
     }
 
@@ -780,14 +915,21 @@ namespace ZeroMev.Shared
         public MEVBackrun(int? txIndex, MEVSwap swap)
         {
             TxIndex = txIndex;
-            Swap = swap;
+            Swaps = new MEVSwaps(swap);
+            BackrunSwapIndex = 0;
         }
 
         [JsonPropertyName("s")]
-        public MEVSwap Swap { get; set; }
+        public MEVSwaps Swaps { get; set; }
 
         [JsonPropertyName("i")]
         public int? TxIndex { get; set; }
+
+        [JsonPropertyName("b")]
+        public int? BackrunSwapIndex { get; set; }
+
+        [JsonIgnore]
+        public MEVSwap Swap => BackrunSwapIndex != null && Swaps != null ? Swaps.Swaps[BackrunSwapIndex.Value] : null;
 
         [JsonIgnore]
         public string TxHash => null;
@@ -805,21 +947,21 @@ namespace ZeroMev.Shared
         public string? MEVDetail { get; set; }
 
         [JsonIgnore]
-        public string? ActionSummary { get; set; }
+        public string? ActionSummary => Swaps.ActionSummary;
 
         [JsonIgnore]
-        public string? ActionDetail { get; set; }
+        public string? ActionDetail => Swaps.ActionDetail;
 
         public void Cache(MEVBlock mevBlock, int mevIndex)
         {
-            StringBuilder sb = new StringBuilder();
-            Swap.BuildActionSummary(mevBlock, sb);
-            ActionSummary = sb.ToString();
+            Swaps.Cache(mevBlock, mevIndex);
+        }
 
-            sb.Clear();
-            Swap.BuildActionDetail(mevBlock, sb);
-            ActionDetail = sb.ToString();
-            return;
+        public int? AddSwap(MEVSwap swap)
+        {
+            var insertedIndex = Swaps.AddSwap(swap);
+            BackrunSwapIndex = MEVSwaps.Shuffle(insertedIndex, BackrunSwapIndex);
+            return null;
         }
     }
 
@@ -837,7 +979,7 @@ namespace ZeroMev.Shared
         }
 
         [JsonPropertyName("s")]
-        public List<MEVSwap> Swaps { get; set; } = new List<MEVSwap>();
+        public MEVSwaps Swaps { get; set; } = new MEVSwaps();
 
         [JsonPropertyName("i")]
         public int? TxIndex { get; set; }
@@ -858,10 +1000,10 @@ namespace ZeroMev.Shared
         public string? MEVDetail { get; set; }
 
         [JsonIgnore]
-        public string? ActionSummary { get; set; }
+        public string? ActionSummary => Swaps.ActionSummary;
 
         [JsonIgnore]
-        public string? ActionDetail { get; set; }
+        public string? ActionDetail => Swaps.ActionDetail;
 
         public void Cache(MEVBlock mevBlock, int mevIndex)
         {
@@ -873,13 +1015,13 @@ namespace ZeroMev.Shared
             }
             else
             {
-                if (Swaps == null || Swaps.Count == 0)
+                if (Swaps?.Swaps == null || Swaps.Swaps.Count == 0)
                 {
                     sb.AppendLine("no arb swaps.");
                 }
                 else
                 {
-                    sb.Append(Swaps.Count);
+                    sb.Append(Swaps.Swaps.Count);
                     sb.AppendLine(" swaps in arb.");
                 }
                 sb.Append("arb victim impact $");
@@ -888,38 +1030,12 @@ namespace ZeroMev.Shared
             }
             MEVDetail = sb.ToString();
 
-            sb.Clear();
-            BuildActionSummary(mevBlock, sb);
-            ActionSummary = sb.ToString();
-
-            sb.Clear();
-            BuildActionDetail(mevBlock, sb);
-            ActionDetail = sb.ToString();
+            Swaps.Cache(mevBlock, mevIndex);
         }
 
-        public string BuildActionSummary(MEVBlock mevBlock, StringBuilder sb)
+        public int? AddSwap(MEVSwap swap)
         {
-            if (Swaps == null || Swaps.Count == 0) return "no swaps.";
-            Swaps[0].BuildActionSummary(mevBlock, sb);
-            if (Swaps.Count > 1)
-            {
-                sb.Append(" +");
-                sb.Append(Swaps.Count - 1);
-            }
-            sb.AppendLine();
-            return sb.ToString();
-        }
-
-        public string BuildActionDetail(MEVBlock mevBlock, StringBuilder sb)
-        {
-            sb.Append(Swaps.Count);
-            sb.AppendLine(" swaps in arb.");
-            foreach (var swap in Swaps)
-            {
-                swap.BuildActionDetail(mevBlock, sb);
-                sb.AppendLine();
-            }
-            return sb.ToString();
+            return Swaps.AddSwap(swap);
         }
     }
 
@@ -1039,6 +1155,11 @@ namespace ZeroMev.Shared
 
             return sb.ToString();
         }
+
+        public int? AddSwap(MEVSwap swap)
+        {
+            return null;
+        }
     }
 
     public class MEVNFT : IMEV
@@ -1156,6 +1277,11 @@ namespace ZeroMev.Shared
             }
             ActionDetail = sb.ToString();
         }
+
+        public int? AddSwap(MEVSwap swap)
+        {
+            return null;
+        }
     }
 
     public struct MEVSummary
@@ -1259,14 +1385,14 @@ namespace ZeroMev.Shared
 
     public static class MEVCalc
     {
-        public static bool GetSandwichParameters(MEVBlock mb, int index, out ZMDecimal[]? a, out ZMDecimal[]? b, out MEVFrontrun front, out MEVBackrun back, out MEVSandwiched[] sandwiched)
+        public static bool GetSandwichParameters(MEVBlock mb, int index, out ZMDecimal[]? aOut, out ZMDecimal[]? bOut, out MEVFrontrun front, out MEVBackrun back, out MEVSandwiched[] sandwiched)
         {
             if (index >= mb.Frontruns.Count ||
                 index >= mb.Backruns.Count ||
                 index >= mb.Sandwiched.Count)
             {
-                a = null;
-                b = null;
+                aOut = null;
+                bOut = null;
                 front = null;
                 back = null;
                 sandwiched = null;
@@ -1277,24 +1403,32 @@ namespace ZeroMev.Shared
             back = mb.Backruns[index];
             sandwiched = mb.Sandwiched[index];
 
-            a = new ZMDecimal[sandwiched.Length + 2];
-            b = new ZMDecimal[sandwiched.Length + 2];
+            var a = new List<ZMDecimal>();
+            var b = new List<ZMDecimal>();
 
-            int txIndex = front.Swap.TxIndex.Value;
-            a[0] = front.Swap.AmountIn;
-            b[0] = front.Swap.AmountOut;
+            //int txIndex = front.TxIndex.Value;
+            a.Add(front.Swap.AmountIn);
+            b.Add(front.Swap.AmountOut);
 
             for (int i = 0; i < sandwiched.Length; i++)
             {
-                if (txIndex != sandwiched[i].TxIndex.Value) // deal with multiple sandwiched swaps in the same transaction
-                    if (++txIndex != sandwiched[i].TxIndex.Value) return false;
-                a[i + 1] = sandwiched[i].Swap.AmountIn;
-                b[i + 1] = sandwiched[i].Swap.AmountOut;
+                //if (txIndex != sandwiched[i].TxIndex.Value) // deal with multiple sandwiched swaps in the same transaction
+                //if (++txIndex != sandwiched[i].TxIndex.Value) return false;
+                MEVSandwiched ms = sandwiched[i];
+                for (int j = 0; j < ms.SandwichedSwapIndex.Count; j++)
+                {
+                    var swap = ms.Swaps.Swaps[ms.SandwichedSwapIndex[j].Value];
+                    a.Add(swap.AmountIn);
+                    b.Add(swap.AmountOut);
+                }
             }
 
-            if (++txIndex != back.TxIndex.Value) return false;
-            a[sandwiched.Length + 1] = back.Swap.AmountOut; // amounts reversed as backruns trade against frontrun and sandwiched
-            b[sandwiched.Length + 1] = back.Swap.AmountIn;
+            //if (++txIndex != back.TxIndex.Value) return false;
+            a.Add(back.Swap.AmountOut); // amounts reversed as backruns trade against frontrun and sandwiched
+            b.Add(back.Swap.AmountIn);
+
+            aOut = a.ToArray();
+            bOut = b.ToArray();
             return true;
         }
 
@@ -1404,17 +1538,35 @@ namespace ZeroMev.Shared
             return af[backIndex] - af[0];
         }
 
-        public static void PoolFromSwapsABAB(ZMDecimal[] a, ZMDecimal[] b, ZMDecimal c, out ZMDecimal x, out ZMDecimal y)
+        public static bool PoolFromSwapsABAB(ZMDecimal[] a, ZMDecimal[] b, ZMDecimal c, out ZMDecimal x, out ZMDecimal y)
         {
+            // this happens when we don't detect reverts and the user retries the same tx
+            if (a[0] == a[1] && b[0] == b[1])
+            {
+                x = -1;
+                y = -1;
+                return false;
+            }
+
             x = ((a[0] * a[1] * b[1] * c) + (a[0].Pow(2) * b[1])) / ((a[1] * b[0]) - (a[0] * b[1]));
             y = ((((b[0] * ((a[1] * b[1]) - (a[0] * b[1]))) + (a[1] * b[0].Pow(2))) * c) + (a[0] * b[0] * b[1])) / ((a[1] * b[0] * c) - (a[0] * b[1] * c));
+            return true;
         }
 
-        public static void PoolFromSwapsABBA(ZMDecimal[] a, ZMDecimal[] b, ZMDecimal c, out ZMDecimal x, out ZMDecimal y)
+        public static bool PoolFromSwapsABBA(ZMDecimal[] a, ZMDecimal[] b, ZMDecimal c, out ZMDecimal x, out ZMDecimal y)
         {
+            // this happens when we don't detect reverts and the user retries the same tx
+            if (a[0] == a[1] && b[0] == b[1])
+            {
+                x = -1;
+                y = -1;
+                return false;
+            }
+
             var cPow2 = c.Pow(2);
             x = -(((a[0].Pow(2) * b[1]) - (a[0] * a[1] * b[1])) * cPow2) / ((a[0] * b[1] * cPow2) - (a[1] * b[0]));
             y = ((a[0] * b[0] * b[1] * cPow2) + (b[0] * a[1] * b[1] * c) - (b[0] * a[0] * b[1] * c) - (a[1] * b[0].Pow(2))) / ((a[0] * b[1] * cPow2) - (a[1] * b[0]));
+            return true;
         }
 
         public static void PoolFromSwapsABBA(ZMDecimal a0, ZMDecimal a1, ZMDecimal b0, ZMDecimal b1, ZMDecimal c, out ZMDecimal x, out ZMDecimal y)
