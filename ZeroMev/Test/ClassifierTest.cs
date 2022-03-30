@@ -3,6 +3,8 @@ using System;
 using System.Text;
 using System.IO;
 using System.Diagnostics;
+using System.Net;
+using System.Net.Http;
 using System.Numerics;
 using System.Text.Json;
 using System.Collections;
@@ -20,9 +22,27 @@ namespace ZeroMev.Test
     public class ClassifierTest
     {
         [TestMethod]
-        public void TestCalculateSandwiches()
+        public async Task TestCalculateSandwiches()
         {
-            var bp = BlockProcess.Load(13255737, 13255737 + 1, new DEXs());
+            const long testBlock = 13640275;
+
+            var mevBlocks = await DB.ReadMevBlocks(testBlock, testBlock + 100);
+            if (mevBlocks != null)
+            {
+                foreach (var mb in mevBlocks)
+                {
+                    var zv = new ZMView(mb.BlockNumber);
+                    zv.RefreshOffline(null, 10000); // fake the tx count
+                    zv.SetMev(mb);
+                }
+            }
+        }
+
+        [TestMethod]
+        public void TestProcessSandwiches()
+        {
+            var bp = BlockProcess.Load(13640275, 13640275 + 100, new DEXs());
+            bp.Run();
         }
 
         [TestMethod]
@@ -96,13 +116,13 @@ namespace ZeroMev.Test
         [TestMethod]
         public async Task TestSandwichesExport()
         {
-            const long first = 13793168; //13358564;
-            const long last = 13882400;
+            const long first = 13358564;
+            const long last = 14153369;
             const long chunk = 1000;
 
-            using (StreamWriter sw = new StreamWriter(@"E:\TestSandwiches.csv"))
+            using (StreamWriter sw = new StreamWriter(@"E:\TestSandwiches.txt"))
             {
-                sw.WriteLine("block\ttxIndex\tXYMax\tfrontrunImpact\tbackrunImpact\tprofitPoolExtract\tprofitNaive\tprofitFrontrun\tprofitBackrun\tprofitRateDiff2Way\tprofitFbOnePercent");
+                sw.WriteLine("block\ttxIndex\tarbs\tfrontrunImpact\tbackrunImpact\tprofitPoolExtract\tprofitNaive\tprofitFrontrun\tprofitBackrun\tprofitRateDiff2Way\tprofitFbOnePercent");
                 for (long from = first; from <= last; from += chunk)
                 {
                     long to = from + chunk;
@@ -120,7 +140,7 @@ namespace ZeroMev.Test
         public async Task TestMevBlockCalcs()
         {
             const int dec = 5;
-            var mevBlocks = await DB.ReadMevBlocks(13389128 - 500, 13389128 + 500);
+            var mevBlocks = await DB.ReadMevBlocks(13587075 - 500, 13587075 + 500);
 
             foreach (var mb in mevBlocks)
             {

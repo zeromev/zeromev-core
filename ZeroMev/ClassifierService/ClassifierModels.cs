@@ -175,6 +175,7 @@ namespace ZeroMev.ClassifierService
             int symbolIn = GetSymbolIndex(mb, swap.TokenInAddress);
             int symbolOut = GetSymbolIndex(mb, swap.TokenOutAddress);
             var protocol = GetProtocolSwap(swap.Protocol, swap.AbiName);
+
             var mevSwap = new MEVSwap(new TraceAddress(swap.TraceAddress), protocol, symbolIn, symbolOut, zmSwap.InAmount, zmSwap.OutAmount, zmSwap.InRateUsd, zmSwap.OutRateUsd);
             return mevSwap;
         }
@@ -298,11 +299,12 @@ namespace ZeroMev.ClassifierService
 
                 var fr = (MEVFrontrun)mev;
 
+                ZMDecimal arbsUsd = 0;
+                foreach (var arb in mb.Arbs)
+                    arbsUsd += arb.MEVAmountUsd ?? 00;
+
                 AltSandwichProfit(mev, mb, mevIndex, out var profitNaive, out var profitFrontrun, out var profitBackrun, out var profitRateDiff2Way, out var profitFbOnePercent);
-                ZMDecimal? maxXY = null;
-                if (fr.X != null && fr.Y != null)
-                    maxXY = (fr.X.Value / fr.Y.Value > fr.Y.Value / fr.X.Value ? fr.X.Value / fr.Y.Value : fr.Y.Value / fr.X.Value).Shorten();
-                sw.WriteLine($"{mb.BlockNumber}\t{mev.TxIndex}\t{maxXY}\t{sumVictimImpact}\t{br.MEVAmountUsd}\t{fr.SandwichProfitUsd}\t{MEVCalc.SwapUsd(br.Swap, profitNaive)}\t{MEVCalc.SwapUsd(br.Swap, profitFrontrun)}\t{MEVCalc.SwapUsd(br.Swap, profitBackrun)}\t{MEVCalc.SwapUsd(br.Swap, profitRateDiff2Way)}\t{MEVCalc.SwapUsd(br.Swap, profitFbOnePercent)}");
+                sw.WriteLine($"{mb.BlockNumber}\t{mev.TxIndex}\t{arbsUsd}\t{sumVictimImpact}\t{br.MEVAmountUsd}\t{fr.SandwichProfitUsd}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(), profitNaive)}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(), profitFrontrun)}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(), profitBackrun)}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(), profitRateDiff2Way)}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(), profitFbOnePercent)}");
             }
         }
 
@@ -488,9 +490,10 @@ namespace ZeroMev.ClassifierService
                                 if (Swaps[before].TokenInAddress != Swaps[after].TokenOutAddress) break;
                                 if (Swaps[before].TokenOutAddress != frontSwap.TokenInAddress) break;
                                 if (Swaps[after].TokenInAddress != otherSwap.TokenOutAddress) break;
+
+                                // not yet implemented
                                 //frontSwap = Swaps[before];
                                 //otherSwap = Swaps[after];
-                                Console.WriteLine($"stretchable {frontSwap.BlockNumber} {Swaps[before].TransactionPosition} {Swaps[after].TransactionPosition}");
                             }
 
                             SandwichesFrontrun.Add(MEVHelper.TxKey(frontSwap), frontSwap);
@@ -609,7 +612,6 @@ namespace ZeroMev.ClassifierService
 
                     if (sandwichedSwap.TransactionHash == lastSandwichedHash)
                     {
-                        //TODO ADD lastSandwiched.Add
                         lastSandwiched.AddSandwichedSwap(MEVHelper.BuildMEVSwap(mevBlock, s, zmSwap));
                     }
                     else
@@ -672,7 +674,11 @@ namespace ZeroMev.ClassifierService
                 {
                     int txIndex = s.TransactionPosition.Value;
                     if (mevBlock.ExistingMEV[txIndex] == null)
-                        mevBlock.ExistingMEV[txIndex] = new MEVSwapsTx(txIndex);
+                    {
+                        var swapsTx = new MEVSwapsTx(txIndex);
+                        mevBlock.SwapsTx.Add(swapsTx);
+                        mevBlock.ExistingMEV[txIndex] = swapsTx;
+                    }
                     mevBlock.ExistingMEV[txIndex].AddSwap(MEVHelper.BuildMEVSwap(mevBlock, s, zmSwap));
                 }
             }
@@ -795,7 +801,7 @@ namespace ZeroMev.ClassifierService
                 if (s.BlockNumber == blockNumber)
                 {
                     string sKey = MEVHelper.TxKey(s);
-                    Debug.WriteLine($"{s.TransactionPosition} {sKey} {zmSwap.SymbolA}:{zmSwap.SymbolB} rate {zmSwap.ExchangeRate().Shorten()} amounts {zmSwap.AmountA} {zmSwap.AmountB} contract {s.ContractAddress} from {s.FromAddress} to {s.FromAddress}");
+                    Debug.WriteLine($"{s.TransactionPosition} {sKey} {zmSwap.SymbolA}:{zmSwap.SymbolB} rate {zmSwap.OrigExchangeRate().Shorten()} amounts {zmSwap.AmountA} {zmSwap.AmountB} contract {s.ContractAddress} from {s.FromAddress} to {s.FromAddress}");
                 }
 #endif
             }
@@ -969,15 +975,23 @@ namespace ZeroMev.ClassifierService
             return rate.Rate;
         }
 
-        public static void SetUsdBaseRate(string token, ZMDecimal newRate)
+        public static void SetUsdBaseRate(string token, ZMDecimal newRate, bool IsSell, bool doLimitRateChange)
         {
+            if (newRate == 0)
+                return;
+
             XRate rate;
             if (!_usdBaseRate.TryGetValue(token, out rate))
             {
+                // it is easy to lose money converting your naff-coin into ETH, and is therefore too risky when establishing an initial rate
+                // getting ETH for your naff-coin is a higher bar, and is trusted for establishing an initial xrate
+                if (IsSell)
+                    return;
+
                 rate = new XRate();
                 _usdBaseRate.Add(token, rate);
             }
-            if (rate.Rate == 0 || (newRate / rate.Rate < XRates.MaxRateMove && rate.Rate / newRate < XRates.MaxRateMove))
+            if (rate.Rate == 0 || !doLimitRateChange || (newRate / rate.Rate < XRates.MaxRateMove && rate.Rate / newRate < XRates.MaxRateMove))
                 rate.Rate = newRate;
         }
 
@@ -1222,26 +1236,40 @@ namespace ZeroMev.ClassifierService
                 var newRate = zmSwap.ExchangeRate();
                 if (newRate != 0)
                 {
+#if (DEBUG)
+                    if (TokenA == "0xc18360217d8f7ab5e7c516566761ea12ce7f9d72")
+                    {
+                        Console.Write("");
+                    }
+#endif
                     if (BaseCurrencyA == BaseCurrency.ETH && BaseCurrencyB == BaseCurrency.USD)
                     {
                         if (XRates.ETHBaseRate == null || XRates.ETHBaseRate == 0 || (newRate / XRates.ETHBaseRate < XRates.MaxRateMove && XRates.ETHBaseRate / newRate < 1.5))
                         {
                             XRates.ETHBaseRate = newRate;
-                            XRates.SetUsdBaseRate(TokenA, newRate);
+                            XRates.SetUsdBaseRate(TokenA, newRate, zmSwap.IsSell, true);
                         }
                     }
                     else if (BaseCurrencyA == null && BaseCurrencyB == BaseCurrency.USD)
                     {
-                        XRates.SetUsdBaseRate(TokenA, newRate);
+                        XRates.SetUsdBaseRate(TokenA, newRate, zmSwap.IsSell, zmSwap.IsSell); // only set the initial rate on a buy, and limit rate changes when we are selling
                     }
                     else if (BaseCurrencyA == null && BaseCurrencyB == BaseCurrency.ETH)
                     {
                         if (XRates.ETHBaseRate.HasValue)
                         {
                             ZMDecimal usd = newRate * XRates.ETHBaseRate.Value;
-                            XRates.SetUsdBaseRate(TokenA, usd);
+                            XRates.SetUsdBaseRate(TokenA, usd, zmSwap.IsSell, zmSwap.IsSell);
                         }
                     }
+                    /*
+#if (DEBUG)
+                    if (TokenA == "0xc18360217d8f7ab5e7c516566761ea12ce7f9d72")
+                    {
+                        Console.Write($"{newRate} {XRates.GetUsdRate(TokenA).Value}");
+                    }
+#endif
+                    */
                 }
             }
 
