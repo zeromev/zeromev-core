@@ -1,4 +1,5 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
 using System.Diagnostics;
 using System.Text.Json;
 using System.IO;
@@ -72,21 +73,7 @@ namespace ZeroMev.Test
             return;
 
             const string filename = @"E:\FlashbotsAllBlocks.json";
-
-            // create or reuse existing all blocks cache
-            string json;
-            if (!File.Exists(filename))
-            {
-                HttpClient http = new HttpClient();
-                using (HttpResponseMessage response = await http.GetAsync(FlashbotsAPI.UrlFlashbotsAllBlocks, HttpCompletionOption.ResponseHeadersRead))
-                using (Stream streamToReadFrom = await response.Content.ReadAsStreamAsync())
-                {
-                    using (Stream streamToWriteTo = File.Open(filename, FileMode.Create))
-                    {
-                        await streamToReadFrom.CopyToAsync(streamToWriteTo);
-                    }
-                }
-            }
+            await ImportFlashbotsAllJson(filename);
 
             using (StreamReader sr = new StreamReader(File.OpenRead(filename)))
             {
@@ -98,6 +85,101 @@ namespace ZeroMev.Test
                 {
                     BitArray ba = FlashbotsAPI.ConvertBundlesToBitArray(fb);
                     DB.WriteFlashbotsBundles(fb);
+                }
+            }
+        }
+
+        [TestMethod]
+        public async Task ContentCentralizationReport()
+        {
+            // not a test
+            //return;
+
+            // on a daily basis, how many searchers account for the top percentage of bundles
+            // maintain a sorted list of searchers (prob eoa_address, poss to_address)
+            // at the end of each day, iterate list in order of size desc, counting the number of unique searchers until the threshold is reached
+            // record that number
+
+            const int BlocksPerDay = 7200;
+            ZMDecimal topPercent = 0.95;
+            const string fbJsonFilename = @"E:\FlashbotsAllBlocks.json";
+            const string outputFilename = @"E:\ContentCentralizationReport.txt";
+            await ImportFlashbotsAllJson(fbJsonFilename);
+
+            Dictionary<string, ZMDecimal> searchers = new Dictionary<string, ZMDecimal>();
+            using (StreamWriter sw = new StreamWriter(outputFilename))
+            using (StreamReader sr = new StreamReader(File.OpenRead(fbJsonFilename)))
+            {
+                sw.WriteLine($"to_block_number,top_searcher_count,searcher_count,top_searcher_pct");
+
+                var fbs = await JsonSerializer.DeserializeAsync<List<FBBlock?>>(sr.BaseStream, ZMSerializeOptions.Default);
+
+                // write to local db
+                // then export and import table
+                long nextBlock = fbs[fbs.Count - 1].block_number + BlocksPerDay;
+                for (int b = fbs.Count - 1; b >= 0; b--)
+                {
+                    FBBlock fb = fbs[b];
+
+                    // calculate top searchers daily (approximately)
+                    if (fb.block_number > nextBlock)
+                    {
+                        // determine top searcher count
+                        ZMDecimal[] vols = new ZMDecimal[searchers.Count];
+                        searchers.Values.CopyTo(vols, 0);
+                        Array.Sort(vols);
+
+                        // determine top searcher threshold
+                        ZMDecimal sum = 0;
+                        for (int i = vols.Length - 1; i >= 0; i--)
+                            sum += vols[i];
+                        var threshold = sum * topPercent;
+
+                        // and count up to it
+                        int topCount = 0;
+                        sum = 0;
+                        for (int i = vols.Length - 1; i >= 0; i--)
+                        {
+                            sum += vols[i];
+                            topCount++;
+                            if (sum > threshold)
+                                break;
+                        }
+                        var pct = ((double)topCount) / vols.Length;
+                        sw.WriteLine($"{fb.block_number - 1},{topCount},{vols.Length},{pct}");
+
+                        // reset for the next day
+                        searchers.Clear();
+                        nextBlock = fb.block_number + BlocksPerDay;
+                    }
+
+                    // maintain daily volumes for each searcher
+                    foreach (var tx in fb.transactions)
+                    {
+                        ZMDecimal searcherVolume = 0;
+                        var searcherId = tx.eoa_address;
+                        if (searchers.TryGetValue(searcherId, out searcherVolume))
+                            searchers.Remove(searcherId);
+                        searcherVolume += ZMDecimal.Parse(tx.total_miner_reward);
+                        searchers.Add(searcherId, searcherVolume);
+                    }
+                }
+            }
+        }
+
+        private async Task ImportFlashbotsAllJson(string filename)
+        {
+            // create or reuse existing all blocks cache
+            if (!File.Exists(filename))
+            {
+                HttpClient http = new HttpClient();
+                using (HttpResponseMessage response = await http.GetAsync(FlashbotsAPI.UrlFlashbotsAllBlocks, HttpCompletionOption.ResponseHeadersRead))
+                using (Stream streamToReadFrom = await response.Content.ReadAsStreamAsync())
+                {
+                    using (Stream streamToWriteTo = File.Open(filename, FileMode.Create))
+                    {
+                        await streamToReadFrom.CopyToAsync(streamToWriteTo);
+                    }
                 }
             }
         }

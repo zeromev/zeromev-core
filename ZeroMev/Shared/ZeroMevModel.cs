@@ -267,6 +267,26 @@ namespace ZeroMev.Shared
             return SetZMBlock(zmBlock);
         }
 
+        // an offline version of Refresh that does not require http and accepts a zmblock with tx time data
+        public bool RefreshOffline(ZMBlock zmBlock)
+        {
+            // build transactions without any details
+            // supply a GetBlockByNumber to the other overload if details are required
+            if (zmBlock.PoPs.Count == 0) return false;
+            if (zmBlock.PoPs[0].TxTimes.Count == 0) return false;
+
+            var txCount = zmBlock.PoPs[0].TxTimes.Count;
+            Txs = new ZMTx[txCount];
+            for (int i = 0; i < txCount; i++)
+            {
+                ZMTx zmtx = new ZMTx();
+                zmtx.TxIndex = i;
+                Txs[i] = zmtx;
+            }
+            TxCount = txCount;
+            return SetZMBlock(zmBlock);
+        }
+
         // an offline version of Refresh that does not require http and requires only a block transaction count rather than full data
         public bool RefreshOffline(ZMBlock zmBlock, int txCount)
         {

@@ -14,7 +14,7 @@ namespace ZeroMev.ClassifierService
     public static class MEVHelper
     {
         // for 0.3% commission, c = 0.997 
-        public static void SimUniswap2(int count, double isBaAbove, bool isABBA, ZMDecimal c, ZMDecimal x, ZMDecimal y, out ZMDecimal[] a, out ZMDecimal[] b, out ZMDecimal[] xOut, out ZMDecimal[] yOut, out bool[] isBA)
+        public static void SimUniswap2(int count, double isBaAbove, bool isABBA, bool isSandwichSim, ZMDecimal c, ZMDecimal x, ZMDecimal y, out ZMDecimal[] a, out ZMDecimal[] b, out ZMDecimal[] xOut, out ZMDecimal[] yOut, out bool[] isBA)
         {
             double amountFrac = 0.01;
 
@@ -28,26 +28,33 @@ namespace ZeroMev.ClassifierService
 
             for (int i = 0; i < count; i++)
             {
-                // force the first two txs to be either ABAB or ABBA (based on isABBA), and the rest trade random directions (based on isBaAbove)
-                if (i == 0)
-                    isBA[0] = false;
-                else if (i == 1)
-                    isBA[1] = isABBA ? true : false;
+                if (isSandwichSim)
+                {
+                    isBA[i] = (i == count - 1);
+                }
                 else
-                    isBA[i] = (r.NextDouble() > isBaAbove);
+                {
+                    // force the first two txs to be either ABAB or ABBA (based on isABBA), and the rest trade random directions (based on isBaAbove)
+                    if (i == 0)
+                        isBA[0] = false;
+                    else if (i == 1)
+                        isBA[1] = isABBA ? true : false;
+                    else
+                        isBA[i] = (r.NextDouble() > isBaAbove);
+                }
 
                 if (!isBA[i])
                 {
                     // a to b
                     a[i] = x * ((ZMDecimal)(amountFrac * r.NextDouble())); // input amount as a random % of pool (to stop the pool going to zero)
-                    a[i] = 100;
                     b[i] = MEVCalc.SwapOutputAmount(ref x, ref y, c, a[i]);
                 }
                 else
                 {
                     // b to a
                     b[i] = y * ((ZMDecimal)(amountFrac * r.NextDouble())); // input amount as a random % of pool (to stop the pool going to zero)
-                    b[i] = 0.1;
+                    if (isSandwichSim)
+                        b[i] = b[0];
                     a[i] = MEVCalc.SwapOutputAmount(ref y, ref x, c, b[i]);
                 }
 
@@ -64,7 +71,7 @@ namespace ZeroMev.ClassifierService
             ZMDecimal c = 0.997;
             const int dec = 5;
 
-            SimUniswap2(100, 0.5, isABBA, c, 10000, 10, out var real_a, out var real_b, out var xOut, out var yOut, out var isBA);
+            SimUniswap2(100, 0.5, isABBA, false, c, x, y, out var real_a, out var real_b, out var xOut, out var yOut, out var isBA);
 
             ZMDecimal x_, y_;
             if (!isABBA)
@@ -468,7 +475,6 @@ namespace ZeroMev.ClassifierService
                             && otherSwap.TokenOutAddress == frontSwap.TokenOutAddress
                             && otherSwap.FromAddress != sandwicher)
                     {
-                        if (otherSwap.TokenInAmount == 110000000000000000) Console.Write("");
                         if (sandwichedSwaps == null)
                             sandwichedSwaps = new List<Swap>();
                         sandwichedSwaps.Add(otherSwap);
@@ -491,10 +497,20 @@ namespace ZeroMev.ClassifierService
                                 if (Swaps[before].TokenOutAddress != frontSwap.TokenInAddress) break;
                                 if (Swaps[after].TokenInAddress != otherSwap.TokenOutAddress) break;
 
-                                // not yet implemented
-                                //frontSwap = Swaps[before];
-                                //otherSwap = Swaps[after];
+                                /*
+                                // TODO not yet implemented
+                                frontSwap = Swaps[before];
+                                otherSwap = Swaps[after];
+                                i = after;
+                                frontIndex = before;
+                                */
                             }
+
+                            // backrun coalescing
+                            // TODO frontrunIndex is now a range, and amounts are summed to get final result
+
+                            // frontrun coalescing
+                            // TODO backrunIndex is now a range, and amounts are summed to get final result
 
                             SandwichesFrontrun.Add(MEVHelper.TxKey(frontSwap), frontSwap);
                             SandwichesBackrun.Add(MEVHelper.TxKey(otherSwap), otherSwap);
