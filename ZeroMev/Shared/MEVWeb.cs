@@ -754,7 +754,7 @@ namespace ZeroMev.Shared
             else
                 sandwichProfit = MEVCalc.SandwichProfitFrontHeavy(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_, out frontrunVictimImpact, out af, out bf);
 
-            var sandwichProfitUsd = MEVCalc.SwapUsd(back.Swap.OutUsdRate(), sandwichProfit);
+            var sandwichProfitUsd = MEVCalc.SwapUsd(MEVCalc.OutUsdRate(mevBlock, back.Swap.OutUsdRate(), back.Swap, back.Swaps, front.Swaps), sandwichProfit);
             SandwichProfitUsd = sandwichProfitUsd;
 
             decimal sumFrontrunVictimImpactUsd = 0;
@@ -773,7 +773,7 @@ namespace ZeroMev.Shared
                 // the latest usd rate for frontrun losses (b) is in the middle of the sandwich, which would inflate the results and be inconsistent with sandwich profits
                 // to avoid this, we use a calculated usd rate for (b) based on final pool values after the sandwich instead
                 var br = MEVCalc.GetAFromB(y_, x_, c, a[backIndex]);
-                var bFinalUsdRate = back.Swap.AmountOutUsd / br;
+                var bFinalUsdRate = MEVCalc.OutUsdRate(mevBlock, back.Swap.AmountOutUsd / br, back.Swap, back.Swaps, front.Swaps);
 
                 // frontrun victim impact
                 var bNoFrontrun = MEVCalc.FrontrunVictimImpact(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_);
@@ -1388,6 +1388,9 @@ namespace ZeroMev.Shared
 
     public static class MEVCalc
     {
+        public const string EthSymbolName = "WETH";
+        public static HashSet<string> UsdSymbolNames = new HashSet<string>() { "Tether USD", "USD Coin", "Dai", "Binance USD", "Gemini Dollar" };
+
         public static bool GetSandwichParameters(MEVBlock mb, int index, out ZMDecimal[]? aOut, out ZMDecimal[]? bOut, out MEVFrontrun front, out MEVBackrun back, out MEVSandwiched[] sandwiched)
         {
             if (index >= mb.Frontruns.Count ||
@@ -1643,6 +1646,65 @@ namespace ZeroMev.Shared
                     return victimImpactUsd.ToUsd();
             }
             return null;
+        }
+
+        public static ZMDecimal? OutUsdRate(MEVBlock mb, ZMDecimal? defaultUsdRate, MEVSwap defaultSwap, params MEVSwaps[] otherSwapExchangeRate)
+        {
+            return defaultUsdRate;
+
+            // take no action if the defaultSwap is already converted to a base currency
+            string symbolOut = mb.GetSymbolName(defaultSwap.SymbolOutIndex);
+            if (symbolOut == EthSymbolName || UsdSymbolNames.Contains(symbolOut)) return defaultUsdRate;
+
+            // search for firm base currency swaps we can use otherwise
+            for (int i = 0; i < otherSwapExchangeRate.Length; i++)
+            {
+                // most recent first
+                var others = otherSwapExchangeRate[i];
+                for (int k = others.Swaps.Count - 1; k >= 0; k--)
+                {
+                    var other = others.Swaps[k];
+                    if (other == defaultSwap) continue;
+                    string otherSymbolOut = mb.GetSymbolName(other.SymbolOutIndex);
+                    string otherSymbolIn = mb.GetSymbolName(other.SymbolInIndex);
+
+                    // token : eth/usd
+                    if (defaultSwap.SymbolOutIndex == other.SymbolInIndex)
+                    {
+                        if (otherSymbolOut == EthSymbolName)
+                        {
+                            // eth
+                            var rate = (other.AmountOut * mb.EthUsd) / other.AmountIn;
+                            return rate;
+                        }
+                        else if (UsdSymbolNames.Contains(otherSymbolOut))
+                        {
+                            // usd
+                            var rate = other.AmountOut / other.AmountIn;
+                            return rate;
+                        }
+                    }
+
+                    // eth/usd : token
+                    if (defaultSwap.SymbolOutIndex == other.SymbolOutIndex)
+                    {
+                        if (otherSymbolIn == EthSymbolName)
+                        {
+                            // eth
+                            var rate = (other.AmountIn * mb.EthUsd) / other.AmountOut;
+                            return rate;
+                        }
+                        else if (UsdSymbolNames.Contains(otherSymbolIn))
+                        {
+                            // usd
+                            var rate = other.AmountIn / other.AmountOut;
+                            return rate;
+                        }
+                    }
+                }
+            }
+
+            return defaultUsdRate;
         }
     }
 }

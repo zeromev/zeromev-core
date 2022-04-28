@@ -123,7 +123,7 @@ namespace ZeroMev.Test
         [TestMethod]
         public async Task TestCalculateSandwiches()
         {
-            const long testBlock = 13640275;
+            const long testBlock = 14023563;
 
             var mevBlocks = await DB.ReadMevBlocks(testBlock, testBlock + 1);
             if (mevBlocks != null)
@@ -181,7 +181,7 @@ namespace ZeroMev.Test
         [TestMethod]
         public void TestProcessSandwiches()
         {
-            var bp = BlockProcess.Load(13539770, 13539770 + 100, new DEXs());
+            var bp = BlockProcess.Load(13826327, 13826327 + 1, new DEXs());
             bp.Run();
         }
 

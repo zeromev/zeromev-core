@@ -485,33 +485,6 @@ namespace ZeroMev.ClassifierService
                     {
                         if (sandwichedSwaps != null)
                         {
-                            // stretch the boundary of the sandwich if possible
-                            for (int j = 1; j < restIndex; j++)
-                            {
-                                int before = frontIndex - j;
-                                int after = i + j;
-                                if (before < 0 || after > Swaps.Count) break;
-                                if (Swaps[before].TransactionHash != frontSwap.TransactionHash) break;
-                                if (Swaps[after].TransactionHash != otherSwap.TransactionHash) break;
-                                if (Swaps[before].TokenInAddress != Swaps[after].TokenOutAddress) break;
-                                if (Swaps[before].TokenOutAddress != frontSwap.TokenInAddress) break;
-                                if (Swaps[after].TokenInAddress != otherSwap.TokenOutAddress) break;
-
-                                /*
-                                // TODO not yet implemented
-                                frontSwap = Swaps[before];
-                                otherSwap = Swaps[after];
-                                i = after;
-                                frontIndex = before;
-                                */
-                            }
-
-                            // backrun coalescing
-                            // TODO frontrunIndex is now a range, and amounts are summed to get final result
-
-                            // frontrun coalescing
-                            // TODO backrunIndex is now a range, and amounts are summed to get final result
-
                             SandwichesFrontrun.Add(MEVHelper.TxKey(frontSwap), frontSwap);
                             SandwichesBackrun.Add(MEVHelper.TxKey(otherSwap), otherSwap);
                             foreach (var ss in sandwichedSwaps)
