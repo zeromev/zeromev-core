@@ -72,5 +72,18 @@ namespace ZeroMev.Shared
             if (r == null || r.Result == null) return null;
             return Num.HexToInt(r.Result);
         }
+
+        public static async Task<int?> GetBlockTransactionReceipts(HttpClient http, string hexBlockNumber)
+        {
+            string jsonReq = JsonEthGetBlockTransactionCountByNumber.Replace("{0}", hexBlockNumber);
+            var httpContent = new StringContent(jsonReq, System.Text.Encoding.UTF8, "application/json");
+
+            var getBlockTask = await http.PostAsync(Config.Settings.EthereumRPC, httpContent);
+            string? result = await getBlockTask.Content.ReadAsStringAsync();
+            var r = System.Text.Json.JsonSerializer.Deserialize<GetBlockTransactionCountByNumber>(result);
+            if (r == null || r.Result == null) return null;
+            return Num.HexToInt(r.Result);
+        }
+
     }
 }

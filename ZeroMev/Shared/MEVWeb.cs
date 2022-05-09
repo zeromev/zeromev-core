@@ -707,12 +707,36 @@ namespace ZeroMev.Shared
 #if (DEBUG)
             if (mevBlock.BlockNumber == 13539770) Console.Write("");
 #endif
-
             // mev (calculate for itself and all related sandwiched and backrun instances)
             if (!MEVCalc.GetSandwichParameters(mevBlock, mevIndex, out var a, out var b, out var front, out var back, out var sandwiched))
             {
                 MEVDetail = ErrorParameters;
                 back.MEVDetail = ErrorParameters;
+                return;
+            }
+
+            // low liquidity and malicious tokens can return bad profit / victim impact results
+            // these cases are often wrapped in more liquid swaps which allow the attacker to withdraw profits safely
+            // (eg: WETH -> malicious token -> sandwich -> malicious token -> WETH) and these wrapping swaps give more accurate results
+            // as such, when we detect a wrapped sandwich, use the [wrapped token output] - [wrapped token input] as profit and the neg of this as victim impact
+            if (MEVCalc.DetectWrappedSandwich(front, back, out var frontWrap, out var backWrap))
+            {
+                // these sandwiches tend to be well balanced as the attacker is trying to get their money out not take a position
+                decimal? wrapProfitUsd = null;
+                if (backWrap.AmountOutUsd != null && frontWrap.AmountInUsd != null)
+                {
+                    // use consistent base currency values when available
+                    var symbol = mevBlock.GetSymbolName(backWrap.SymbolOutIndex);
+                    if (symbol == MEVCalc.EthSymbolName && mevBlock.EthUsd.HasValue)
+                        wrapProfitUsd = (decimal)(backWrap.AmountOut - frontWrap.AmountIn) * mevBlock.EthUsd.Value;
+                    else if (MEVCalc.UsdSymbolNames.Contains(symbol))
+                        wrapProfitUsd = (decimal)(backWrap.AmountOut - frontWrap.AmountIn);
+                    else
+                        wrapProfitUsd = backWrap.AmountOutUsd - frontWrap.AmountInUsd;
+                    wrapProfitUsd = Math.Round(wrapProfitUsd.Value, 2);
+                    sandwiched[0].MEVAmountUsd = -wrapProfitUsd;
+                }
+                SetMevDetail(false, false, true, mevBlock, front, back, sandwiched, (wrapProfitUsd != null) ? -wrapProfitUsd : null, wrapProfitUsd, null);
                 return;
             }
 
@@ -754,8 +778,11 @@ namespace ZeroMev.Shared
             else
                 sandwichProfit = MEVCalc.SandwichProfitFrontHeavy(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_, out frontrunVictimImpact, out af, out bf);
 
-            var sandwichProfitUsd = MEVCalc.SwapUsd(MEVCalc.OutUsdRate(mevBlock, back.Swap.OutUsdRate(), back.Swap, back.Swaps, front.Swaps), sandwichProfit);
+            var sandwichProfitUsd = MEVCalc.SwapUsd(back.Swap.OutUsdRate(), sandwichProfit);
             SandwichProfitUsd = sandwichProfitUsd;
+
+            if (backrunVictimImpact != null)
+                back.MEVAmountUsd = MEVCalc.SwapUsd(back.Swap.OutUsdRate(), backrunVictimImpact.Value);
 
             decimal sumFrontrunVictimImpactUsd = 0;
             if (imbalanceSwitch || isLowLiquidity)
@@ -773,7 +800,7 @@ namespace ZeroMev.Shared
                 // the latest usd rate for frontrun losses (b) is in the middle of the sandwich, which would inflate the results and be inconsistent with sandwich profits
                 // to avoid this, we use a calculated usd rate for (b) based on final pool values after the sandwich instead
                 var br = MEVCalc.GetAFromB(y_, x_, c, a[backIndex]);
-                var bFinalUsdRate = MEVCalc.OutUsdRate(mevBlock, back.Swap.AmountOutUsd / br, back.Swap, back.Swaps, front.Swaps);
+                var bFinalUsdRate = back.Swap.AmountOutUsd / br;
 
                 // frontrun victim impact
                 var bNoFrontrun = MEVCalc.FrontrunVictimImpact(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_);
@@ -798,16 +825,22 @@ namespace ZeroMev.Shared
                 }
             }
 
-            // mev detail
+            SetMevDetail(imbalanceSwitch, isLowLiquidity, false, mevBlock, front, back, sandwiched, sumFrontrunVictimImpactUsd, sandwichProfitUsd, back.MEVAmountUsd);
+        }
+
+        private void SetMevDetail(bool imbalanceSwitch, bool isLowLiquidity, bool isWrapped, MEVBlock mevBlock, MEVFrontrun front, MEVBackrun back, MEVSandwiched[] sandwiched, decimal? victimImpactUsd, decimal? profitUsd, decimal? victimImpactBackrunUsd)
+        {
             StringBuilder sb = new StringBuilder();
-            if (imbalanceSwitch)
+            if (isWrapped)
+                sb.AppendLine("wrapped sandwich.");
+            else if (imbalanceSwitch)
                 sb.AppendLine("pool imbalance attack.");
             else if (isLowLiquidity)
                 sb.AppendLine("low liquidity pair.");
-            sb.AppendLine($"{sandwiched.Length} sandwiched swaps.\nvictim impact (frontrun) = ${sumFrontrunVictimImpactUsd}.");
-            if (back.MEVAmountUsd != null)
-                sb.AppendLine($"victim impact (backrun) = ${back.MEVAmountUsd}.");
-            sb.AppendLine($"sandwich profit = ${sandwichProfitUsd}.");
+            sb.AppendLine($"{sandwiched.Length} sandwiched swaps.\nvictim impact (frontrun) = ${(victimImpactUsd != null ? victimImpactUsd.ToString() : "?")}.");
+            if (victimImpactBackrunUsd != null)
+                sb.AppendLine($"victim impact (backrun) = ${(victimImpactBackrunUsd != null ? victimImpactBackrunUsd.ToString() : "?")}.");
+            sb.AppendLine($"sandwich profit = ${(profitUsd != null ? profitUsd.ToString() : "?")}.");
 
             sb.AppendLine("\nfrontrun");
             front.Swap.BuildActionDetail(mevBlock, sb);
@@ -1412,8 +1445,10 @@ namespace ZeroMev.Shared
             var a = new List<ZMDecimal>();
             var b = new List<ZMDecimal>();
 
-            a.Add(front.Swap.AmountIn);
-            b.Add(front.Swap.AmountOut);
+            // set frontrun amount with coalescing
+            AmountCoalescing(front.Swap, front.Swaps.Swaps, out var frontIn, out var frontOut);
+            a.Add(frontIn);
+            b.Add(frontOut);
 
             for (int i = 0; i < sandwiched.Length; i++)
             {
@@ -1426,12 +1461,60 @@ namespace ZeroMev.Shared
                 }
             }
 
-            a.Add(back.Swap.AmountOut); // amounts reversed as backruns trade against frontrun and sandwiched
-            b.Add(back.Swap.AmountIn);
+            // set backrun amount with coalescing
+            AmountCoalescing(back.Swap, back.Swaps.Swaps, out var backIn, out var backOut);
+            a.Add(backOut); // amounts reversed as backruns trade against frontrun and sandwiched
+            b.Add(backIn);
 
             aOut = a.ToArray();
             bOut = b.ToArray();
             return true;
+        }
+
+        private static void AmountCoalescing(MEVSwap swap, List<MEVSwap> swaps, out ZMDecimal sumIn, out ZMDecimal sumOut)
+        {
+            sumIn = 0;
+            sumOut = 0;
+
+            // set frontrun amount with coalescing
+            foreach (MEVSwap s in swaps)
+            {
+                if (s.SymbolInIndex == swap.SymbolInIndex &&
+                    s.SymbolOutIndex == swap.SymbolOutIndex)
+                {
+                    sumIn += s.AmountIn;
+                    sumOut += s.AmountOut;
+                }
+            }
+        }
+
+        public static bool DetectWrappedSandwich(MEVFrontrun front, MEVBackrun back, out MEVSwap frontWrap, out MEVSwap backWrap)
+        {
+            // wrapped swaps must be within the same transaction (only look within the passed front/back runs)
+            // find the outermost of any number of layers of wrapping
+            int fi = front.FrontrunSwapIndex.Value - 1;
+            int bi = back.BackrunSwapIndex.Value + 1;
+
+            bool isWrapDetected = false;
+            frontWrap = front.Swap;
+            backWrap = back.Swap;
+            while (fi >= 0 && bi < back.Swaps.Swaps.Count)
+            {
+                var frontWrapNext = front.Swaps.Swaps[fi];
+                var backWrapNext = back.Swaps.Swaps[bi];
+
+                if (frontWrapNext.SymbolOutIndex != frontWrap.SymbolInIndex) break;
+                if (backWrapNext.SymbolInIndex != backWrap.SymbolOutIndex) break;
+                if (frontWrapNext.SymbolInIndex != backWrapNext.SymbolOutIndex) break;
+
+                isWrapDetected = true;
+                frontWrap = frontWrapNext;
+                backWrap = backWrapNext;
+                fi--;
+                bi++;
+            }
+
+            return isWrapDetected;
         }
 
         public static void CalculateSwaps(ZMDecimal x, ZMDecimal y, ZMDecimal c, ZMDecimal[] a, ZMDecimal[] b, bool[] isBA, out ZMDecimal x_, out ZMDecimal y_, out ZMDecimal[] a_, out ZMDecimal[] b_, out bool imbalanceSwitch)
@@ -1646,65 +1729,6 @@ namespace ZeroMev.Shared
                     return victimImpactUsd.ToUsd();
             }
             return null;
-        }
-
-        public static ZMDecimal? OutUsdRate(MEVBlock mb, ZMDecimal? defaultUsdRate, MEVSwap defaultSwap, params MEVSwaps[] otherSwapExchangeRate)
-        {
-            return defaultUsdRate;
-
-            // take no action if the defaultSwap is already converted to a base currency
-            string symbolOut = mb.GetSymbolName(defaultSwap.SymbolOutIndex);
-            if (symbolOut == EthSymbolName || UsdSymbolNames.Contains(symbolOut)) return defaultUsdRate;
-
-            // search for firm base currency swaps we can use otherwise
-            for (int i = 0; i < otherSwapExchangeRate.Length; i++)
-            {
-                // most recent first
-                var others = otherSwapExchangeRate[i];
-                for (int k = others.Swaps.Count - 1; k >= 0; k--)
-                {
-                    var other = others.Swaps[k];
-                    if (other == defaultSwap) continue;
-                    string otherSymbolOut = mb.GetSymbolName(other.SymbolOutIndex);
-                    string otherSymbolIn = mb.GetSymbolName(other.SymbolInIndex);
-
-                    // token : eth/usd
-                    if (defaultSwap.SymbolOutIndex == other.SymbolInIndex)
-                    {
-                        if (otherSymbolOut == EthSymbolName)
-                        {
-                            // eth
-                            var rate = (other.AmountOut * mb.EthUsd) / other.AmountIn;
-                            return rate;
-                        }
-                        else if (UsdSymbolNames.Contains(otherSymbolOut))
-                        {
-                            // usd
-                            var rate = other.AmountOut / other.AmountIn;
-                            return rate;
-                        }
-                    }
-
-                    // eth/usd : token
-                    if (defaultSwap.SymbolOutIndex == other.SymbolOutIndex)
-                    {
-                        if (otherSymbolIn == EthSymbolName)
-                        {
-                            // eth
-                            var rate = (other.AmountIn * mb.EthUsd) / other.AmountOut;
-                            return rate;
-                        }
-                        else if (UsdSymbolNames.Contains(otherSymbolIn))
-                        {
-                            // usd
-                            var rate = other.AmountIn / other.AmountOut;
-                            return rate;
-                        }
-                    }
-                }
-            }
-
-            return defaultUsdRate;
         }
     }
 }
