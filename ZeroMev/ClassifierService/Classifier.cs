@@ -168,11 +168,10 @@ namespace ZeroMev.ClassifierService
                         }
 
                         // once we have those, get the block transaction count (by now considered trustworthy)
-                        int? txCount = null;
-                        txCount = await API.GetBlockTransactionCountByNumber(_http, nextBlockNumber);
-                        if (!txCount.HasValue)
+                        var txStatus = await APIEnhanced.GetBlockTransactionStatus(_http, nextBlockNumber.ToString());
+                        if (txStatus == null)
                         {
-                            _logger.LogInformation($"waiting {delaySecs} secs for rpc tx count {nextBlockNumber}");
+                            _logger.LogInformation($"waiting {delaySecs} secs for rpc txStatus {nextBlockNumber}");
                             continue;
                         }
 
@@ -182,7 +181,7 @@ namespace ZeroMev.ClassifierService
                         if (zb != null)
                         {
                             zv = new ZMView(nextBlockNumber);
-                            zv.RefreshOffline(zb, txCount.Value);
+                            zv.RefreshOffline(zb, txStatus.Count);
                         }
 
                         // if we don’t have enough zm blocks to process by now, wait up until the longer PollTimeoutSecs (it will likely mean the zeromevdb is down or something)
@@ -213,7 +212,7 @@ namespace ZeroMev.ClassifierService
                             {
                                 // write the count to the db (useful for later bulk reprocessing/restarts)
                                 var txDataComp = Binary.Compress(Binary.WriteFirstSeenTxData(zv));
-                                await db.AddZmBlock(nextBlockNumber, txCount.Value, zv.BlockTimeAvg, txDataComp);
+                                await db.AddZmBlock(nextBlockNumber, txStatus.Count, zv.BlockTimeAvg, txDataComp, txStatus);
                             }
 
                             var bp = BlockProcess.Load(nextBlockNumber, nextBlockNumber, _dexs);

@@ -1,5 +1,6 @@
 ﻿using C5;
 using Microsoft.EntityFrameworkCore;
+using System.Collections;
 using System.Diagnostics;
 using System.Numerics;
 using System.Text;
@@ -509,6 +510,7 @@ namespace ZeroMev.ClassifierService
 
             MEVBlock? mevBlock = null;
             List<DateTime>? arrivals = null;
+            BitArray? txStatus = null;
             List<MEVSandwiched> sandwiched = new List<MEVSandwiched>();
 
             // swaps, sandwiches and arbs
@@ -518,18 +520,14 @@ namespace ZeroMev.ClassifierService
             {
                 Swap s = Swaps[i];
 
-                // consider swaps with zero amount invalid (they break exchange rate calculations)
-                if (s.TokenInAmount == 0 || s.TokenOutAmount == 0)
-                    continue;
-
                 // detect new block number
                 if (mevBlock == null || s.BlockNumber != mevBlock.BlockNumber)
                 {
                     // process liquidations and nfts in parallel with swaps to ensure we get decent exchange rates
                     // note that liquidations and nfts xrates are set a block granularity, where as arbs/swaps/sandwiches are set a tx level granularity
                     var tempMevBlock = mevBlock;
-                    ProcessLiquidations(skippedBlockNumber, s.BlockNumber, ref mevBlock, ref arrivals);
-                    ProcessNfts(skippedBlockNumber, s.BlockNumber, ref mevBlock, ref arrivals);
+                    ProcessLiquidations(skippedBlockNumber, s.BlockNumber, ref mevBlock, ref arrivals, ref txStatus);
+                    ProcessNfts(skippedBlockNumber, s.BlockNumber, ref mevBlock, ref arrivals, ref txStatus);
                     skippedBlockNumber = s.BlockNumber + 1;
 
                     if (frontrun != null)
@@ -542,9 +540,17 @@ namespace ZeroMev.ClassifierService
                     sandwiched.Clear();
 
                     mevBlock = tempMevBlock;
-                    if (!GetMEVBlock(s.BlockNumber, ref mevBlock, ref arrivals))
+                    if (!GetMEVBlock(s.BlockNumber, ref mevBlock, ref arrivals, ref txStatus))
                         continue;
                 }
+
+                // consider swaps with zero amount invalid (they break exchange rate calculations)
+                if (s.TokenInAmount == 0 || s.TokenOutAmount == 0)
+                    continue;
+
+                // skip reverted transactions
+                if (txStatus != null && s.TransactionPosition.HasValue && txStatus.Count > s.TransactionPosition && !txStatus.Get(s.TransactionPosition.Value))
+                    continue;
 
                 if (s.TransactionPosition == null || s.Error != null) continue;
                 DateTime? arrival = arrivals != null ? arrivals[s.TransactionPosition.Value] : null;
@@ -557,24 +563,13 @@ namespace ZeroMev.ClassifierService
                 // sandwiches
                 if (this.SandwichesFrontrun.TryGetValue(sKey, out var sandwichFrontrun))
                 {
-                    isSandwichTx = true;
-
-                    if (frontrun != null)
-                        Debug.WriteLine("sandwich reentry");
-
                     // sandwich frontrun
+                    isSandwichTx = true;
                     frontrun = new MEVFrontrun(s.TransactionPosition.Value, MEVHelper.BuildMEVSwap(mevBlock, s, zmSwap));
                 }
                 else if (this.SandwichesBackrun.TryGetValue(sKey, out var sandwichBackrun))
                 {
                     isSandwichTx = true;
-
-                    if (frontrun == null)
-                        Debug.WriteLine("backrun swap when frontrun not set");
-
-                    if (sandwiched.Count == 0)
-                        Debug.WriteLine("backrun swap when sandwiched not set");
-
                     var backrun = new MEVBackrun(s.TransactionPosition.Value, MEVHelper.BuildMEVSwap(mevBlock, s, zmSwap));
 
                     // front/sandwiched and backrun instances can access each other using the same index across each collection
@@ -595,10 +590,6 @@ namespace ZeroMev.ClassifierService
                 else if (this.SandwichedSwaps.TryGetValue(sKey, out var sandwichedSwap))
                 {
                     isSandwichTx = true;
-
-                    if (frontrun == null)
-                        Debug.WriteLine("sandwich swap when frontrun not set");
-
                     if (sandwichedSwap.TransactionHash == lastSandwichedHash)
                     {
                         lastSandwiched.AddSandwichedSwap(MEVHelper.BuildMEVSwap(mevBlock, s, zmSwap));
@@ -616,7 +607,7 @@ namespace ZeroMev.ClassifierService
                 {
                     if (isSandwichTx)
                     {
-                        // if we were mid arb, remove it
+                        // if we are mid sandwich, remove the arb
                         if (arb.Swap.SwapTransactionHash == lastArbHash)
                             mevBlock.Arbs.Remove(lastArb);
 
@@ -640,9 +631,9 @@ namespace ZeroMev.ClassifierService
 
             // remaining liquidations and nfts
             mevBlock = null;
-            ProcessLiquidations(skippedBlockNumber ?? 0, long.MaxValue, ref mevBlock, ref arrivals);
+            ProcessLiquidations(skippedBlockNumber ?? 0, long.MaxValue, ref mevBlock, ref arrivals, ref txStatus);
             mevBlock = null;
-            ProcessNfts(skippedBlockNumber ?? 0, long.MaxValue, ref mevBlock, ref arrivals);
+            ProcessNfts(skippedBlockNumber ?? 0, long.MaxValue, ref mevBlock, ref arrivals, ref txStatus);
 
             // allocate all remaining swaps
             mevBlock = null;
@@ -653,7 +644,7 @@ namespace ZeroMev.ClassifierService
 
                 if (mevBlock == null || s.BlockNumber != mevBlock.BlockNumber)
                 {
-                    if (!GetMEVBlock(s.BlockNumber, ref mevBlock, ref arrivals, false))
+                    if (!GetMEVBlock(s.BlockNumber, ref mevBlock, ref arrivals, ref txStatus, false))
                         continue;
                     if (mevBlock == null)
                         continue;
@@ -676,14 +667,14 @@ namespace ZeroMev.ClassifierService
                 TestMev(mb);
         }
 
-        private void ProcessLiquidations(long? fromBlockNumber, long toBlockNumber, ref MEVBlock mevBlock, ref List<DateTime>? arrivals)
+        private void ProcessLiquidations(long? fromBlockNumber, long toBlockNumber, ref MEVBlock mevBlock, ref List<DateTime>? arrivals, ref BitArray? txStatus)
         {
             foreach (var l in Liquidations)
             {
                 if ((fromBlockNumber.HasValue && l.BlockNumber < fromBlockNumber) || l.BlockNumber > toBlockNumber)
                     continue;
 
-                if (!GetMEVBlock(l.BlockNumber, ref mevBlock, ref arrivals, false))
+                if (!GetMEVBlock(l.BlockNumber, ref mevBlock, ref arrivals, ref txStatus, false))
                     continue;
 
                 var protocol = MEVHelper.GetProtocolLiquidation(l.Protocol);
@@ -698,14 +689,14 @@ namespace ZeroMev.ClassifierService
             }
         }
 
-        private void ProcessNfts(long? fromBlockNumber, long toBlockNumber, ref MEVBlock mevBlock, ref List<DateTime>? arrivals)
+        private void ProcessNfts(long? fromBlockNumber, long toBlockNumber, ref MEVBlock mevBlock, ref List<DateTime>? arrivals, ref BitArray? txStatus)
         {
             foreach (var n in NftTrades)
             {
                 if ((fromBlockNumber.HasValue && n.BlockNumber < fromBlockNumber) || n.BlockNumber > toBlockNumber)
                     continue;
 
-                if (!GetMEVBlock(n.BlockNumber, ref mevBlock, ref arrivals, false))
+                if (!GetMEVBlock(n.BlockNumber, ref mevBlock, ref arrivals, ref txStatus, false))
                     continue;
 
                 ProtocolNFT protocol = MEVHelper.GetProtocolNFT(n.Protocol);
@@ -772,6 +763,7 @@ namespace ZeroMev.ClassifierService
         {
             Tokens.Load();
             List<DateTime>? arrivals = null;
+            BitArray txStatus = null;
             DEXs dexs = new DEXs();
             MEVBlock mevBlock = null;
 
@@ -780,7 +772,7 @@ namespace ZeroMev.ClassifierService
                 // detect new block number
                 if (mevBlock == null || s.BlockNumber != mevBlock.BlockNumber)
                 {
-                    if (!GetMEVBlock(s.BlockNumber, ref mevBlock, ref arrivals, false))
+                    if (!GetMEVBlock(s.BlockNumber, ref mevBlock, ref arrivals, ref txStatus, false))
                         continue;
                 }
 
@@ -820,7 +812,7 @@ namespace ZeroMev.ClassifierService
             }
         }
 
-        private bool GetMEVBlock(long blockNumber, ref MEVBlock? mevBlock, ref List<DateTime>? arrivals, bool doSetEthUsd = true)
+        private bool GetMEVBlock(long blockNumber, ref MEVBlock? mevBlock, ref List<DateTime>? arrivals, ref BitArray? txStatus, bool doSetEthUsd = true)
         {
             // only get new references if we have changed block number (iterate sorted by block number to minimize this)
             if (mevBlock == null || blockNumber != mevBlock.BlockNumber)
@@ -839,9 +831,8 @@ namespace ZeroMev.ClassifierService
                 if (zmb == null && blockNumber >= API.EarliestZMBlock) // don't hit the RPC and DB for data that cannot exist
                 {
                     // attempt to get and write arrivals on the fly
-                    int? txCount = null;
-                    txCount = API.GetBlockTransactionCountByNumber(_http, blockNumber).Result;
-                    if (txCount.HasValue)
+                    txStatus = APIEnhanced.GetBlockTransactionStatus(_http, blockNumber.ToString()).Result;
+                    if (txStatus != null)
                     {
                         // filter out invalid tx length extractor rows and calculate arrival times
                         var zb = DB.GetZMBlock(blockNumber);
@@ -849,7 +840,7 @@ namespace ZeroMev.ClassifierService
                         if (zb != null)
                         {
                             zv = new ZMView(blockNumber);
-                            zv.RefreshOffline(zb, txCount.Value);
+                            zv.RefreshOffline(zb, txStatus.Count);
                         }
 
                         // if we don’t have enough zm blocks to process by now, wait up until the longer PollTimeoutSecs (it will likely mean the zeromevdb is down or something)
@@ -861,7 +852,7 @@ namespace ZeroMev.ClassifierService
                                 {
                                     // write the count to the db (useful for later bulk reprocessing/restarts)
                                     var txDataComp = Binary.Compress(Binary.WriteFirstSeenTxData(zv));
-                                    zmb = db.AddZmBlock(blockNumber, txCount.Value, zv.BlockTimeAvg, txDataComp).Result;
+                                    zmb = db.AddZmBlock(blockNumber, txStatus.Count, zv.BlockTimeAvg, txDataComp, txStatus).Result;
                                 }
                             }
                         }
@@ -872,6 +863,7 @@ namespace ZeroMev.ClassifierService
                 {
                     var txData = Binary.Decompress(zmb.TxData);
                     arrivals = Binary.ReadFirstSeenTxData(txData);
+                    txStatus = zmb.TxStatus;
                     Debug.Assert(arrivals.Count == zmb.TransactionCount);
                     if (mevBlock.ExistingMEV == null)
                         mevBlock.ExistingMEV = new IMEV[arrivals.Count];
@@ -882,6 +874,7 @@ namespace ZeroMev.ClassifierService
                     // don't fail just because we can't get or update txcount / arrival times at this point, just return null arrivals
                     // a fatal error will be an unexpected exception caused by a network error or a server going down
                     arrivals = null;
+                    txStatus = null;
                     if (mevBlock.ExistingMEV == null)
                         mevBlock.ExistingMEV = new IMEV[10000]; // big enough to handle any block
                 }

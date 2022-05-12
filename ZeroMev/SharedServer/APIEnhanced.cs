@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Net.Http;
@@ -10,7 +11,7 @@ namespace ZeroMev.SharedServer
 {
     public static class APIEnhanced
     {
-        public const string JsonEthGetBlockReceiptsByNumber = "{\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"eth_getBlockReceipts\",\"params\":[\"{0}\",true]}";
+        public const string JsonEthGetBlockReceiptsByNumber = "{\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"eth_getBlockReceipts\",\"params\":[\"{0}\"]}";
 
         public static async Task<GetBlockReceiptsByNumber?> GetBlockReceiptsByNumber(HttpClient http, string blockNumberHexOrInt)
         {
@@ -20,6 +21,17 @@ namespace ZeroMev.SharedServer
             var getBlockTask = await http.PostAsync(Config.Settings.EthereumRPC, httpContent);
             string? result = await getBlockTask.Content.ReadAsStringAsync();
             return System.Text.Json.JsonSerializer.Deserialize<GetBlockReceiptsByNumber>(result);
+        }
+
+        public static async Task<BitArray?> GetBlockTransactionStatus(HttpClient http, string blockNumberHexOrInt)
+        {
+            var r = await GetBlockReceiptsByNumber(http, blockNumberHexOrInt);
+            if (r == null || r.Result == null) return null;
+
+            BitArray? status = new BitArray(r.Result.Count);
+            for (int i = 0; i < r.Result.Count; i++)
+                status[i] = r.Result[i].Status != "0x0";
+            return status;
         }
     }
 
@@ -45,8 +57,5 @@ namespace ZeroMev.SharedServer
 
         [JsonPropertyName("status")]
         public string Status { get; set; }
-
-        [JsonPropertyName("transactionIndex")]
-        public string TransactionIndex { get; set; }
     }
 }

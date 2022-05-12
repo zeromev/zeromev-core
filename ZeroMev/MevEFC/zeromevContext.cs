@@ -704,6 +704,8 @@ namespace ZeroMev.MevEFC
                 entity.Property(e => e.TransactionCount).HasColumnName("transaction_count");
 
                 entity.Property(e => e.TxData).HasColumnName("tx_data");
+
+                entity.Property(e => e.TxStatus).HasColumnName("tx_status");
             });
 
             modelBuilder.Entity<ZmLatestBlockUpdate>(entity =>

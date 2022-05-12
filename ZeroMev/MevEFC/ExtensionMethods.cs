@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -19,9 +20,9 @@ namespace ZeroMev.MevEFC
             return (long)db.ZmLatestBlockUpdates.Max(x => x.BlockNumber);
         }
 
-        public static async Task<ZmBlock> AddZmBlock(this zeromevContext db, long blockNumber, int txCount, DateTime blockTime, byte[] txData)
+        public static async Task<ZmBlock> AddZmBlock(this zeromevContext db, long blockNumber, int txCount, DateTime blockTime, byte[] txData, BitArray txStatus)
         {
-            var zmb = new ZmBlock() { BlockNumber = blockNumber, TransactionCount = txCount, BlockTime = blockTime, TxData = txData };
+            var zmb = new ZmBlock() { BlockNumber = blockNumber, TransactionCount = txCount, BlockTime = blockTime, TxData = txData, TxStatus = txStatus };
 
             try
             {

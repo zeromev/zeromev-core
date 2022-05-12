@@ -123,7 +123,7 @@ namespace ZeroMev.Test
         [TestMethod]
         public async Task TestCalculateSandwiches()
         {
-            const long testBlock = 13509658;
+            const long testBlock = 13371782;
 
             var mevBlocks = await DB.ReadMevBlocks(testBlock, testBlock + 1);
             if (mevBlocks != null)
@@ -329,12 +329,12 @@ namespace ZeroMev.Test
         {
             using (var db = new zeromevContext())
             {
-                await db.AddZmBlock(1, 0, new DateTime(2015, 7, 30), new byte[] { });
+                await db.AddZmBlock(1, 0, new DateTime(2015, 7, 30), new byte[] { }, new BitArray(0));
             }
 
             using (var db = new zeromevContext())
             {
-                await db.AddZmBlock(1, 0, new DateTime(2015, 7, 30), new byte[] { });
+                await db.AddZmBlock(1, 0, new DateTime(2015, 7, 30), new byte[] { }, new BitArray(0));
             }
         }
     }
