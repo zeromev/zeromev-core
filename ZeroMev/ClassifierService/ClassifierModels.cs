@@ -548,7 +548,7 @@ namespace ZeroMev.ClassifierService
                 if (s.TokenInAmount == 0 || s.TokenOutAmount == 0)
                     continue;
 
-                // skip reverted transactions
+                // skip reverted
                 if (txStatus != null && s.TransactionPosition.HasValue && txStatus.Count > s.TransactionPosition && !txStatus.Get(s.TransactionPosition.Value))
                     continue;
 
