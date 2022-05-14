@@ -36,167 +36,178 @@ else
             </div>
         </div>
     </div>
-    <canvas id="orderCanvas" width="@ZV.TxCount" height="8" style="@canvasStyle"></canvas>
-}
 
-<table name="txtable" class="table table-hover table-sm">
-    <thead>
-        <tr>
-            <th scope="col">time</th>
-            <th scope="col" class="px-2"></th>
-            <th scope="col">delay</th>
-            <th scope="col">txn hash</th>
-            <th scope="col">arrival time</th>
-            <th scope="col">action</th>
-            <th scope="col">mev</th>
-            <th scope="col">impact</th>
-            <th scope="col"><img src="FB.png" /></th>
-            <th scope="col">from</th>
-            <th scope="col">to</th>
-            <th scope="col">value (Eth)</th>
-            <th scope="col">gas price (Gwei)</th>
-        </tr>
-    </thead>
-    <tbody>
-        @if (ZV.HasZM)
-        {
-            filtered = ZV.GetFiltered(Filter);
-            <Virtualize Items="@filtered" Context="tx" OverscanCount=@(!TxIndex.HasValue||TxIndex.Value<3?3:TxIndex.Value)>
-                <tr id="@tx.TrId(TxIndex)" class="@tx.TrClass(TxIndex)">
-                    <td>@tx.TimeOrderIndex</td>
-                    <td style="background-color:@tx.HeatmapRGB"></td>
-                    <td><abbr title="@((MarkupString)tx.InclusionDelayDetail)">@tx.InclusionDelayShort</abbr></td>
-                    <td>@((MarkupString)tx.TxnHashShort)</td>
-                    <td><abbr title="@((MarkupString)tx.TimeOrderDetail)">@(tx.TimeOrder.ToString(Time.Format))</abbr></td>
-                    @if (tx.MEVActionDetail == null)
-                {
-                    <td>@((MarkupString)tx.MEVActionSummary)</td>
-                }
-                else
-                {
-                    <td><abbr title="@tx.MEVActionDetail">@((MarkupString)tx.MEVActionSummary)</abbr></td>
-                }
-                @if (MEVWeb.Get(tx.MEVClass).IsVisible)
-                {
-                    <td><abbr title="@tx.MEVDetail"><span class="badge text-light @MEVWeb.CssClass(tx.MEVClass)">@tx.MEVName</span></abbr></td>
-                }
-                else
-                {
-                    <td></td>
-                }
-                <td>@tx.MEVAmountStr</td>
-                <td>@tx.Bundle</td>
-                <td>@((MarkupString)tx.FromShort)</td>
-                <td>@((MarkupString)tx.ToShort)</td>
-                <td>@tx.Value</td>
-                <td>@tx.GasPrice</td>
-            </tr>
-        </Virtualize>
-        }
-        else
-        {
-            filtered = ZV.GetFiltered(Filter);
-            <Virtualize Items="@filtered" Context="tx" OverscanCount=@(!TxIndex.HasValue||TxIndex.Value<3?3:TxIndex.Value)>
-                <tr class="@tx.TrClass(TxIndex)">
-                    <td>-</td>
-                    <td></td>
-                    <td>-</td>
-                    <td>@((MarkupString)tx.TxnHashShort)</td>
-                    @if (tx.MEVActionDetail == null)
-                {
-                    <td>@((MarkupString)tx.MEVActionSummary)</td>
-                }
-                else
-                {
-                    <td><abbr title="@tx.MEVActionDetail">@((MarkupString)tx.MEVActionSummary)</abbr></td>
-                }
-                @if (MEVWeb.Get(tx.MEVClass).IsVisible)
-                {
-                    <td><abbr title="@tx.MEVDetail"><span class="badge text-light @MEVWeb.CssClass(tx.MEVClass)">@tx.MEVName</span></abbr></td>
-                }
-                else
-                {
-                    <td></td>
-                }
-                <td>@tx.MEVAmountStr</td>
-                <td>@tx.Bundle</td>
-                <td>@((MarkupString)tx.FromShort)</td>
-                <td>@((MarkupString)tx.ToShort)</td>
-                <td>@tx.Value</td>
-                <td>@tx.GasPrice</td>
-            </tr>
-        </Virtualize>
-        }
-    </tbody>
-</table>
-
-@if (ZV.TxCount == 0)
-{
-    <div class="alert alert-info" role="alert">
-        no transactions in this block
+    <div style="max-width: @(ZV.TxCount)px">
+        <canvas id="orderCanvas" style="@canvasStyle; width:100%; height: 8px"></canvas>
     </div>
+   
 }
 
-@code {
-    [Parameter]
-    public ZMView? ZV { get; set; }
 
-    [Parameter]
-    public int? TxIndex { get; set; }
+<div class="table-responsive">
 
-    MEVFilter Filter { get; set; } = MEVFilter.All;
-    OrderBy Order { get; set; } = OrderBy.Block;
-    List<ZMTx> filtered = new List<ZMTx>();
-    byte[] R, G, B;
+    <table name="txtable" class="table table-hover table-sm">
+        <thead>
+            <tr>
+                <th scope="col">time</th>
+                <th scope="col" class="px-2"></th>
+                <th scope="col">delay</th>
+                <th scope="col">txn hash</th>
+                <th scope="col">arrival time</th>
+                <th scope="col">action</th>
+                <th scope="col">mev</th>
+                <th scope="col">impact</th>
+                <th scope="col"><img src="FB.png" /></th>
+                <th scope="col">from</th>
+                <th scope="col">to</th>
+                <th scope="col">value (Eth)</th>
+                <th scope="col">gas price (Gwei)</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (ZV.HasZM)
+            {
+                filtered = ZV.GetFiltered(Filter);
+                <Virtualize Items="@filtered" Context="tx" OverscanCount=@(!TxIndex.HasValue||TxIndex.Value<3?3:TxIndex.Value)>
+                    <tr id="@tx.TrId(TxIndex)" class="@tx.TrClass(TxIndex)">
+                        <td>@tx.TimeOrderIndex</td>
+                        <td style="background-color:@tx.HeatmapRGB"></td>
+                        <td style="width: 120px"><abbr title="@((MarkupString)tx.InclusionDelayDetail)">@tx.InclusionDelayShort</abbr></td>
+                        <td>@((MarkupString)tx.TxnHashShort)</td>
+                        <td><abbr title="@((MarkupString)tx.TimeOrderDetail)">@(tx.TimeOrder.ToString(Time.Format))</abbr></td>
+                        @if (tx.MEVActionDetail == null)
+                        {
+                            <td>@((MarkupString)tx.MEVActionSummary)</td>
+                        }
+                        else
+                        {
+                            <td><abbr title="@tx.MEVActionDetail">@((MarkupString)tx.MEVActionSummary)</abbr></td>
+                        }
+                        @if (MEVWeb.Get(tx.MEVClass).IsVisible)
+                        {
+                            <td><abbr title="@tx.MEVDetail"><span class="badge text-light @MEVWeb.CssClass(tx.MEVClass)">@tx.MEVName</span></abbr></td>
+                        }
+                        else
+                        {
+                            <td></td>
+                        }
+                        <td>@tx.MEVAmountStr</td>
+                        <td>@tx.Bundle</td>
+                        <td>@((MarkupString)tx.FromShort)</td>
+                        <td>@((MarkupString)tx.ToShort)</td>
+                        <td>@tx.Value</td>
+                        <td>@tx.GasPrice</td>
+                    </tr>
+                </Virtualize>
+            }
+            else
+            {
+                filtered = ZV.GetFiltered(Filter);
+                <Virtualize Items="@filtered" Context="tx" OverscanCount=@(!TxIndex.HasValue||TxIndex.Value<3?3:TxIndex.Value)>
+                    <tr class="@tx.TrClass(TxIndex)">
+                        <td>-</td>
+                        <td></td>
+                        <td>-</td>
+                        <td>@((MarkupString)tx.TxnHashShort)</td>
+                        @if (tx.MEVActionDetail == null)
+                        {
+                            <td>@((MarkupString)tx.MEVActionSummary)</td>
+                        }
+                        else
+                        {
+                            <td><abbr title="@tx.MEVActionDetail">@((MarkupString)tx.MEVActionSummary)</abbr></td>
+                        }
+                        @if (MEVWeb.Get(tx.MEVClass).IsVisible)
+                        {
+                            <td><abbr title="@tx.MEVDetail"><span class="badge text-light @MEVWeb.CssClass(tx.MEVClass)">@tx.MEVName</span></abbr></td>
+                        }
+                        else
+                        {
+                            <td></td>
+                        }
+                        <td>@tx.MEVAmountStr</td>
+                        <td>@tx.Bundle</td>
+                        <td>@((MarkupString)tx.FromShort)</td>
+                        <td>@((MarkupString)tx.ToShort)</td>
+                        <td>@tx.Value</td>
+                        <td>@tx.GasPrice</td>
+                    </tr>
+                </Virtualize>
+            }
+        </tbody>
+    </table>
 
-    private void SetFilter(MEVFilter filter)
+</div>
+
+
+
+    @if (ZV.TxCount == 0)
     {
-        Filter = filter;
+        <div class="alert alert-info" role="alert">
+            no transactions in this block
+        </div>
     }
 
+    @code {
+        [Parameter]
+        public ZMView? ZV { get; set; }
 
-    private async Task SetOrder(OrderBy order)
-    {
-        Order = order;
-        if (ZV != null)
+        [Parameter]
+        public int? TxIndex { get; set; }
+
+        MEVFilter Filter { get; set; } = MEVFilter.All;
+        OrderBy Order { get; set; } = OrderBy.Block;
+        List<ZMTx> filtered = new List<ZMTx>();
+        byte[] R, G, B;
+
+        private void SetFilter(MEVFilter filter)
         {
-            ZV.SetOrderBy(order);
+            Filter = filter;
+        }
+
+
+        private async Task SetOrder(OrderBy order)
+        {
+            Order = order;
+            if (ZV != null)
+            {
+                ZV.SetOrderBy(order);
+                await DisplayOrderBar();
+            }
+        }
+
+        protected override async Task OnAfterRenderAsync(bool firstRender)
+        {
             await DisplayOrderBar();
         }
-    }
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        await DisplayOrderBar();
-    }
-
-    private async Task DisplayOrderBar()
-    {
-        if (ZV == null || ZV.Txs == null)
-            return;
-
-        int len = ZV.Txs.Length;
-        if (R == null || R.Length != len)
+        private async Task DisplayOrderBar()
         {
-            R = new Byte[len];
-            G = new Byte[len];
-            B = new Byte[len];
-        }
+            if (ZV == null || ZV.Txs == null)
+                return;
 
-        for (int i = 0; i < len; i++)
-        {
-            ZMTx tx = ZV.Txs[i];
-            R[i] = tx.R;
-            G[i] = tx.G;
-            B[i] = tx.B;
-        }
+            int len = ZV.Txs.Length;
+            if (R == null || R.Length != len)
+            {
+                R = new Byte[len];
+                G = new Byte[len];
+                B = new Byte[len];
+            }
 
-        try
-        {
-            await _jsRuntime.InvokeVoidAsync("orderBar", R, G, B);
-        }
-        catch (Exception ex)
-        {
+            for (int i = 0; i < len; i++)
+            {
+                ZMTx tx = ZV.Txs[i];
+                R[i] = tx.R;
+                G[i] = tx.G;
+                B[i] = tx.B;
+            }
+
+            try
+            {
+                await _jsRuntime.InvokeVoidAsync("orderBar", R, G, B);
+            }
+            catch (Exception ex)
+            {
+            }
         }
     }
-}
