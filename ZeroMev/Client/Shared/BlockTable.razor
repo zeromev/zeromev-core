@@ -1,42 +1,52 @@
 ﻿
-<table class="table table-sm">
-    <thead>
-        <tr>
-            <th scope="col"><img src="/block.svg" width=24 height=24> block number</th>
-            <th scope="col">tx count</th>
-            <th scope="col"><img src="/time.svg" width=24 height=24> block time</th>
-            <th scope="col">p2p latency</th>
-            <th scope="col">toxic mev</th>
-            <th scope="col">total mev</th>
-            <th scope="col">txs delayed by avg (max)</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>
-                @ZV.BlockNumber
-                <a href='/block?num=@(ZV.BlockNumber-1)' title='previous block'><img src="left.svg" width="16" height="16" /></a>
-                <a href='/block?num=@(ZV.BlockNumber+1)' title='next block'><img src="right.svg" width="16" height="16" /></a>
-            </td>
-            <td>@ZV.TxCount</td>
-            <td>@((MarkupString)(ZV.HasStats ? "<abbr title=\""+ZV.BlockTimeDetail+"\">"+ZV.BlockTimeAvg.ToString(Time.Format)+"</abbr>" : "-"))</td>
-            @if (ZV.HasStats && ZV.ValidPopCount > 1)
-            {
-                <td><abbr title="@ZV.PoPDetail">@Math.Round(ZV.BlockTimeRangeStdev.TotalMilliseconds,0) ms (@ZV.ValidPopCount nodes)</abbr></td>
-            }
-            else
-            {
-                <td>-</td>
-            }
-            <td class="@(ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd==0?null:"fw-bold text-danger")">$@ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00")</td>
-            <td>$@((ZV.MEVSummaries[(int)MEVFilter.Other].AmountUsd+ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd).ToString("0.00"))</td>
-            <td>@(ZV.HasStats && ZV.InclusionDelayMeanShort!=null ? ZV.InclusionDelayMeanShort+" ("+ZV.InclusionDelayMaxShort+")" : "-")</td>
-        </tr>
-    </tbody>
-</table>
+<div class="table-responsive">
+
+    <table class="table table-sm tableflx">
+        <thead>
+            <tr>
+                <th scope="col" style="flex-basis: 145px">
+                    <img src="/block.svg" width=24 height=24> block number
+                </th>
+                <th scope="col" style="flex-basis: 80px">tx count</th>
+                <th scope="col" style="flex-basis: 220px">
+                    <img src="/time.svg" width=24 height=24> block time
+                </th>
+                <th scope="col">p2p latency</th>
+                <th scope="col">toxic mev</th>
+                <th scope="col">total mev</th>
+                <th scope="col">txs delayed by avg (max)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td style="flex-basis: 145px">
+                    @ZV.BlockNumber
+                    <a href='/block?num=@(ZV.BlockNumber-1)' title='previous block'><img src="left.svg" width="16" height="16" /></a>
+                    <a href='/block?num=@(ZV.BlockNumber+1)' title='next block'><img src="right.svg" width="16" height="16" /></a>
+                </td>
+                <td style="flex-basis: 80px">@ZV.TxCount</td>
+
+                <td style="flex-basis: 220px">@((MarkupString)(ZV.HasStats ? "<abbr title=\""+ZV.BlockTimeDetail+"\">"+ZV.BlockTimeAvg.ToString(Time.Format)+"</abbr>" : "-"))</td>
+
+                @if (ZV.HasStats && ZV.ValidPopCount > 1)
+                {
+                    <td><abbr title="@ZV.PoPDetail">@Math.Round(ZV.BlockTimeRangeStdev.TotalMilliseconds, 0) ms (@ZV.ValidPopCount nodes)</abbr></td>
+                }
+                else
+                {
+                    <td>-</td>
+                }
+                <td class="@(ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd==0?null:"fw-bold text-danger")">$@ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00")</td>
+                <td>$@((ZV.MEVSummaries[(int)MEVFilter.Other].AmountUsd+ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd).ToString("0.00"))</td>
+                <td>@(ZV.HasStats && ZV.InclusionDelayMeanShort!=null ? ZV.InclusionDelayMeanShort+" ("+ZV.InclusionDelayMaxShort+")" : "-")</td>
+            </tr>
+        </tbody>
+    </table>
+
+</div>
 
 
-@code {
-    [Parameter]
-    public ZMView? ZV { get; set; }
-}
+    @code {
+        [Parameter]
+        public ZMView? ZV { get; set; }
+    }

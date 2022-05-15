@@ -138,3 +138,18 @@ a {
     }
 }
 
+
+
+.btn.btn-outline-light.active,
+.btn.btn-outline-light:active {
+    color: #000;
+    background-color: #dadadd;
+    border-color: #dadadd;
+}
+
+
+.tableflx th,
+.tableflx td {
+    flex: 1 0 auto;
+    white-space: nowrap;
+}

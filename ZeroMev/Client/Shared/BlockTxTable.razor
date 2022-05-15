@@ -15,8 +15,8 @@ else
     if (!isDisabled)
         canvasStyle = "border:1px solid #000000";
 
-    <div class="row">
-        <div class="col">
+    <div class="row row-filter">
+        <div class="col mb-3 mb-md-0">
             <div class="btn-group" role="group" aria-label="transaction filter">
                 <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Time?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Time)" disabled="@isDisabled">fair order</button>
                 <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Gas?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Gas)" disabled="@isDisabled">gas order</button>
@@ -46,7 +46,7 @@ else
 
 <div class="table-responsive">
 
-    <table name="txtable" class="table table-hover table-sm">
+    <table name="txtable" class="table table-hover table-sm tableflx">
         <thead>
             <tr>
                 <th scope="col">time</th>

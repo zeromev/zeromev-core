@@ -9,34 +9,38 @@
 }
 else
 {
-    <p class="h4"><img src="/addr.svg" width=32 height=32> address <small>@Addr</small></p>
+    <p class="h4" style="white-space: normal; word-break: break-word;"><img src="/addr.svg" width=32 height=32> address <small>@Addr</small></p>
 
-    <table class="table table-hover table-sm">
-        <thead>
-            <tr>
-                <th scope="col">tx hash</th>
-                <th scope="col">nonce</th>
-                <th scope="col">block number</th>
-                <th scope="col">time</th>
-                <th scope="col">from</th>
-                <th scope="col">to</th>
-                <th scope="col">value (Eth)</th>
-            </tr>
-        </thead>
-        <tbody>
-            <Virtualize Items="@addrTxs" Context="tx">
+    <div class="table-responsive">
+
+        <table class="table table-hover table-sm tableflx">
+            <thead>
                 <tr>
-                    <td><a href="block?num=@tx.BlockNumber&txi=@tx.TransactionIndex">@((MarkupString)Num.ShortenHexAbbr(tx.Hash,16))</a></td>
-                    <td>@tx.Nonce</td>
-                    <td>@tx.BlockNumber</td>
-                    <td>@(DateTimeOffset.FromUnixTimeSeconds(long.Parse(tx.TimeStamp)).ToUniversalTime().DateTime)</td>
-                    <td>@((MarkupString)Num.ShortenHexAbbr(tx.From,16))</td>
-                    <td>@((MarkupString)Num.ShortenHexAbbr(tx.To,16))</td>
-                    <td>@((MarkupString)Num.EthToGwei(tx.Value))</td>
+                    <th scope="col">tx hash</th>
+                    <th scope="col">nonce</th>
+                    <th scope="col">block number</th>
+                    <th scope="col">time</th>
+                    <th scope="col">from</th>
+                    <th scope="col">to</th>
+                    <th scope="col">value (Eth)</th>
                 </tr>
-            </Virtualize>
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                <Virtualize Items="@addrTxs" Context="tx">
+                    <tr>
+                        <td><a href="block?num=@tx.BlockNumber&txi=@tx.TransactionIndex">@((MarkupString)Num.ShortenHexAbbr(tx.Hash,16))</a></td>
+                        <td>@tx.Nonce</td>
+                        <td>@tx.BlockNumber</td>
+                        <td>@(DateTimeOffset.FromUnixTimeSeconds(long.Parse(tx.TimeStamp)).ToUniversalTime().DateTime)</td>
+                        <td>@((MarkupString)Num.ShortenHexAbbr(tx.From,16))</td>
+                        <td>@((MarkupString)Num.ShortenHexAbbr(tx.To,16))</td>
+                        <td>@((MarkupString)Num.EthToGwei(tx.Value))</td>
+                    </tr>
+                </Virtualize>
+            </tbody>
+        </table>
+
+    </div>
 
     <nav>
         <ul class="pagination">
