@@ -15,8 +15,8 @@ else
     if (!isDisabled)
         canvasStyle = "border:1px solid #000000";
 
-    <div class="row row-filter">
-        <div class="col mb-3 mb-md-0">
+    <div class="row-filter">
+        <div class="order-group">
             <div class="btn-group" role="group" aria-label="transaction filter">
                 <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Time?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Time)" disabled="@isDisabled">fair order</button>
                 <button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Gas?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Gas)" disabled="@isDisabled">gas order</button>
@@ -27,7 +27,7 @@ else
                 <button type="button" class="btn btn-outline-light text-dark ms-4" onclick="javascript:blazorHelpers.scrollToFragment('selected');"><img src="jump.svg" width="16" height="20" />  Jump To Tx</button>
             }
         </div>
-        <div class="col">
+        <div class="filter-group">
             <div class="btn-group" role="group" aria-label="transaction filter">
                 <button type="button" class="btn btn-outline-light @(Filter==MEVFilter.All?"active":"text-dark")" @onclick="() => SetFilter(MEVFilter.All)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />all (@ZV.TxCount)</button>
                 <button type="button" class="btn btn-outline-light @(Filter==MEVFilter.Info?"active":"text-dark")" @onclick="() => SetFilter(MEVFilter.Info)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />info (@ZV.MEVSummaries[(int)MEVFilter.Info].Count)</button>
@@ -37,10 +37,17 @@ else
         </div>
     </div>
 
-    <div style="max-width: @(ZV.TxCount)px">
-        <canvas id="orderCanvas" style="@canvasStyle; width:100%; height: 8px"></canvas>
-    </div>
-   
+    @if (ZV.TxCount >= 576)
+    {
+        <div style="max-width: @(ZV.TxCount)px">
+            <canvas id="orderCanvas" style="@canvasStyle; width:100%; height: 8px"></canvas>
+        </div>
+    }
+    else
+    {
+        <canvas id="orderCanvas" width="@ZV.TxCount" height="8" style="@canvasStyle"></canvas>
+    }
+
 }
 
 
@@ -141,73 +148,73 @@ else
 
 
 
-    @if (ZV.TxCount == 0)
+@if (ZV.TxCount == 0)
+{
+    <div class="alert alert-info" role="alert">
+        no transactions in this block
+    </div>
+}
+
+@code {
+    [Parameter]
+    public ZMView? ZV { get; set; }
+
+    [Parameter]
+    public int? TxIndex { get; set; }
+
+    MEVFilter Filter { get; set; } = MEVFilter.All;
+    OrderBy Order { get; set; } = OrderBy.Block;
+    List<ZMTx> filtered = new List<ZMTx>();
+    byte[] R, G, B;
+
+    private void SetFilter(MEVFilter filter)
     {
-        <div class="alert alert-info" role="alert">
-            no transactions in this block
-        </div>
+        Filter = filter;
     }
 
-    @code {
-        [Parameter]
-        public ZMView? ZV { get; set; }
 
-        [Parameter]
-        public int? TxIndex { get; set; }
-
-        MEVFilter Filter { get; set; } = MEVFilter.All;
-        OrderBy Order { get; set; } = OrderBy.Block;
-        List<ZMTx> filtered = new List<ZMTx>();
-        byte[] R, G, B;
-
-        private void SetFilter(MEVFilter filter)
+    private async Task SetOrder(OrderBy order)
+    {
+        Order = order;
+        if (ZV != null)
         {
-            Filter = filter;
-        }
-
-
-        private async Task SetOrder(OrderBy order)
-        {
-            Order = order;
-            if (ZV != null)
-            {
-                ZV.SetOrderBy(order);
-                await DisplayOrderBar();
-            }
-        }
-
-        protected override async Task OnAfterRenderAsync(bool firstRender)
-        {
+            ZV.SetOrderBy(order);
             await DisplayOrderBar();
         }
+    }
 
-        private async Task DisplayOrderBar()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await DisplayOrderBar();
+    }
+
+    private async Task DisplayOrderBar()
+    {
+        if (ZV == null || ZV.Txs == null)
+            return;
+
+        int len = ZV.Txs.Length;
+        if (R == null || R.Length != len)
         {
-            if (ZV == null || ZV.Txs == null)
-                return;
+            R = new Byte[len];
+            G = new Byte[len];
+            B = new Byte[len];
+        }
 
-            int len = ZV.Txs.Length;
-            if (R == null || R.Length != len)
-            {
-                R = new Byte[len];
-                G = new Byte[len];
-                B = new Byte[len];
-            }
+        for (int i = 0; i < len; i++)
+        {
+            ZMTx tx = ZV.Txs[i];
+            R[i] = tx.R;
+            G[i] = tx.G;
+            B[i] = tx.B;
+        }
 
-            for (int i = 0; i < len; i++)
-            {
-                ZMTx tx = ZV.Txs[i];
-                R[i] = tx.R;
-                G[i] = tx.G;
-                B[i] = tx.B;
-            }
-
-            try
-            {
-                await _jsRuntime.InvokeVoidAsync("orderBar", R, G, B);
-            }
-            catch (Exception ex)
-            {
-            }
+        try
+        {
+            await _jsRuntime.InvokeVoidAsync("orderBar", R, G, B);
+        }
+        catch (Exception ex)
+        {
         }
     }
+}

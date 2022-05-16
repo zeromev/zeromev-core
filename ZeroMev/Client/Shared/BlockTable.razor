@@ -4,11 +4,11 @@
     <table class="table table-sm tableflx">
         <thead>
             <tr>
-                <th scope="col" style="flex-basis: 145px">
+                <th scope="col">
                     <img src="/block.svg" width=24 height=24> block number
                 </th>
-                <th scope="col" style="flex-basis: 80px">tx count</th>
-                <th scope="col" style="flex-basis: 220px">
+                <th scope="col">tx count</th>
+                <th scope="col">
                     <img src="/time.svg" width=24 height=24> block time
                 </th>
                 <th scope="col">p2p latency</th>
@@ -19,14 +19,14 @@
         </thead>
         <tbody>
             <tr>
-                <td style="flex-basis: 145px">
+                <td>
                     @ZV.BlockNumber
                     <a href='/block?num=@(ZV.BlockNumber-1)' title='previous block'><img src="left.svg" width="16" height="16" /></a>
                     <a href='/block?num=@(ZV.BlockNumber+1)' title='next block'><img src="right.svg" width="16" height="16" /></a>
                 </td>
-                <td style="flex-basis: 80px">@ZV.TxCount</td>
+                <td>@ZV.TxCount</td>
 
-                <td style="flex-basis: 220px">@((MarkupString)(ZV.HasStats ? "<abbr title=\""+ZV.BlockTimeDetail+"\">"+ZV.BlockTimeAvg.ToString(Time.Format)+"</abbr>" : "-"))</td>
+                <td>@((MarkupString)(ZV.HasStats ? "<abbr title=\""+ZV.BlockTimeDetail+"\">"+ZV.BlockTimeAvg.ToString(Time.Format)+"</abbr>" : "-"))</td>
 
                 @if (ZV.HasStats && ZV.ValidPopCount > 1)
                 {

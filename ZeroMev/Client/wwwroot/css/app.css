@@ -153,3 +153,29 @@ a {
     flex: 1 0 auto;
     white-space: nowrap;
 }
+
+
+.row-filter {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.row-filter .filter-group {
+    padding-top: 20px;
+}
+
+
+@media (min-width: 889px) {
+    .row-filter {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .row-filter .filter-group {
+        position: absolute;
+        left: 444px;
+        top: 0;
+        padding-top: 0;
+    }
+}
