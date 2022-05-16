@@ -148,6 +148,10 @@ a {
 }
 
 
+
+
+
+
 .tableflx th,
 .tableflx td {
     flex: 1 0 auto;
@@ -186,3 +190,13 @@ a {
         padding-top: 0;
     }
 }
+
+
+@media (max-width: 767px) {
+    .table-res {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+    
