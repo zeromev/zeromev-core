@@ -154,6 +154,13 @@ a {
     white-space: nowrap;
 }
 
+.tableflx > tbody > tr {
+    display: table-row;
+}
+
+.tableflx > tbody > div {
+    display: table-row;
+}
 
 .row-filter {
     position: relative;
