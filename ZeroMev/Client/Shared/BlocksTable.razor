@@ -8,9 +8,13 @@
     <div class=row>
         <div class="col">
             <p>
-            <span class="badge text-light mx-2 @MEVWeb.CssClass(MEVClass.Toxic)">Toxic MEV</span> $@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00"))
-            <span class="badge text-light mx-2 @MEVWeb.CssClass(MEVClass.Unclassified)">Other MEV</span> $@(MEVLiteCache.Totals[(int)MEVFilter.Other].AmountUsd.ToString("0.00"))
-            <span class="mx-2"><img src="/time.svg" width=24 height=24> over @MEVLiteCache.Duration()</span>
+                <span style="display: inline-block; white-space: nowrap;">
+                    <span class="badge text-light mx-2 @MEVWeb.CssClass(MEVClass.Toxic)">Toxic MEV</span> $@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00"))
+                </span>
+                <span style="display: inline-block; white-space: nowrap;">
+                    <span class="badge text-light mx-2 @MEVWeb.CssClass(MEVClass.Unclassified)">Other MEV</span> $@(MEVLiteCache.Totals[(int)MEVFilter.Other].AmountUsd.ToString("0.00"))
+                </span>
+                <span class="mx-2"><img src="/time.svg" width=24 height=24> over @MEVLiteCache.Duration()</span>
             </p>
         </div>
     </div>
@@ -23,16 +27,21 @@
                     <br /><img src="/time.svg" width=24 height=24> @(mb.BlockTime == null ? "?" : mb.BlockTime.Value.ToString(Time.FormatShort))
                     </a>
                 </p>
-                @foreach (var m in mb.MEVLite)
-            {
-                <a href="block?num=@mb.BlockNumber">
-                    <span class="badge text-light mx-2 @MEVWeb.CssClass(m.MEVClass)">@m.MEVType.ToString()</span>
-                </a>
-                @if (m.MEVAmountUsd.HasValue)
-                {
-                    @("$"+m.MEVAmountUsd.Value.ToString("0.00"))
-                }
-            }
+               
+                    @foreach (var m in mb.MEVLite)
+                    {
+                        <span style="display: inline-block; white-space: nowrap;">
+                            <a href="block?num=@mb.BlockNumber">
+                                <span class="badge text-light mx-2 @MEVWeb.CssClass(m.MEVClass)">@m.MEVType.ToString()</span>
+                            </a>
+                            @if (m.MEVAmountUsd.HasValue)
+                            {
+                                @("$"+m.MEVAmountUsd.Value.ToString("0.00"))
+                            }
+                        </span>
+                    }
+               
+
         </Virtualize>
         <hr />
     </div>

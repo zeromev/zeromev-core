@@ -1,18 +1,20 @@
-﻿
-<div class="table-res">
-
-    <table class="table table-sm tableflx">
+﻿<div class="table-res">
+    <table class="table tableflx">
         <thead>
             <tr>
                 <th scope="col">
-                    <img src="/block.svg" width=24 height=24> block number
+                    <div style="display: flex; align-items: center; justify-content: flex-start;">
+                        <img src="/block.svg" width=24 height=24> <span style="padding-left: 4px;">block number</span>
+                    </div>
                 </th>
                 <th scope="col">toxic mev</th>
                 <th scope="col">total mev</th>
                 <th scope="col">txs delayed by avg (max)</th>
                 <th scope="col">p2p latency</th>
                 <th scope="col">
-                    <img src="/time.svg" width=24 height=24> block time
+                    <div style="display: flex; align-items: center; justify-content: flex-start;">
+                        <img src="/time.svg" width=24 height=24>  <span style="padding-left: 4px;">block time</span>
+                    </div>
                 </th>
                 <th scope="col">tx count</th>
             </tr>
@@ -40,11 +42,12 @@
             </tr>
         </tbody>
     </table>
-
 </div>
 
+<div class="mobile-space"></div>
 
-    @code {
-        [Parameter]
-        public ZMView? ZV { get; set; }
-    }
+
+@code {
+    [Parameter]
+    public ZMView? ZV { get; set; }
+}

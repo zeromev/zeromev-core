@@ -1,35 +1,35 @@
-﻿<div class="top-row ps-3 navbar navbar-dark" style="background-color:rgb(11,10,30)">
-    <div class="container-fluid">
-        <div class="col logo my-2">
-            <a href=""><img src="zm.svg" height="60" /></a>
-        </div>
-        <div class="col search my-2">
-            <Search />
-        </div>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
-            <span class="navbar-toggler-icon"></span>
-        </button>
+﻿<nav class="container-fluid tnavbar navbar-dark" aria-label="Navigation" style="background-color:rgb(11,10,30)">
+    <div class="tnavbar__logo">
+        <a href=""><img src="zm.svg" height="60" /></a>
     </div>
-</div>
+    <div class="tnavbar__search">
+        <Search />
+    </div>
 
-<div class="@NavMenuCssClass container-fluid site-navbar" @onclick="ToggleNavMenu" style="background-color:rgb(11,10,30)">
-    <div class="row">
-        <div class="col menu my-2">
-            <nav class="navbar navbar-expand-lg">
-                <div class="navbar-nav ms-auto">
-                    <NavLink class="nav-link text-light" href="">home</NavLink>
-                    <NavLink class="nav-link text-light" href="about">about</NavLink>
-                    <NavLink class="nav-link text-light" href="resources">resources</NavLink>
-                </div>
-            </nav>
-        </div>
+    <button title="Navigation menu" class="navbar-toggler tnavbar__toggle" @onclick="ToggleNavMenu">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="@NavMenuCssClass collapse navbar-collapse">
+        <ul class="tnavbar__nav">
+            <li>
+                <NavLink class="nav-link" href="">home</NavLink>
+            </li>
+            <li>
+                <NavLink class="nav-link" href="about">about</NavLink>
+            </li>
+            <li>
+                <NavLink class="nav-link" href="resources">resources</NavLink>
+            </li>
+        </ul>
     </div>
- </div>
+</nav>
+
 
 @code {
     private bool collapseNavMenu = true;
 
-    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+    private string? NavMenuCssClass => collapseNavMenu ? null : "show";
 
     private void ToggleNavMenu()
     {
