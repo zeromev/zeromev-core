@@ -415,7 +415,7 @@ namespace ZeroMev.ClassifierService
                 bi.ArbitrageSwaps = (from s in db.ArbitrageSwaps
                                      join a in db.Arbitrages on s.ArbitrageId equals a.Id
                                      where a.BlockNumber >= fromBlockNumber && a.BlockNumber < toBlockNumber
-                                     select new ArbSwap(a, s)).ToDictionary(x => MEVHelper.TxKey(x.Swap.SwapTransactionHash, x.Swap.SwapTraceAddress), x => x);
+                                     select new ArbSwap(a, s)).ToSafeDictionary(x => MEVHelper.TxKey(x.Swap.SwapTransactionHash, x.Swap.SwapTraceAddress), x => x);
 
                 bi.Liquidations = (from s in db.Liquidations
                                    where s.BlockNumber >= fromBlockNumber && s.BlockNumber < toBlockNumber
@@ -486,10 +486,17 @@ namespace ZeroMev.ClassifierService
                     {
                         if (sandwichedSwaps != null)
                         {
-                            SandwichesFrontrun.Add(MEVHelper.TxKey(frontSwap), frontSwap);
-                            SandwichesBackrun.Add(MEVHelper.TxKey(otherSwap), otherSwap);
-                            foreach (var ss in sandwichedSwaps)
-                                SandwichedSwaps.Add(MEVHelper.TxKey(ss), ss);
+                            try
+                            {
+                                SandwichesFrontrun.Add(MEVHelper.TxKey(frontSwap), frontSwap);
+                                SandwichesBackrun.Add(MEVHelper.TxKey(otherSwap), otherSwap);
+                                foreach (var ss in sandwichedSwaps)
+                                    SandwichedSwaps.Add(MEVHelper.TxKey(ss), ss);
+                            }
+                            catch (Exception ex)
+                            {
+                                // in case of duplicate key errors
+                            }
                             return i + 1; // this skip past sandwiched transactions resolves the mev-inspect issue
                         }
                     }

@@ -1,1 +1,50 @@
-<?xml version="1.0" ?><svg height="1792" viewBox="0 0 1792 1792" width="1792" xmlns="http://www.w3.org/2000/svg"><path d="M1171 960q0 13-10 23l-466 466q-10 10-23 10t-23-10l-50-50q-10-10-10-23t10-23l393-393-393-393q-10-10-10-23t10-23l50-50q10-10 23-10t23 10l466 466q10 10 10 23z"/></svg>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   height="1144.8151"
+   viewBox="0 0 1223.2343 1144.8151"
+   width="1223.2343"
+   version="1.1"
+   id="svg4"
+   sodipodi:docname="right.svg"
+   inkscape:version="1.1.2 (b8e25be833, 2022-02-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs8" />
+  <sodipodi:namedview
+     id="namedview6"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     showgrid="false"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0"
+     inkscape:zoom="0.44587054"
+     inkscape:cx="474.35294"
+     inkscape:cy="520.33041"
+     inkscape:window-width="1862"
+     inkscape:window-height="985"
+     inkscape:window-x="-8"
+     inkscape:window-y="-8"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg4" />
+  <rect
+     style="fill:#ececec;stroke:#909090;stroke-width:2.13329"
+     id="rect847"
+     width="1221.101"
+     height="1142.6818"
+     x="1.066645"
+     y="1.066645"
+     ry="384.87659" />
+  <path
+     d="m 399.11523,273.15781 q 0,9.35156 7.30247,16.54507 L 693.40481,572.40755 406.4177,855.11222 q -7.30247,7.1935 -7.30247,16.54505 0,9.35154 7.30247,16.54504 l 36.51235,35.96751 q 7.30247,7.19351 16.79568,7.19351 9.49321,0 16.79569,-7.19351 L 816.81655,588.9526 q 7.30247,-7.1935 7.30247,-16.54505 0,-9.35156 -7.30247,-16.54505 L 476.52142,220.64524 q -7.30248,-7.19351 -16.79569,-7.19351 -9.49321,0 -16.79568,7.19351 l -36.51235,35.96752 q -7.30247,7.1935 -7.30247,16.54505 z"
+     id="path2"
+     style="stroke-width:0.724778" />
+</svg>

@@ -9,7 +9,7 @@
 }
 else
 {
-    <p class="h4" style="white-space: normal; word-break: break-word;"><img src="/addr.svg" width=32 height=32> address <small>@Addr</small></p>
+    <p style="white-space: normal; word-break: break-word;"><img src="/addr.svg" width=32 height=32><span class="h4"> address </span><small>@Addr</small></p>
 
     <div class="table-res">
 
@@ -60,7 +60,7 @@ else
     [SupplyParameterFromQuery(Name = "page")]
     public int? Page { get; set; }
 
-    private const int AddressPageSize = 25;
+    private const int AddressPageSize = 12;
     private bool _isPreviousDisabled, _isNextDisabled;
 
     List<TxListResult>? addrTxs;

@@ -7,14 +7,14 @@
                 <th scope="col">
                     <img src="/block.svg" width=24 height=24> block number
                 </th>
-                <th scope="col">tx count</th>
-                <th scope="col">
-                    <img src="/time.svg" width=24 height=24> block time
-                </th>
-                <th scope="col">p2p latency</th>
                 <th scope="col">toxic mev</th>
                 <th scope="col">total mev</th>
                 <th scope="col">txs delayed by avg (max)</th>
+                <th scope="col">p2p latency</th>
+                <th scope="col">
+                    <img src="/time.svg" width=24 height=24> block time
+                </th>
+                <th scope="col">tx count</th>
             </tr>
         </thead>
         <tbody>
@@ -24,10 +24,9 @@
                     <a href='/block?num=@(ZV.BlockNumber-1)' title='previous block'><img src="left.svg" width="16" height="16" /></a>
                     <a href='/block?num=@(ZV.BlockNumber+1)' title='next block'><img src="right.svg" width="16" height="16" /></a>
                 </td>
-                <td>@ZV.TxCount</td>
-
-                <td>@((MarkupString)(ZV.HasStats ? "<abbr title=\""+ZV.BlockTimeDetail+"\">"+ZV.BlockTimeAvg.ToString(Time.Format)+"</abbr>" : "-"))</td>
-
+                <td class="@(ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd==0?null:"fw-bold text-danger")">$@ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00")</td>
+                <td>$@((ZV.MEVSummaries[(int)MEVFilter.Other].AmountUsd+ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd).ToString("0.00"))</td>
+                <td>@(ZV.HasStats && ZV.InclusionDelayMeanShort!=null ? ZV.InclusionDelayMeanShort+" ("+ZV.InclusionDelayMaxShort+")" : "-")</td>
                 @if (ZV.HasStats && ZV.ValidPopCount > 1)
                 {
                     <td><abbr title="@ZV.PoPDetail">@Math.Round(ZV.BlockTimeRangeStdev.TotalMilliseconds, 0) ms (@ZV.ValidPopCount nodes)</abbr></td>
@@ -36,9 +35,8 @@
                 {
                     <td>-</td>
                 }
-                <td class="@(ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd==0?null:"fw-bold text-danger")">$@ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00")</td>
-                <td>$@((ZV.MEVSummaries[(int)MEVFilter.Other].AmountUsd+ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd).ToString("0.00"))</td>
-                <td>@(ZV.HasStats && ZV.InclusionDelayMeanShort!=null ? ZV.InclusionDelayMeanShort+" ("+ZV.InclusionDelayMaxShort+")" : "-")</td>
+                <td>@((MarkupString)(ZV.HasStats ? "<abbr title=\""+ZV.BlockTimeDetail+"\">"+ZV.BlockTimeAvg.ToString(Time.Format)+"</abbr>" : "-"))</td>
+                <td>@ZV.TxCount</td>
             </tr>
         </tbody>
     </table>
