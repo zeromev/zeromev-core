@@ -1,20 +1,38 @@
-﻿<div class="container-fluid site-navbar" style="background-color:rgb(11,10,30)">
-    <div class="row">
+﻿<div class="top-row ps-3 navbar navbar-dark" style="background-color:rgb(11,10,30)">
+    <div class="container-fluid">
         <div class="col logo my-2">
             <a href=""><img src="zm.svg" height="60" /></a>
         </div>
         <div class="col search my-2">
             <Search />
         </div>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass container-fluid site-navbar" @onclick="ToggleNavMenu" style="background-color:rgb(11,10,30)">
+    <div class="row">
         <div class="col menu my-2">
             <nav class="navbar navbar-expand-lg">
                 <div class="navbar-nav ms-auto">
-                    <a class="nav-link text-light" href="">home</a>
-                    <a class="nav-link text-light" href="about">about</a>
-                    <a class="nav-link text-light" href="resources">resources</a>
+                    <NavLink class="nav-link text-light" href="">home</NavLink>
+                    <NavLink class="nav-link text-light" href="about">about</NavLink>
+                    <NavLink class="nav-link text-light" href="resources">resources</NavLink>
                 </div>
             </nav>
         </div>
     </div>
  </div>
-   
+
+@code {
+    private bool collapseNavMenu = true;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+}

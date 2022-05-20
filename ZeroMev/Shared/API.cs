@@ -16,6 +16,7 @@ namespace ZeroMev.Shared
         public const int JumpBlocksPerPage = BlocksPerPage + 1;
         public const long EarliestZMBlock = 13358564;
         public const long EarliestFlashbotsBlock = 11834049;
+        public const long EarliestMevBlock = 11207999;
         public const int ExpireRecentCacheSecs = 5;
         public const int RecentBlockSecs = 60;
 
