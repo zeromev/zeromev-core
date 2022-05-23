@@ -3,8 +3,8 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
-# zeromev added
-# appsettings.json
+.git*
+README.md
 
 # User-specific files
 *.rsuser
