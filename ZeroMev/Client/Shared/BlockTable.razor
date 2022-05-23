@@ -11,21 +11,21 @@
                 contains
                     @if (ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd==0 && ZV.MEVSummaries[(int)MEVFilter.Other].AmountUsd==0)
                     {
-                        <span> no idenitified user losses from mev</span>
+                        <span> no idenitified user losses </span>
                     }
                     else if (ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd!=0)
                     {
-                        <span class="fw-bold text-danger">$@(ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00"))</span><span> in toxic user losses</span>
+                        <span class="fw-bold text-danger">$@(ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00"))</span><span> in </span><span class="badge text-light @MEVWeb.CssClass(MEVClass.Toxic)">Toxic</span><span> user losses </span>
                         if (ZV.MEVSummaries[(int)MEVFilter.Other].AmountUsd!=0)
                         {
-                            <span> and </span><span class="fw-bold">$@((ZV.MEVSummaries[(int)MEVFilter.Other].AmountUsd+ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd).ToString("0.00"))</span><span> in total</span>
+                            <span>and </span><span class="fw-bold">$@((ZV.MEVSummaries[(int)MEVFilter.Other].AmountUsd+ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd).ToString("0.00"))</span><span> in total </span>
                         }
                     }
                     else if (ZV.MEVSummaries[(int)MEVFilter.Other].AmountUsd!=0)
                     {
-                        <span class="fw-bold">$@((ZV.MEVSummaries[(int)MEVFilter.Other].AmountUsd+ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd).ToString("0.00"))</span><span> in user losses</span>
+                        <span class="fw-bold">$@((ZV.MEVSummaries[(int)MEVFilter.Other].AmountUsd+ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd).ToString("0.00"))</span><span> in user losses </span>
                     }
-                    over @ZV.TxCount transactions.
+                    from mev over @ZV.TxCount transactions.
                 </p>
             </div>
             </abbr>
