@@ -5,7 +5,7 @@
 @if (MEVLiteCache != null)
 {
     MEVLiteCache.CalculateSummaries();
-    <div class=row>
+    <div class="row mb-3">
         <div class="card text-dark bg-light">
             <div class="card-body">
                 <h5 class="card-title">recent user losses</h5>
@@ -13,7 +13,7 @@
                 <p class="card-text">
                     <span class="badge text-light @MEVWeb.CssClass(MEVClass.Toxic)">Toxic</span> frontrunning caused <span class="@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd==0?null:"fw-bold text-danger")">$@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00"))</span> in user losses
                     <br>
-                    <span class="badge text-light @MEVWeb.CssClass(MEVClass.Unclassified)">Other</span> caused <b>$@(MEVLiteCache.Totals[(int)MEVFilter.Other].AmountUsd.ToString("0.00"))</b> in losses.
+                    <span class="badge text-light @MEVWeb.CssClass(MEVClass.Unclassified)">Other</span> mev caused <b>$@(MEVLiteCache.Totals[(int)MEVFilter.Other].AmountUsd.ToString("0.00"))</b> in losses.
                 </p>
             </div>
         </div>
@@ -21,7 +21,6 @@
     <div class="row">
         <div class="col">
             <Virtualize Items="@MEVLiteCache.Blocks" Context="mb">
-                <hr />
                 <p>
                     <a href="block?num=@mb.BlockNumber" class="link-primary">
                         <img src="/block.svg" width=24 height=24> @mb.BlockNumber
@@ -40,6 +39,7 @@
                     }
                 </span>
             }
+                <hr />
         </Virtualize>
         <hr />
     </div>
