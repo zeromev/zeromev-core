@@ -282,7 +282,7 @@ a {
 
 img.ani-breathing {
     height: auto;
-    animation: breathing 1.5s linear infinite;
+    animation: breathing 1.45s linear infinite;
     transform-origin: center;
     vertical-align: middle;
     will-change: transform;
@@ -291,7 +291,7 @@ img.ani-breathing {
 @keyframes breathing {
     0% {
       
-        transform: scale(0.9);
+        transform: scale(0.85);
     }
 
     25% {
@@ -300,13 +300,11 @@ img.ani-breathing {
     }
 
     60% {
-       
-        transform: scale(0.9);
+        transform: scale(0.85);
     }
 
     100% {
-       
-        transform: scale(0.9);
+        transform: scale(0.85);
     }
 }
 
