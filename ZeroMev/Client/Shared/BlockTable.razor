@@ -1,6 +1,6 @@
 ﻿<div class="row mb-2">
     <div class="col-md-4 mb-2">
-        <div class="card text-dark bg-light">
+        <div class="card text-dark bg-light h-100">
             <abbr title="@("block number "+ZV.BlockNumber+"\nblock time "+(ZV.HasStats ? ZV.BlockTimeMin.ToString(Time.FormatShort) : "-")+"\ntx count "+ZV.TxCount)">
             <div class="card-body">
                 <h5 class="card-title"><img src="/block.svg" width=24 height=24> block</h5>
@@ -32,7 +32,7 @@
         </div>
     </div>
     <div class="col-md-4 mb-2">
-        <div class="card text-dark bg-light">
+        <div class="card text-dark bg-light h-100">
             <abbr title="@(ZV.HasStats ? "block arrival times\n"+ZV.BlockTimeDetail+"\n" : null)see arrival time tooltips for tx arrival times.">
             <div class="card-body">
                 <h5 class="card-title"><img src="/time.svg" width=24 height=24> delay</h5>
@@ -44,7 +44,7 @@
         </div>
     </div>
     <div class="col-md-4 mb-2">
-        <div class="card text-dark bg-light">
+        <div class="card text-dark bg-light h-100">
             <abbr title="@ZV.PoPDetail">
             <div class="card-body">
                 <h5 class="card-title"><img src="/globe.svg" width=24 height=24> network</h5>
