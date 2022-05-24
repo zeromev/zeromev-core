@@ -5,45 +5,46 @@
 @if (MEVLiteCache != null)
 {
     MEVLiteCache.CalculateSummaries();
-    <div class="row mb-3">
-        <div class="card text-dark bg-light">
-            <div class="card-body">
-                <h5 class="card-title">recent user losses</h5>
-                <span class=""><img src="/time.svg" width=24 height=24> over the last @MEVLiteCache.Duration()</span>
-                <p class="card-text">
-                    <span class="badge text-light @MEVWeb.CssClass(MEVClass.Toxic)">Toxic</span> frontrunning caused <span class="@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd==0?null:"fw-bold text-danger")">$@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00"))</span> in user losses
-                    <br>
-                    <span class="badge text-light @MEVWeb.CssClass(MEVClass.Unclassified)">Other</span> mev caused <b>$@(MEVLiteCache.Totals[(int)MEVFilter.Other].AmountUsd.ToString("0.00"))</b> in losses.
-                </p>
-            </div>
+   
+    <div class="card text-dark bg-light mb-3">
+        <div class="card-body">
+            <h5 class="card-title">recent user losses</h5>
+            <span class=""><img src="/time.svg" width=24 height=24> over the last @MEVLiteCache.Duration()</span>
+            <p class="card-text">
+                <span class="badge text-light @MEVWeb.CssClass(MEVClass.Toxic)">Toxic</span> frontrunning caused <span class="@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd==0?null:"fw-bold text-danger")">$@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00"))</span> in user losses
+                <br>
+                <span class="badge text-light @MEVWeb.CssClass(MEVClass.Unclassified)">Other</span> mev caused <b>$@(MEVLiteCache.Totals[(int)MEVFilter.Other].AmountUsd.ToString("0.00"))</b> in losses.
+            </p>
         </div>
     </div>
-    <div class="row">
-        <div class="col">
-            <Virtualize Items="@MEVLiteCache.Blocks" Context="mb">
-                <p>
-                    <a href="block?num=@mb.BlockNumber" class="link-primary">
-                        <img src="/block.svg" width=24 height=24> @mb.BlockNumber
-                        <br /><img src="/time.svg" width=24 height=24> @(mb.BlockTime == null ? "?" : mb.BlockTime.Value.ToString(Time.FormatShort))
-                    </a>
-                </p>
-                @foreach (var m in mb.MEVLite)
-            {
-                <span style="display: inline-block; white-space: nowrap;">
-                    <a href="block?num=@mb.BlockNumber">
-                        <span class="badge text-light mx-2 @MEVWeb.CssClass(m.MEVClass)">@m.MEVType.ToString()</span>
-                    </a>
-                    @if (m.MEVAmountUsd.HasValue)
-                    {
-                        @("$"+m.MEVAmountUsd.Value.ToString("0.00"))
-                    }
-                </span>
-            }
-                <hr />
+  
+
+    
+    <div class="line">
+        <Virtualize Items="@MEVLiteCache.Blocks" Context="mb">
+            <p>
+                <a href="block?num=@mb.BlockNumber" class="link-primary">
+                    <img src="/block.svg" width=24 height=24> @mb.BlockNumber
+                    <br /><img src="/time.svg" width=24 height=24> @(mb.BlockTime == null ? "?" : mb.BlockTime.Value.ToString(Time.FormatShort))
+                </a>
+            </p>
+            @foreach (var m in mb.MEVLite)
+        {
+            <span style="display: inline-block; white-space: nowrap;">
+                <a href="block?num=@mb.BlockNumber">
+                    <span class="badge text-light mx-2 @MEVWeb.CssClass(m.MEVClass)">@m.MEVType.ToString()</span>
+                </a>
+                @if (m.MEVAmountUsd.HasValue)
+                {
+                    @("$"+m.MEVAmountUsd.Value.ToString("0.00"))
+                }
+            </span>
+        }
+            <hr />
         </Virtualize>
         <hr />
     </div>
-</div>
+
 }
 else
 {

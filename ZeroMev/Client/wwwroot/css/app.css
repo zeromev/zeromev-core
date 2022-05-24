@@ -113,7 +113,13 @@ a {
 }
 
 
-.content {
+.container-fluid.page-content {
+    padding-top: 1rem;
+}
+
+
+/*.content {
+    width: 100%;
     padding-top: 1.1rem;
     padding-left: 1rem !important;
     padding-right: 1rem !important;
@@ -121,11 +127,12 @@ a {
 
 @media (min-width: 768px) {
     .content {
+        width: 100%;
         padding-top: 1.1rem;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
     } 
-}
+}*/
 
 @media (max-width: 767.98px) {
     
@@ -187,14 +194,10 @@ a {
     }
 }
 
-
-@media (max-width: 767px) {
-    .table-res {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
+.table-res {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
-
 
 .tnavbar {
     padding-top: 0.5rem;
@@ -276,7 +279,6 @@ a {
     }
 
 }
-
 
 
 
