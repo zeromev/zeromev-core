@@ -835,7 +835,7 @@ namespace ZeroMev.ClassifierService
                 ZmBlock? zmb = null;
                 zmb = ZmBlocks.FirstOrDefault<ZmBlock>(x => x.BlockNumber == blockNumber);
 
-                if (zmb == null && blockNumber >= API.EarliestZMBlock) // don't hit the RPC and DB for data that cannot exist
+                if (zmb == null)
                 {
                     // attempt to get and write arrivals on the fly
                     txStatus = APIEnhanced.GetBlockTransactionStatus(_http, blockNumber.ToString()).Result;
@@ -850,17 +850,30 @@ namespace ZeroMev.ClassifierService
                             zv.RefreshOffline(zb, txStatus.Count);
                         }
 
-                        // if we don’t have enough zm blocks to process by now, wait up until the longer PollTimeoutSecs (it will likely mean the zeromevdb is down or something)
-                        if (zb != null && zv != null && zb.UniquePoPCount() >= 2)
+                        if (blockNumber >= API.EarliestZMBlock)
                         {
+                            // if we don’t have enough zm blocks to process by now, wait up until the longer PollTimeoutSecs (it will likely mean the zeromevdb is down or something)
+                            if (zb != null && zv != null && zb.UniquePoPCount() >= 2)
+                            {
+                                using (var db = new zeromevContext())
+                                {
+                                    if (zb != null && zv != null && zv.PoPs != null && zv.PoPs.Count != 0)
+                                    {
+                                        // write the count to the db (useful for later bulk reprocessing/restarts)
+                                        var txDataComp = Binary.Compress(Binary.WriteFirstSeenTxData(zv));
+                                        zmb = db.AddZmBlock(blockNumber, txStatus.Count, zv.BlockTimeAvg, txDataComp, txStatus).Result;
+                                        ZmBlocks.Add(zmb);
+                                    }
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // if this block is before the earliest zm block, write txStatus data without arrival times
                             using (var db = new zeromevContext())
                             {
-                                if (zb != null && zv != null && zv.PoPs != null && zv.PoPs.Count != 0)
-                                {
-                                    // write the count to the db (useful for later bulk reprocessing/restarts)
-                                    var txDataComp = Binary.Compress(Binary.WriteFirstSeenTxData(zv));
-                                    zmb = db.AddZmBlock(blockNumber, txStatus.Count, zv.BlockTimeAvg, txDataComp, txStatus).Result;
-                                }
+                                zmb = db.AddZmBlock(blockNumber, txStatus.Count, null, null, txStatus).Result;
+                                ZmBlocks.Add(zmb);
                             }
                         }
                     }
@@ -868,12 +881,17 @@ namespace ZeroMev.ClassifierService
 
                 if (zmb != null)
                 {
-                    var txData = Binary.Decompress(zmb.TxData);
-                    arrivals = Binary.ReadFirstSeenTxData(txData);
+                    byte[]? txData = null;
+                    zmb.TxData = null;
+                    if (zmb.TxData != null)
+                    {
+                        txData = Binary.Decompress(zmb.TxData);
+                        arrivals = Binary.ReadFirstSeenTxData(txData);
+                        Debug.Assert(arrivals.Count == zmb.TransactionCount);
+                    }
                     txStatus = zmb.TxStatus;
-                    Debug.Assert(arrivals.Count == zmb.TransactionCount);
                     if (mevBlock.ExistingMEV == null)
-                        mevBlock.ExistingMEV = new IMEV[arrivals.Count];
+                        mevBlock.ExistingMEV = new IMEV[zmb.TransactionCount];
                     mevBlock.BlockTime = zmb.BlockTime;
                 }
                 else

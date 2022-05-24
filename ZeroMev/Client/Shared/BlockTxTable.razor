@@ -47,13 +47,11 @@ else
     {
         <canvas id="orderCanvas" width="@ZV.TxCount" height="8" style="@canvasStyle"></canvas>
     }
-
 }
 
+<div id='txtablediv' class="">
 
-<div class="table-res">
-
-    <table name="txtable" class="table table-hover table-sm tableflx">
+    <table id='txtable' name="txtable" class="table table-hover table-sm">
         <thead>
             <tr>
                 <th scope="col">time</th>
@@ -185,6 +183,8 @@ else
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await DisplayOrderBar();
+        await Task.Delay(500);
+        await _jsRuntime.InvokeVoidAsync("makeTableResponsive");
     }
 
     private async Task DisplayOrderBar()
