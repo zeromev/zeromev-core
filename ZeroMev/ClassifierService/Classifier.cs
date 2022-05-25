@@ -22,7 +22,7 @@ namespace ZeroMev.ClassifierService
         const int GetNewTokensEverySecs = 240;
         const int ProcessChunkSize = 2000;
         const int ZmBlocksImportThreadCount = 12;
-        const int ZmBlocksImportChunkSize = 36;
+        const int ZmBlocksImportChunkSize = 256;
 
         readonly ILogger<Classifier> _logger;
 
@@ -44,7 +44,7 @@ namespace ZeroMev.ClassifierService
             DateTime lastGotTokens = DateTime.Now;
 
             // start with a zm_block import if specified
-            ZmBlockImportOptional(stoppingToken);
+            await ZmBlockImportOptional(stoppingToken);
             if (_isStopped)
                 return;
 
@@ -284,7 +284,7 @@ namespace ZeroMev.ClassifierService
             return true;
         }
 
-        private async void ZmBlockImportOptional(CancellationToken stoppingToken)
+        private async Task ZmBlockImportOptional(CancellationToken stoppingToken)
         {
             var args = Environment.GetCommandLineArgs();
             if (args != null)
@@ -309,6 +309,8 @@ namespace ZeroMev.ClassifierService
             {
                 for (long from = first; from <= last; from += ZmBlocksImportChunkSize)
                 {
+                    if (_isStopped) break;
+
                     writeZmBlocks.Clear();
 
                     long to = from + ZmBlocksImportChunkSize;
@@ -338,6 +340,8 @@ namespace ZeroMev.ClassifierService
                         i = 0;
                         for (long b = bFirst; b < bLast; b++)
                         {
+                            if (_isStopped) break;
+
                             var txStatus = await tasks[i++];
                             if (txStatus == null)
                                 continue;
@@ -378,11 +382,15 @@ namespace ZeroMev.ClassifierService
                         }
                     }
 
-                    using (var db = new zeromevContext())
+                    if (!_isStopped)
                     {
-                        await db.BulkInsertOrUpdateAsync<ZmBlock>(writeZmBlocks);
-                        //foreach (var block in writeZmBlocks)
-                            //await db.AddZmBlock(block.BlockNumber, block.TransactionCount, block.BlockTime, block.TxData, block.TxStatus);
+                        using (var db = new zeromevContext())
+                        {
+                            foreach (var block in writeZmBlocks)
+                            {
+                                await db.AddZmBlock(block.BlockNumber, block.TransactionCount, block.BlockTime, block.TxData, block.TxStatus);
+                            }
+                        }
                     }
                 }
                 return true;

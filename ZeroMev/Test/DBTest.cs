@@ -36,7 +36,7 @@ namespace ZeroMev.Test
         [TestMethod]
         public async Task BuildZmBlockJson()
         {
-            const long blockNumber = 13359463;
+            const long blockNumber = 11207999;
 
             var json = await DB.GetZmBlockJson(blockNumber);
             Debug.WriteLine(json);

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Numerics;
 
 namespace ZeroMev.MevEFC
 {
@@ -10,7 +11,7 @@ namespace ZeroMev.MevEFC
         public string TransactionHash { get; set; } = null!;
         public string TraceAddress { get; set; } = null!;
         public string FromAddress { get; set; } = null!;
-        public decimal PunkIndex { get; set; }
-        public decimal Price { get; set; }
+        public BigInteger PunkIndex { get; set; }
+        public BigInteger Price { get; set; }
     }
 }

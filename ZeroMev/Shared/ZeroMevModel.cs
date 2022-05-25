@@ -196,6 +196,7 @@ namespace ZeroMev.Shared
         // display members
         public bool HasStats;
         public bool HasZM;
+        public bool HasMEV;
 
         private DateTime _zmBlockResultTime;
         private bool _isZMBlockResultYoung;
@@ -228,7 +229,7 @@ namespace ZeroMev.Shared
             if (BlockResult == APIResult.Retry) blockTask = API.GetBlockByNumber(http, BlockNumber);
             if (ZMBlockResult == APIResult.Retry)
             {
-                if (BlockNumber < API.EarliestFlashbotsBlock)
+                if (BlockNumber < API.EarliestMevBlock)
                     ZMBlockResult = APIResult.NoData;
                 else
                     zbTask = API.GetZMBlock(http, BlockNumber);
@@ -501,6 +502,8 @@ namespace ZeroMev.Shared
                 foreach (var s in mb.Sandwiched[i])
                     SetMev(s, mb, i);
             for (int i = 0; i < mb.Backruns.Count; i++) SetMev(mb.Backruns[i], mb, i);
+
+            HasMEV = true;
         }
 
         private void SetMev(IMEV mev, MEVBlock mb, int mevIndex)

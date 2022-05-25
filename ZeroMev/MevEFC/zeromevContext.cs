@@ -1,15 +1,9 @@
-﻿/// MIT License
-/// Copyright © 2022 pmcgoohan
-/// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
-/// The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
-/// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-using System;
+﻿using System;
 using System.Collections.Generic;
-using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using ZeroMev.Shared;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 namespace ZeroMev.MevEFC
 {
@@ -31,6 +25,7 @@ namespace ZeroMev.MevEFC
         public virtual DbSet<ClassifiedTrace> ClassifiedTraces { get; set; } = null!;
         public virtual DbSet<LatestBlockUpdate> LatestBlockUpdates { get; set; } = null!;
         public virtual DbSet<Liquidation> Liquidations { get; set; } = null!;
+        public virtual DbSet<MevSummary> MevSummaries { get; set; } = null!;
         public virtual DbSet<MinerPayment> MinerPayments { get; set; } = null!;
         public virtual DbSet<NftTrade> NftTrades { get; set; } = null!;
         public virtual DbSet<Price> Prices { get; set; } = null!;
@@ -99,6 +94,10 @@ namespace ZeroMev.MevEFC
                 entity.Property(e => e.ProfitTokenAddress)
                     .HasMaxLength(256)
                     .HasColumnName("profit_token_address");
+
+                entity.Property(e => e.Protocols)
+                    .HasColumnType("character varying(256)[]")
+                    .HasColumnName("protocols");
 
                 entity.Property(e => e.StartAmount).HasColumnName("start_amount");
 
@@ -284,6 +283,55 @@ namespace ZeroMev.MevEFC
                 entity.Property(e => e.ReceivedTokenAddress)
                     .HasMaxLength(256)
                     .HasColumnName("received_token_address");
+            });
+
+            modelBuilder.Entity<MevSummary>(entity =>
+            {
+                entity.HasNoKey();
+
+                entity.ToTable("mev_summary");
+
+                entity.Property(e => e.BaseFeePerGas).HasColumnName("base_fee_per_gas");
+
+                entity.Property(e => e.BlockNumber).HasColumnName("block_number");
+
+                entity.Property(e => e.BlockTimestamp)
+                    .HasColumnType("timestamp without time zone")
+                    .HasColumnName("block_timestamp");
+
+                entity.Property(e => e.CoinbaseTransfer).HasColumnName("coinbase_transfer");
+
+                entity.Property(e => e.CreatedAt)
+                    .HasColumnType("timestamp without time zone")
+                    .HasColumnName("created_at");
+
+                entity.Property(e => e.Error)
+                    .HasMaxLength(256)
+                    .HasColumnName("error");
+
+                entity.Property(e => e.GasPriceWithCoinbaseTransfer).HasColumnName("gas_price_with_coinbase_transfer");
+
+                entity.Property(e => e.GasUsed).HasColumnName("gas_used");
+
+                entity.Property(e => e.GrossProfitUsd).HasColumnName("gross_profit_usd");
+
+                entity.Property(e => e.MinerAddress)
+                    .HasMaxLength(256)
+                    .HasColumnName("miner_address");
+
+                entity.Property(e => e.MinerPaymentUsd).HasColumnName("miner_payment_usd");
+
+                entity.Property(e => e.Protocol)
+                    .HasMaxLength(256)
+                    .HasColumnName("protocol");
+
+                entity.Property(e => e.TransactionHash)
+                    .HasMaxLength(66)
+                    .HasColumnName("transaction_hash");
+
+                entity.Property(e => e.Type)
+                    .HasMaxLength(256)
+                    .HasColumnName("type");
             });
 
             modelBuilder.Entity<MinerPayment>(entity =>
@@ -540,6 +588,12 @@ namespace ZeroMev.MevEFC
                 entity.Property(e => e.FrontrunSwapTransactionHash)
                     .HasMaxLength(256)
                     .HasColumnName("frontrun_swap_transaction_hash");
+
+                entity.Property(e => e.ProfitAmount).HasColumnName("profit_amount");
+
+                entity.Property(e => e.ProfitTokenAddress)
+                    .HasMaxLength(256)
+                    .HasColumnName("profit_token_address");
 
                 entity.Property(e => e.SandwicherAddress)
                     .HasMaxLength(256)
