@@ -25,8 +25,8 @@
     <div class="row-filter">
         <div class="order-group">
             <div class="btn-group" role="group" aria-label="transaction filter">
-                <abbr title="the final block order chosen by the miner"><button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Block?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Block)" disabled="@isDisabled">block order</button></abbr>
-                <abbr title="the order if the miner had ordered by gas price"><button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Gas?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Gas)" disabled="@isDisabled">gas order</button></abbr>
+                <abbr title="the final block order chosen by the miner"><button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Block?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Block)">block order</button></abbr>
+                <abbr title="the order if the miner had ordered by gas price"><button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Gas?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Gas)">gas order</button></abbr>
                 <abbr title="the order if the miner had ordered fairly by arrival time"><button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Time?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Time)" disabled="@isDisabled">fair order</button></abbr>
             </div>
             @if (TxIndex.HasValue)
@@ -79,8 +79,7 @@
             </tr>
         </thead>
         <tbody>
-            @if (1==1)
-            {
+            @{
                 filtered = ZV.GetFiltered(Filter);
                 <Virtualize Items="@filtered" Context="tx" OverscanCount=@(!TxIndex.HasValue||TxIndex.Value<3?3:TxIndex.Value)>
                     <tr id="@tx.TrId(TxIndex)" class="@tx.TrClass(TxIndex)">
@@ -106,42 +105,7 @@
                         <td>@tx.MEVAmountStr</td>
                         <td>@tx.Bundle</td>
                         <td>@((MarkupString)tx.TxnHashShort)</td>
-                        <td><abbr title="@((MarkupString)tx.TimeOrderDetail)">@(tx.TimeOrder.ToString(Time.Format))</abbr></td>
-                        <td>@((MarkupString)tx.FromShort)</td>
-                        <td>@((MarkupString)tx.ToShort)</td>
-                        <td>@tx.Value</td>
-                        <td>@tx.GasPrice</td>
-                    </tr>
-                </Virtualize>
-            }
-            else
-            {
-                filtered = ZV.GetFiltered(Filter);
-                <Virtualize Items="@filtered" Context="tx" OverscanCount=@(!TxIndex.HasValue||TxIndex.Value<3?3:TxIndex.Value)>
-                    <tr class="@tx.TrClass(TxIndex)">
-                        <td>-</td>
-                        <td></td>
-                        <td>-</td>
-                        @if (tx.MEVActionDetail == null)
-                        {
-                            <td>@((MarkupString)tx.MEVActionSummary)</td>
-                        }
-                        else
-                        {
-                            <td><abbr title="@tx.MEVActionDetail">@((MarkupString)tx.MEVActionSummary)</abbr></td>
-                        }
-                        @if (MEVWeb.Get(tx.MEVClass).IsVisible)
-                        {
-                            <td><abbr title="@tx.MEVDetail"><span class="badge text-light @MEVWeb.CssClass(tx.MEVClass)">@tx.MEVName</span></abbr></td>
-                        }
-                        else
-                        {
-                            <td></td>
-                        }
-                        <td>@tx.MEVAmountStr</td>
-                        <td>@tx.Bundle</td>
-                        <td>@((MarkupString)tx.TxnHashShort)</td>
-                        <td>-</td>
+                        <td><abbr title="@((MarkupString)tx.TimeOrderDetail)">@(ZV.HasZM ? tx.TimeOrder.ToString(Time.Format) : "-")</abbr></td>
                         <td>@((MarkupString)tx.FromShort)</td>
                         <td>@((MarkupString)tx.ToShort)</td>
                         <td>@tx.Value</td>
