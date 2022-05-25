@@ -21,6 +21,8 @@ namespace ZeroMev.ClassifierService
         const int LogEvery = 100;
         const int GetNewTokensEverySecs = 240;
         const int ProcessChunkSize = 2000;
+        const int ZmBlocksImportThreadCount = 12;
+        const int ZmBlocksImportChunkSize = 36;
 
         readonly ILogger<Classifier> _logger;
 
@@ -301,35 +303,94 @@ namespace ZeroMev.ClassifierService
 
         private async Task<bool> ZmBlockImport(CancellationToken stoppingToken, long first, long last)
         {
-            for (long from = first; from <= last; from += ProcessChunkSize)
+            List<ZmBlock> writeZmBlocks = new List<ZmBlock>();
+
+            try
             {
-                long to = from + ProcessChunkSize;
-                if (to > last)
-                    to = last;
-
-                double totalProgress = (double)(from - first) / (last - first);
-                _logger.LogInformation($"{from} to {to} (zm_block import from {first} to {last} {totalProgress.ToString("P")})");
-
-                // retrieve the next chunk of extractor
-                var ebs = DB.ReadExtractorBlocks(from, to);
-                for (long b = from; b <= to; b++)
+                for (long from = first; from <= last; from += ZmBlocksImportChunkSize)
                 {
+                    writeZmBlocks.Clear();
 
-                }
-                // use DB.BuildZMBlock and zv.RefreshOffline
-                // iterate calling APIEnhanced.GetBlockTransactionStatus for each
+                    long to = from + ZmBlocksImportChunkSize;
+                    if (to > last)
+                        to = last;
 
-                /*
-                DB.BuildZMBlock(blocks);
-                ZMView? zv = null;
-                if (zb != null)
-                {
-                    zv = new ZMView(blockNumber);
-                    zv.RefreshOffline(zb, txStatus.Count);
+                    double totalProgress = (double)(from - first) / (last - first);
+                    _logger.LogInformation($"{from} to {to} (zm_block import from {first} to {last} {totalProgress.ToString("P")})");
+
+                    // retrieve the next chunk of extractor blocks
+                    var allebs = DB.ReadExtractorBlocks(from, to);
+
+                    // iterate those in smaller chunks to split between threads
+                    for (long bFirst = from; bFirst < to; bFirst += ZmBlocksImportThreadCount)
+                    {
+                        long bLast = bFirst + ZmBlocksImportThreadCount;
+                        if (bLast > to)
+                            bLast = to;
+
+                        // parallelize rpc calls
+                        Task<System.Collections.BitArray?>[] tasks = new Task<System.Collections.BitArray?>[ZmBlocksImportThreadCount];
+                        int i = 0;
+                        for (long b = bFirst; b < bLast; b++)
+                            tasks[i++] = APIEnhanced.GetBlockTransactionStatus(_http, b.ToString());
+
+                        // combine results with extractor blocks
+                        i = 0;
+                        for (long b = bFirst; b < bLast; b++)
+                        {
+                            var txStatus = await tasks[i++];
+                            if (txStatus == null)
+                                continue;
+
+                            ZMBlock? zb = null;
+                            ZMView? zv = null;
+                            if (allebs.TryGetValue(b, out var ebs))
+                            {
+                                zb = DB.BuildZMBlock(ebs);
+                                if (zb != null)
+                                {
+                                    zv = new ZMView(ebs[0].BlockNumber);
+                                    zv.RefreshOffline(zb, txStatus.Count);
+                                }
+                            }
+
+                            if (b >= API.EarliestZMBlock)
+                            {
+                                // if we are expecting a block but don't have one, don't write anything
+                                if (zb != null && zv != null && zb.UniquePoPCount() >= 2)
+                                {
+                                    using (var db = new zeromevContext())
+                                    {
+                                        if (zb != null && zv != null && zv.PoPs != null && zv.PoPs.Count != 0)
+                                        {
+                                            // write the count to the db (useful for later bulk reprocessing/restarts)
+                                            var txDataComp = Binary.Compress(Binary.WriteFirstSeenTxData(zv));
+                                            writeZmBlocks.Add(new ZmBlock() { BlockNumber = b, BlockTime = zv.BlockTimeAvg, TransactionCount = txStatus.Count, TxData = txDataComp, TxStatus = txStatus });
+                                        }
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                // if this block is before the earliest zm block, write txStatus data without arrival times
+                                writeZmBlocks.Add(new ZmBlock() { BlockNumber = b, BlockTime = null, TransactionCount = txStatus.Count, TxData = null, TxStatus = txStatus });
+                            }
+                        }
+                    }
+
+                    using (var db = new zeromevContext())
+                    {
+                        await db.BulkInsertOrUpdateAsync<ZmBlock>(writeZmBlocks);
+                        //foreach (var block in writeZmBlocks)
+                            //await db.AddZmBlock(block.BlockNumber, block.TransactionCount, block.BlockTime, block.TxData, block.TxStatus);
+                    }
                 }
-                */
+                return true;
             }
-
+            catch (Exception ex)
+            {
+                _logger.LogError("ZmBlockImport aborted due to an unexpected error: " + ex.ToString());
+            }
             return false;
         }
 

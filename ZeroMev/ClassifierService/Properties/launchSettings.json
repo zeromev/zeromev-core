@@ -2,7 +2,7 @@
   "profiles": {
     "ZeroMev.ClassifierService": {
       "commandName": "Project",
-      "commandLineArgs": "zm_blocks_import 11130262 14841016",
+      "commandLineArgs": "zm_blocks_import 13358574 14841016",
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development"
       },

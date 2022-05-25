@@ -182,7 +182,7 @@ namespace ZeroMev.SharedServer
 
         public static Dictionary<long, List<ExtractorBlock>> ReadExtractorBlocks(long fromBlockNumber, long toBlockNumber)
         {
-            Dictionary<long, List<ExtractorBlock>> all = null;
+            var all = new Dictionary<long, List<ExtractorBlock>>();
 
             using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.DB))
             {
