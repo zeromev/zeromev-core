@@ -21,6 +21,7 @@
     string canvasStyle = null;
     if (!isDisabled)
         canvasStyle = "border:1px solid #000000";
+    if (!ZV.HasMEV) SetFilter(MEVFilter.All);
 
     <div class="row-filter">
         <div class="order-group">
