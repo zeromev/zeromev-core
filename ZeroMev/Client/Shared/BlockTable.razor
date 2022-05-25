@@ -13,6 +13,10 @@
                         {
                             <span>no transactions.</span>
                         }
+                        else if (ZV.BlockNumber < API.EarliestMevBlock)
+                        {
+                            <span>@ZV.TxCount transactions.</span>
+                        }
                         else
                         {
                             if (ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd == 0 && ZV.MEVSummaries[(int)MEVFilter.Other].AmountUsd == 0)
