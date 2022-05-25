@@ -31,6 +31,12 @@ namespace ZeroMev.SharedServer
         "WHERE block_number = @block_number " +
         "ORDER BY extractor_index asc, block_time desc;";
 
+        const string ReadExtractorBlocksSQL = @"SELECT block_number, extractor_index, block_time, extractor_start_time, arrival_count, pending_count, tx_data " +
+        "FROM public.extractor_block " +
+        "WHERE block_number >= @from_block_number " +
+        "AND block_number < @to_block_number " +
+        "ORDER BY block_number asc, extractor_index asc, block_time desc;";
+
         const string WriteFlashbotsBlockSQL = @"INSERT INTO public.fb_block(" +
         "block_number, bundle_data) " +
         "VALUES (@block_number, @bundle_data) " +
@@ -172,6 +178,52 @@ namespace ZeroMev.SharedServer
                 ebs.Add(eb);
             }
             return ebs;
+        }
+
+        public static Dictionary<long, List<ExtractorBlock>> ReadExtractorBlocks(long fromBlockNumber, long toBlockNumber)
+        {
+            Dictionary<long, List<ExtractorBlock>> all = null;
+
+            using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.DB))
+            {
+                conn.Open();
+                using (var cmd = new NpgsqlCommand(ReadExtractorBlocksSQL, conn))
+                {
+                    cmd.Parameters.Add(new NpgsqlParameter<long>("@from_block_number", fromBlockNumber));
+                    cmd.Parameters.Add(new NpgsqlParameter<long>("@to_block_number", toBlockNumber));
+                    cmd.Prepare();
+                    var dr = cmd.ExecuteReader();
+
+                    long currentBlockNumber = -1;
+                    List<ExtractorBlock> ebs = null;
+                    while (dr.Read())
+                    {
+                        //extractor_index, block_time, extractor_start_time, arrival_count, pending_count, tx_data
+                        ExtractorBlock eb = new ExtractorBlock((long)dr["block_number"],
+                            (short)dr["extractor_index"],
+                            DateTime.SpecifyKind((DateTime)dr["block_time"], DateTimeKind.Utc),
+                            DateTime.SpecifyKind((DateTime)dr["extractor_start_time"], DateTimeKind.Utc),
+                            (long)dr["arrival_count"],
+                            (int)dr["pending_count"],
+                            (byte[])dr["tx_data"]);
+
+                        if (currentBlockNumber != eb.BlockNumber)
+                        {
+                            if (ebs != null && ebs.Count != 0)
+                                all.Add(ebs[0].BlockNumber, ebs);
+                            ebs = new List<ExtractorBlock>();
+                            currentBlockNumber = eb.BlockNumber;
+                        }
+                        ebs.Add(eb);
+                    }
+
+                    if (ebs != null && ebs.Count != 0)
+                        all.Add(ebs[0].BlockNumber, ebs);
+                }
+                conn.Close();
+            }
+
+            return all;
         }
 
         public static void QueueWriteFlashbotsBlocksAsync(List<FBBlock> fbs)

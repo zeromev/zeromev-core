@@ -33,78 +33,6 @@ namespace ZeroMev.ClassifierService
             _logger = logger;
         }
 
-        private async Task<bool> Startup(CancellationToken stoppingToken)
-        {
-            // process from 15 days before the last processed zeromev block up until the last processed mev-inspect block in manageable chunks
-            // only save rows we haven't written before (ie: after the last zeromev block)
-
-            long lastZmBlock;
-            using (var db = new zeromevContext())
-            {
-                lastZmBlock = db.GetLastZmProcessedBlock();
-            }
-
-            long lastMiBlock;
-            using (var db = new zeromevContext())
-            {
-                lastMiBlock = db.GetLastProcessedMevInspectBlock();
-            }
-
-            long first = lastZmBlock - Config.Settings.BlockBufferSize ?? 7200 * 15;
-            long last = lastMiBlock + 1;
-            long? importToBlock = Config.Settings.ImportZmBlocksTo;
-            if (importToBlock != null && last > importToBlock.Value)
-                last = importToBlock.Value;
-
-            try
-            {
-                for (long from = first; from <= lastMiBlock; from += ProcessChunkSize)
-                {
-                    long to = from + ProcessChunkSize;
-                    if (to > last)
-                        to = last;
-
-                    double warmupProgress = (double)(from - first) / (lastZmBlock - first);
-                    double totalProgress = (double)(from - first) / (last - first);
-                    if (from < lastZmBlock)
-                    {
-                        _logger.LogInformation($"{from} to {to} (warmup to {lastZmBlock} {warmupProgress.ToString("P")}, backfill to {lastMiBlock} {totalProgress.ToString("P")})");
-                    }
-                    else
-                    {
-                        _logger.LogInformation($"{from} to {to} (backfill to {lastMiBlock} {totalProgress.ToString("P")})");
-                    }
-
-
-                    var bp = BlockProcess.Load(from, to, _dexs);
-                    if (stoppingToken.IsCancellationRequested)
-                        return false;
-
-                    bp.Run();
-                    if (stoppingToken.IsCancellationRequested)
-                        return false;
-
-                    await bp.Save(lastZmBlock);
-                    if (stoppingToken.IsCancellationRequested)
-                        return false;
-
-                    // set the last processed block
-                    using (var db = new zeromevContext())
-                    {
-                        await db.SetLastProcessedBlock(to - 1);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                // important as network errors may make the RPC node or DB unavailable and we don't want gaps in the data
-                _logger.LogError("startup aborted due to an unexpected error: " + ex.ToString());
-                return false;
-            }
-
-            return true;
-        }
-
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             // initialize
@@ -112,6 +40,11 @@ namespace ZeroMev.ClassifierService
             DateTime classifierStartTime = DateTime.Now;
             DateTime lastProcessedBlockAt = DateTime.Now;
             DateTime lastGotTokens = DateTime.Now;
+
+            // start with a zm_block import if specified
+            ZmBlockImportOptional(stoppingToken);
+            if (_isStopped)
+                return;
 
             try
             {
@@ -275,6 +208,129 @@ namespace ZeroMev.ClassifierService
             }
 
             _logger.LogInformation($"zm classifier stopping (started {classifierStartTime})");
+        }
+
+        private async Task<bool> Startup(CancellationToken stoppingToken)
+        {
+            // process from 15 days before the last processed zeromev block up until the last processed mev-inspect block in manageable chunks
+            // only save rows we haven't written before (ie: after the last zeromev block)
+
+            long lastZmBlock;
+            using (var db = new zeromevContext())
+            {
+                lastZmBlock = db.GetLastZmProcessedBlock();
+            }
+
+            long lastMiBlock;
+            using (var db = new zeromevContext())
+            {
+                lastMiBlock = db.GetLastProcessedMevInspectBlock();
+            }
+
+            long first = lastZmBlock - Config.Settings.BlockBufferSize ?? 7200 * 15;
+            long last = lastMiBlock + 1;
+            long? importToBlock = Config.Settings.ImportZmBlocksTo;
+            if (importToBlock != null && last > importToBlock.Value)
+                last = importToBlock.Value;
+
+            try
+            {
+                for (long from = first; from <= lastMiBlock; from += ProcessChunkSize)
+                {
+                    long to = from + ProcessChunkSize;
+                    if (to > last)
+                        to = last;
+
+                    double warmupProgress = (double)(from - first) / (lastZmBlock - first);
+                    double totalProgress = (double)(from - first) / (last - first);
+                    if (from < lastZmBlock)
+                    {
+                        _logger.LogInformation($"{from} to {to} (warmup to {lastZmBlock} {warmupProgress.ToString("P")}, backfill to {lastMiBlock} {totalProgress.ToString("P")})");
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"{from} to {to} (backfill to {lastMiBlock} {totalProgress.ToString("P")})");
+                    }
+
+
+                    var bp = BlockProcess.Load(from, to, _dexs);
+                    if (stoppingToken.IsCancellationRequested)
+                        return false;
+
+                    bp.Run();
+                    if (stoppingToken.IsCancellationRequested)
+                        return false;
+
+                    await bp.Save(lastZmBlock);
+                    if (stoppingToken.IsCancellationRequested)
+                        return false;
+
+                    // set the last processed block
+                    using (var db = new zeromevContext())
+                    {
+                        await db.SetLastProcessedBlock(to - 1);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // important as network errors may make the RPC node or DB unavailable and we don't want gaps in the data
+                _logger.LogError("startup aborted due to an unexpected error: " + ex.ToString());
+                return false;
+            }
+
+            return true;
+        }
+
+        private async void ZmBlockImportOptional(CancellationToken stoppingToken)
+        {
+            var args = Environment.GetCommandLineArgs();
+            if (args != null)
+            {
+                for (int i = 0; i < args.Length; i++)
+                {
+                    if (args[i] == "zm_blocks_import")
+                    {
+                        long first = long.Parse(args[i + 1]);
+                        long last = long.Parse(args[i + 2]);
+                        await ZmBlockImport(stoppingToken, first, last);
+                    }
+                }
+            }
+        }
+
+        private async Task<bool> ZmBlockImport(CancellationToken stoppingToken, long first, long last)
+        {
+            for (long from = first; from <= last; from += ProcessChunkSize)
+            {
+                long to = from + ProcessChunkSize;
+                if (to > last)
+                    to = last;
+
+                double totalProgress = (double)(from - first) / (last - first);
+                _logger.LogInformation($"{from} to {to} (zm_block import from {first} to {last} {totalProgress.ToString("P")})");
+
+                // retrieve the next chunk of extractor
+                var ebs = DB.ReadExtractorBlocks(from, to);
+                for (long b = from; b <= to; b++)
+                {
+
+                }
+                // use DB.BuildZMBlock and zv.RefreshOffline
+                // iterate calling APIEnhanced.GetBlockTransactionStatus for each
+
+                /*
+                DB.BuildZMBlock(blocks);
+                ZMView? zv = null;
+                if (zb != null)
+                {
+                    zv = new ZMView(blockNumber);
+                    zv.RefreshOffline(zb, txStatus.Count);
+                }
+                */
+            }
+
+            return false;
         }
 
         public static async Task<bool> UpdateNewTokens(HttpClient http)

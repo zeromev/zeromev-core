@@ -1,11 +1,12 @@
-﻿{
+{
   "profiles": {
     "ZeroMev.ClassifierService": {
       "commandName": "Project",
-      "dotnetRunMessages": true,
+      "commandLineArgs": "zm_blocks_import 11130262 14841016",
       "environmentVariables": {
         "DOTNET_ENVIRONMENT": "Development"
-      }
+      },
+      "dotnetRunMessages": true
     }
   }
 }

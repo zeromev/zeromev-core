@@ -57,12 +57,12 @@ else
                 <th scope="col">time</th>
                 <th scope="col" class="px-2"></th>
                 <th scope="col">delay</th>
-                <th scope="col">txn hash</th>
-                <th scope="col">arrival time</th>
                 <th scope="col">action</th>
                 <th scope="col">mev</th>
                 <th scope="col">impact</th>
                 <th scope="col"><img src="FB.png" /></th>
+                <th scope="col">txn hash</th>
+                <th scope="col">arrival time</th>
                 <th scope="col">from</th>
                 <th scope="col">to</th>
                 <th scope="col">value (Eth)</th>
@@ -78,8 +78,6 @@ else
                         <td>@tx.TimeOrderIndex</td>
                         <td style="background-color:@tx.HeatmapRGB"></td>
                         <td style="width: 120px"><abbr title="@((MarkupString)tx.InclusionDelayDetail)">@tx.InclusionDelayShort</abbr></td>
-                        <td>@((MarkupString)tx.TxnHashShort)</td>
-                        <td><abbr title="@((MarkupString)tx.TimeOrderDetail)">@(tx.TimeOrder.ToString(Time.Format))</abbr></td>
                         @if (tx.MEVActionDetail == null)
                         {
                             <td>@((MarkupString)tx.MEVActionSummary)</td>
@@ -98,6 +96,8 @@ else
                         }
                         <td>@tx.MEVAmountStr</td>
                         <td>@tx.Bundle</td>
+                        <td>@((MarkupString)tx.TxnHashShort)</td>
+                        <td><abbr title="@((MarkupString)tx.TimeOrderDetail)">@(tx.TimeOrder.ToString(Time.Format))</abbr></td>
                         <td>@((MarkupString)tx.FromShort)</td>
                         <td>@((MarkupString)tx.ToShort)</td>
                         <td>@tx.Value</td>
@@ -113,8 +113,6 @@ else
                         <td>-</td>
                         <td></td>
                         <td>-</td>
-                        <td>@((MarkupString)tx.TxnHashShort)</td>
-                        <td>-</td>
                         @if (tx.MEVActionDetail == null)
                         {
                             <td>@((MarkupString)tx.MEVActionSummary)</td>
@@ -133,6 +131,8 @@ else
                         }
                         <td>@tx.MEVAmountStr</td>
                         <td>@tx.Bundle</td>
+                        <td>@((MarkupString)tx.TxnHashShort)</td>
+                        <td>-</td>
                         <td>@((MarkupString)tx.FromShort)</td>
                         <td>@((MarkupString)tx.ToShort)</td>
                         <td>@tx.Value</td>
