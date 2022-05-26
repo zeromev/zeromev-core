@@ -67,9 +67,9 @@
                 <th scope="col">time</th>
                 <th scope="col" class="px-2"></th>
                 <th scope="col">delay</th>
-                <th scope="col">action</th>
                 <th scope="col">mev</th>
                 <th scope="col">impact</th>
+                <th scope="col">action</th>
                 <th scope="col"><img src="FB.png" /></th>
                 <th scope="col">txn hash</th>
                 <th scope="col">arrival time</th>
@@ -87,14 +87,6 @@
                         <td>@(ZV.HasZM ? tx.TimeOrderIndex : "-")</td>
                         <td style="@(ZV.HasZM ? "background-color:"+tx.HeatmapRGB: null)"></td>
                         <td style="width: 120px"><abbr title="@((MarkupString)tx.InclusionDelayDetail)">@(ZV.HasZM ? tx.InclusionDelayShort : "-")</abbr></td>
-                        @if (tx.MEVActionDetail == null)
-                        {
-                            <td>@((MarkupString)tx.MEVActionSummary)</td>
-                        }
-                        else
-                        {
-                            <td><abbr title="@tx.MEVActionDetail">@((MarkupString)tx.MEVActionSummary)</abbr></td>
-                        }
                         @if (MEVWeb.Get(tx.MEVClass).IsVisible)
                         {
                             <td><abbr title="@tx.MEVDetail"><span class="badge text-light @MEVWeb.CssClass(tx.MEVClass)">@tx.MEVName</span></abbr></td>
@@ -104,6 +96,14 @@
                             <td></td>
                         }
                         <td>@tx.MEVAmountStr</td>
+                        @if (tx.MEVActionDetail == null)
+                        {
+                            <td>@((MarkupString)tx.MEVActionSummary)</td>
+                        }
+                        else
+                        {
+                            <td><abbr title="@tx.MEVActionDetail">@((MarkupString)tx.MEVActionSummary)</abbr></td>
+                        }
                         <td>@tx.Bundle</td>
                         <td>@((MarkupString)tx.TxnHashShort)</td>
                         <td><abbr title="@((MarkupString)tx.TimeOrderDetail)">@(ZV.HasZM ? tx.TimeOrder.ToString(Time.Format) : "-")</abbr></td>

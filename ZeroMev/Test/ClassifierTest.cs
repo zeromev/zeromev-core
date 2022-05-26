@@ -123,7 +123,7 @@ namespace ZeroMev.Test
         [TestMethod]
         public async Task TestCalculateSandwiches()
         {
-            const long testBlock = 13371782;
+            const long testBlock = 13903978;
 
             var mevBlocks = await DB.ReadMevBlocks(testBlock, testBlock + 1);
             if (mevBlocks != null)
@@ -256,11 +256,11 @@ namespace ZeroMev.Test
         [TestMethod]
         public async Task TestSandwichesExport()
         {
-            const long first = 13358564;
-            const long last = 14153369;
+            const long first = 11207999;
+            const long last = 14761425;
             const long chunk = 1000;
 
-            using (StreamWriter sw = new StreamWriter(@"E:\TestSandwiches3.txt"))
+            using (StreamWriter sw = new StreamWriter(@"E:\TestSandwiches7FilteredWrapsAll.txt"))
             {
                 sw.WriteLine("block\ttxIndex\tarbs\tfrontrunImpact\tbackrunImpact\tprofitPoolExtract\tprofitNaive\tprofitFrontrun\tprofitBackrun\tprofitRateDiff2Way\tprofitFbOnePercent");
                 for (long from = first; from <= last; from += chunk)

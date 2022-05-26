@@ -474,7 +474,8 @@ namespace ZeroMev.ClassifierService
                 {
                     if (otherSwap.TokenInAddress == frontSwap.TokenInAddress
                             && otherSwap.TokenOutAddress == frontSwap.TokenOutAddress
-                            && otherSwap.FromAddress != sandwicher)
+                            && otherSwap.FromAddress != sandwicher
+                            && otherSwap.Protocol == frontSwap.Protocol)
                     {
                         if (sandwichedSwaps == null)
                             sandwichedSwaps = new List<Swap>();
@@ -482,7 +483,8 @@ namespace ZeroMev.ClassifierService
                     }
                     else if (otherSwap.TokenOutAddress == frontSwap.TokenInAddress
                                 && otherSwap.TokenInAddress == frontSwap.TokenOutAddress
-                                && otherSwap.FromAddress == sandwicher)
+                                && otherSwap.FromAddress == sandwicher
+                                && otherSwap.Protocol == frontSwap.Protocol)
                     {
                         if (sandwichedSwaps != null)
                         {
