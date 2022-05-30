@@ -321,7 +321,7 @@ namespace ZeroMev.SharedServer
                 Stopwatch sw = new Stopwatch();
                 sw.Start();
 
-                using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.DB))
+                using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.MevDB))
                 {
                     conn.Open();
 
@@ -470,7 +470,7 @@ namespace ZeroMev.SharedServer
         {
             long? latestBlockNumber = null;
 
-            using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.DB))
+            using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.MevDB))
             {
                 conn.Open();
                 using (var cmd = new NpgsqlCommand(ReadLatestMevBlockSQL, conn))
@@ -491,7 +491,7 @@ namespace ZeroMev.SharedServer
         {
             List<MEVBlock> mbs = new List<MEVBlock>();
 
-            using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.DB))
+            using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.MevDB))
             {
                 conn.Open();
                 using (var cmd = new NpgsqlCommand(ReadMevBlocksSQL, conn))

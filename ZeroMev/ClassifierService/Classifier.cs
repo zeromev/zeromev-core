@@ -150,7 +150,7 @@ namespace ZeroMev.ClassifierService
                                 await db.AddZmBlock(nextBlockNumber, txStatus.Count, zv.BlockTimeAvg, txDataComp, txStatus);
                             }
 
-                            var bp = BlockProcess.Load(nextBlockNumber, nextBlockNumber, _dexs);
+                            var bp = BlockProcess.Load(nextBlockNumber, nextBlockNumber + 1, _dexs);
                             try
                             {
                                 bp.Run();
@@ -162,8 +162,7 @@ namespace ZeroMev.ClassifierService
                             }
 
                             await db.SetLastProcessedBlock(nextBlockNumber);
-                            if (count++ % LogEvery == 0)
-                                _logger.LogInformation($"processed {nextBlockNumber} (log every {LogEvery})");
+                            _logger.LogInformation($"processed {nextBlockNumber} (log every {LogEvery})");
                         }
 
                         // update tokens periodically (do within the cycle as Tokens are not threadsafe)

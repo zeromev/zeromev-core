@@ -372,6 +372,7 @@ namespace ZeroMev.ClassifierService
     {
         public List<Swap> Swaps { get; set; }
         public Dictionary<string, ArbSwap> ArbitrageSwaps { get; set; }
+        public Dictionary<string, string> Sandwiches { get; set; }
         public Dictionary<string, Swap> SandwichesFrontrun { get; set; }
         public Dictionary<string, Swap> SandwichesBackrun { get; set; }
         public Dictionary<string, Swap> SandwichedSwaps { get; set; }
@@ -401,6 +402,7 @@ namespace ZeroMev.ClassifierService
             BlockProcess bi = new BlockProcess(dexs);
 
             // due to an issue with mev-inspect sandwich detection, sandwich table rows are re-calculated before processing rather than being loaded from the db
+            bi.Sandwiches = new Dictionary<string, string>();
             bi.SandwichesFrontrun = new Dictionary<string, Swap>();
             bi.SandwichesBackrun = new Dictionary<string, Swap>();
             bi.SandwichedSwaps = new Dictionary<string, Swap>();
@@ -490,10 +492,24 @@ namespace ZeroMev.ClassifierService
                         {
                             try
                             {
-                                SandwichesFrontrun.Add(MEVHelper.TxKey(frontSwap), frontSwap);
-                                SandwichesBackrun.Add(MEVHelper.TxKey(otherSwap), otherSwap);
+                                // groups here perform the same function as the Sandwiches table
+                                string? sandwichId = Guid.NewGuid().ToString();
+
+                                var frontKey = MEVHelper.TxKey(frontSwap);
+                                var backKey = MEVHelper.TxKey(otherSwap);
+
+                                SandwichesFrontrun.Add(frontKey, frontSwap);
+                                SandwichesBackrun.Add(backKey, otherSwap);
+
+                                Sandwiches.Add(frontKey, sandwichId);
+                                Sandwiches.Add(backKey, sandwichId);
+
                                 foreach (var ss in sandwichedSwaps)
-                                    SandwichedSwaps.Add(MEVHelper.TxKey(ss), ss);
+                                {
+                                    var key = MEVHelper.TxKey(ss);
+                                    SandwichedSwaps.Add(key, ss);
+                                    Sandwiches.Add(key, sandwichId);
+                                }
                             }
                             catch (Exception ex)
                             {
@@ -516,6 +532,7 @@ namespace ZeroMev.ClassifierService
             MEVArb? lastArb = null;
             string? lastSandwichedHash = null;
             MEVSandwiched? lastSandwiched = null;
+            string? sandwichId = null;
 
             MEVBlock? mevBlock = null;
             List<DateTime>? arrivals = null;
@@ -538,9 +555,6 @@ namespace ZeroMev.ClassifierService
                     ProcessLiquidations(skippedBlockNumber, s.BlockNumber, ref mevBlock, ref arrivals, ref txStatus);
                     ProcessNfts(skippedBlockNumber, s.BlockNumber, ref mevBlock, ref arrivals, ref txStatus);
                     skippedBlockNumber = s.BlockNumber + 1;
-
-                    if (frontrun != null)
-                        Debug.WriteLine("new block on unfinished sandwich");
 
                     // reset on block boundaries
                     frontrun = null;
@@ -574,40 +588,48 @@ namespace ZeroMev.ClassifierService
                 {
                     // sandwich frontrun
                     isSandwichTx = true;
-                    frontrun = new MEVFrontrun(s.TransactionPosition.Value, MEVHelper.BuildMEVSwap(mevBlock, s, zmSwap));
+                    sandwichId = Sandwiches[sKey];
+                    if (sandwichId != null)
+                        frontrun = new MEVFrontrun(s.TransactionPosition.Value, MEVHelper.BuildMEVSwap(mevBlock, s, zmSwap));
                 }
                 else if (this.SandwichesBackrun.TryGetValue(sKey, out var sandwichBackrun))
                 {
                     isSandwichTx = true;
-                    var backrun = new MEVBackrun(s.TransactionPosition.Value, MEVHelper.BuildMEVSwap(mevBlock, s, zmSwap));
-
-                    // front/sandwiched and backrun instances can access each other using the same index across each collection
-                    if (frontrun != null && sandwiched.Count > 0)
+                    if (Sandwiches[sKey] == sandwichId)
                     {
-                        mevBlock.Frontruns.Add(frontrun);
-                        mevBlock.Sandwiched.Add(sandwiched.ToArray());
-                        mevBlock.Backruns.Add(backrun);
-                        MEVHelper.DoAddMEV(mevBlock, frontrun);
-                        foreach (var sw in sandwiched)
-                            MEVHelper.DoAddMEV(mevBlock, sw);
-                        MEVHelper.DoAddMEV(mevBlock, backrun);
-                    }
+                        var backrun = new MEVBackrun(s.TransactionPosition.Value, MEVHelper.BuildMEVSwap(mevBlock, s, zmSwap));
 
-                    frontrun = null;
-                    sandwiched.Clear();
+                        // front/sandwiched and backrun instances can access each other using the same index across each collection
+                        if (frontrun != null && sandwiched.Count > 0)
+                        {
+                            mevBlock.Frontruns.Add(frontrun);
+                            mevBlock.Sandwiched.Add(sandwiched.ToArray());
+                            mevBlock.Backruns.Add(backrun);
+                            MEVHelper.DoAddMEV(mevBlock, frontrun);
+                            foreach (var sw in sandwiched)
+                                MEVHelper.DoAddMEV(mevBlock, sw);
+                            MEVHelper.DoAddMEV(mevBlock, backrun);
+                        }
+
+                        frontrun = null;
+                        sandwiched.Clear();
+                    }
                 }
                 else if (this.SandwichedSwaps.TryGetValue(sKey, out var sandwichedSwap))
                 {
                     isSandwichTx = true;
-                    if (sandwichedSwap.TransactionHash == lastSandwichedHash)
+                    if (Sandwiches[sKey] == sandwichId)
                     {
-                        lastSandwiched.AddSandwichedSwap(MEVHelper.BuildMEVSwap(mevBlock, s, zmSwap));
-                    }
-                    else
-                    {
-                        lastSandwichedHash = sandwichedSwap.TransactionHash;
-                        lastSandwiched = new MEVSandwiched(s.TransactionPosition, MEVHelper.BuildMEVSwap(mevBlock, s, zmSwap));
-                        sandwiched.Add(lastSandwiched);
+                        if (sandwichedSwap.TransactionHash == lastSandwichedHash)
+                        {
+                            lastSandwiched.AddSandwichedSwap(MEVHelper.BuildMEVSwap(mevBlock, s, zmSwap));
+                        }
+                        else
+                        {
+                            lastSandwichedHash = sandwichedSwap.TransactionHash;
+                            lastSandwiched = new MEVSandwiched(s.TransactionPosition, MEVHelper.BuildMEVSwap(mevBlock, s, zmSwap));
+                            sandwiched.Add(lastSandwiched);
+                        }
                     }
                 }
 

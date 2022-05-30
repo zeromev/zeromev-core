@@ -402,6 +402,9 @@ namespace ZeroMev.Shared
             // store the output usd because it's smaller than the BigDecimal rate and generally more useful
             if (inUsdRate.HasValue) AmountInUsd = (amountIn * inUsdRate.Value).ToUsd();
             if (outUsdRate.HasValue) AmountOutUsd = (amountOut * outUsdRate.Value).ToUsd();
+
+            if (AmountInUsd > Num.OversizedAmount) AmountInUsd = null;
+            if (AmountOutUsd > Num.OversizedAmount) AmountOutUsd = null;
         }
 
         // maintained by the owner parent IMEV instance
@@ -482,6 +485,7 @@ namespace ZeroMev.Shared
         {
             if (AmountInUsd == null) return null;
             if (AmountIn < Num.EpsilonAmount) return null;
+            if (AmountInUsd > Num.OversizedAmount) return null;
             return (ZMDecimal)AmountInUsd / AmountIn;
         }
 
@@ -489,6 +493,7 @@ namespace ZeroMev.Shared
         {
             if (AmountOutUsd == null) return null;
             if (AmountOut < Num.EpsilonAmount) return null;
+            if (AmountOutUsd > Num.OversizedAmount) return null;
             return (ZMDecimal)AmountOutUsd / AmountOut;
         }
 
@@ -704,9 +709,6 @@ namespace ZeroMev.Shared
 
         private void CalculateMev(MEVBlock mevBlock, int mevIndex)
         {
-#if (DEBUG)
-            if (mevBlock.BlockNumber == 13903978) Console.Write("");
-#endif
             // mev (calculate for itself and all related sandwiched and backrun instances)
             if (!MEVCalc.GetSandwichParameters(mevBlock, mevIndex, out var a, out var b, out var front, out var back, out var sandwiched))
             {
@@ -801,7 +803,9 @@ namespace ZeroMev.Shared
                 // the latest usd rate for frontrun losses (b) is in the middle of the sandwich, which would inflate the results and be inconsistent with sandwich profits
                 // to avoid this, we use a calculated usd rate for (b) based on final pool values after the sandwich instead
                 var br = MEVCalc.GetAFromB(y_, x_, c, a[backIndex]);
-                var bFinalUsdRate = back.Swap.AmountOutUsd / br;
+                ZMDecimal? bFinalUsdRate = null;
+                if (back.Swap.AmountOutUsd < Num.OversizedAmount)
+                    bFinalUsdRate = back.Swap.AmountOutUsd / br;
 
                 // frontrun victim impact
                 var bNoFrontrun = MEVCalc.FrontrunVictimImpact(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_);

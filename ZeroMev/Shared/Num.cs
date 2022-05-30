@@ -13,6 +13,7 @@ namespace ZeroMev.Shared
         private const long DivAfterValue = 10000000;
 
         public static ZMDecimal EpsilonAmount = 0.00000001;
+        public static ZMDecimal OversizedAmount = 99999999;
 
         public static bool IsValidHex(string hex)
         {
