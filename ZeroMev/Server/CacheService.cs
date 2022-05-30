@@ -9,7 +9,7 @@ namespace ZeroMev.Server
 {
     public class CacheService : IHostedService, IDisposable
     {
-        const int PollEveryMs = 5000;
+        const int PollEveryMs = 3000;
 
         private readonly ILogger<CacheService> _logger;
         private System.Timers.Timer _timer = null!;
@@ -44,6 +44,8 @@ namespace ZeroMev.Server
                     if (mevBlocks != null)
                     {
                         MEVLiteCache cache = new MEVLiteCache();
+                        cache.LastBlockNumber = latest;
+                        bool isFirst = true;
                         foreach (var mb in mevBlocks)
                         {
                             var lb = new MEVLiteBlock(mb.BlockNumber, mb.BlockTime);
@@ -51,8 +53,9 @@ namespace ZeroMev.Server
                             zv.RefreshOffline(null, 10000); // fake the tx count
                             zv.SetMev(mb);
                             lb.MEVLite = BuildMevLite(zv);
-                            if (lb.MEVLite.Count > 0)
+                            if (lb.MEVLite.Count > 0 || isFirst)
                             {
+                                isFirst = false;
                                 cache.Blocks.Add(lb);
                                 if (cache.Blocks.Count >= MEVLiteCache.CachedMevBlockCount) break;
                             }

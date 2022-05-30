@@ -22,6 +22,28 @@ namespace ZeroMev.Test
     public class ClassifierTest
     {
         [TestMethod]
+        public void JsonBigInt()
+        {
+            MEVLiquidation l = new MEVLiquidation("hash", ProtocolLiquidation.Aave, 10, 10, 0, 10, 10, 2, false);
+            Debug.WriteLine(JsonSerializer.Serialize(l, ZMSerializeOptions.Default));
+
+            MEVSwap s = new MEVSwap(new TraceAddress(new int[] { }), ProtocolSwap.Uniswap2, 10, 11, 0, 1, 0, 1);
+            Debug.WriteLine(JsonSerializer.Serialize(s, ZMSerializeOptions.Default));
+
+            Debug.WriteLine("BigInteger");
+            Debug.WriteLine(JsonSerializer.Serialize((BigInteger)0, ZMSerializeOptions.Default));
+            Debug.WriteLine(JsonSerializer.Serialize((BigInteger)1, ZMSerializeOptions.Default));
+            Debug.WriteLine(JsonSerializer.Serialize((BigInteger)2, ZMSerializeOptions.Default));
+            Debug.WriteLine(JsonSerializer.Serialize((BigInteger)232432, ZMSerializeOptions.Default));
+
+            Debug.WriteLine("ZMDecimal");
+            Debug.WriteLine(JsonSerializer.Serialize((ZMDecimal?)0, ZMSerializeOptions.Default));
+            Debug.WriteLine(JsonSerializer.Serialize((ZMDecimal?)1, ZMSerializeOptions.Default));
+            Debug.WriteLine(JsonSerializer.Serialize((ZMDecimal?)2, ZMSerializeOptions.Default));
+            Debug.WriteLine(JsonSerializer.Serialize((ZMDecimal?)232432, ZMSerializeOptions.Default));
+        }
+
+        [TestMethod]
         public async Task ReportSandwichMevProtection()
         {
             // retrieve mev in blocks of 1000

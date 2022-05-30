@@ -93,6 +93,11 @@ a {
     background-color: darkgrey;
 }
 
+.greyout {
+    opacity: 0.3;
+}
+
+
 /* table rows */
 .tr-fb-odd {
     background-color: #f8f8ff;

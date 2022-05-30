@@ -6,8 +6,22 @@
                     <h5 class="card-title"><img src="/block.svg" width=24 height=24> block</h5>
                     <p class="card-text">
                         <b>@(ZV.BlockNumber)</b>
-                        <a href='/block?num=@(ZV.BlockNumber-1)' title='previous block'><img src="left.svg" width="16" height="16" /></a>
-                        <a href='/block?num=@(ZV.BlockNumber+1)' title='next block'><img src="right.svg" width="16" height="16" /></a>
+                        @if (ZV.BlockNumber > 0)
+                        {
+                            <a href='/block?num=@(ZV.BlockNumber-1)' title='previous block'><img src="left.svg" width="16" height="16" /></a>
+                        }
+                        else
+                        {
+                            <a title='no previous block'><img src="left.svg" width="16" height="16" class="greyout"/></a>
+                        }
+                        @if (ZV == null || ZV.LastBlockNumber == null || ZV.BlockNumber < ZV.LastBlockNumber)
+                        {
+                            <a href='/block?num=@(ZV.BlockNumber+1)' title='next block'><img src="right.svg" width="16" height="16" /></a>
+                        }
+                        else
+                        {
+                            <a title='no next block'><img src="right.svg" width="16" height="16" class="greyout"/></a>
+                        }
                         contains
                         @if (ZV.TxCount == 0)
                         {

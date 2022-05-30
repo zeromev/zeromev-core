@@ -155,9 +155,18 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await DisplayOrderBar();
-        await Task.Delay(500);
-        await _jsRuntime.InvokeVoidAsync("makeTableResponsive");
+        try
+        {
+            if (ZV != null)
+            {
+                await DisplayOrderBar();
+                await Task.Delay(500);
+                await _jsRuntime.InvokeVoidAsync("makeTableResponsive");
+            }
+        }
+        catch (Exception e)
+        {
+        }
     }
 
     private async Task DisplayOrderBar()

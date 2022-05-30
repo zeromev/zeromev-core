@@ -162,7 +162,7 @@ namespace ZeroMev.ClassifierService
                             }
 
                             await db.SetLastProcessedBlock(nextBlockNumber);
-                            _logger.LogInformation($"processed {nextBlockNumber} (log every {LogEvery})");
+                            _logger.LogInformation($"processed {nextBlockNumber}");
                         }
 
                         // update tokens periodically (do within the cycle as Tokens are not threadsafe)

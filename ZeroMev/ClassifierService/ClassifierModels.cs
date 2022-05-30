@@ -715,7 +715,7 @@ namespace ZeroMev.ClassifierService
                 var receivedAmountUsd = XRates.ConvertToUsd(l.ReceivedTokenAddress, l.ReceivedAmount);
                 bool? isReverted = l.Error == "Reverted" ? true : null;
 
-                var mevLiquidation = new MEVLiquidation(l.TransactionHash, protocol, l.DebtPurchaseAmount, debtPurchaseAmountUsd, debtSymbolIndex, l.ReceivedAmount, receivedAmountUsd, receivedSymbolIndex, isReverted);
+                var mevLiquidation = new MEVLiquidation(l.TransactionHash, protocol, (ZMDecimal)l.DebtPurchaseAmount, debtPurchaseAmountUsd, debtSymbolIndex, (ZMDecimal)l.ReceivedAmount, receivedAmountUsd, receivedSymbolIndex, isReverted);
                 mevBlock.Liquidations.Add(mevLiquidation);
             }
         }

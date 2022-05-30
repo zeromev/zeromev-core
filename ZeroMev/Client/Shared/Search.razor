@@ -58,7 +58,7 @@
                 return;
             }
         }
-        else if (long.TryParse(searchStr, out blockNum))
+        else if (long.TryParse(searchStr, out blockNum) && blockNum >= 0)
         {
             // block number
             NavigationManager.NavigateTo("block?num=" + blockNum);

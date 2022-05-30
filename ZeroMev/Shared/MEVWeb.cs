@@ -130,6 +130,9 @@ namespace ZeroMev.Shared
     {
         public const int CachedMevBlockCount = 300;
 
+        [JsonPropertyName("l")]
+        public long? LastBlockNumber = null;
+
         [JsonPropertyName("r")]
         public List<MEVLiteBlock> Blocks = new List<MEVLiteBlock>();
 
@@ -141,10 +144,19 @@ namespace ZeroMev.Shared
         {
         }
 
+        public void InitSummaries()
+        {
+            Totals = new MEVSummary[Enum.GetValues(typeof(MEVFilter)).Length];
+        }
+
         public void CalculateSummaries()
         {
-            foreach (var b in Blocks)
-                b.CalculateSummaries(Totals);
+            for (int i = 0; i < Blocks.Count; i++)
+            {
+                MEVLiteBlock mb = Blocks[i];
+                mb.IsFirst = (i == 0);
+                mb.CalculateSummaries(Totals);
+            }
         }
 
         public string Duration()
@@ -183,6 +195,8 @@ namespace ZeroMev.Shared
 
         [JsonPropertyName("m")]
         public List<MEVLite> MEVLite { get; set; }
+
+        public bool IsFirst { get; set; }
 
         [JsonIgnore]
         public MEVSummary[] MEVSummaries;
@@ -1086,7 +1100,7 @@ namespace ZeroMev.Shared
         {
         }
 
-        public MEVLiquidation(string txHash, ProtocolLiquidation protocol, BigInteger? debtPurchaseAmount, decimal? debtPurchaseAmountUsd, int debtSymbolIndex, BigInteger? receivedAmount, decimal? receivedAmountUsd, int receivedSymbolIndex, bool? isReverted)
+        public MEVLiquidation(string txHash, ProtocolLiquidation protocol, ZMDecimal? debtPurchaseAmount, decimal? debtPurchaseAmountUsd, int debtSymbolIndex, ZMDecimal? receivedAmount, decimal? receivedAmountUsd, int receivedSymbolIndex, bool? isReverted)
         {
             TxHash = txHash;
             Protocol = protocol;
@@ -1103,13 +1117,13 @@ namespace ZeroMev.Shared
         public ProtocolLiquidation Protocol { get; set; }
 
         [JsonPropertyName("d")]
-        public BigInteger? DebtPurchaseAmount { get; set; }
+        public ZMDecimal? DebtPurchaseAmount { get; set; }
 
         [JsonPropertyName("du")]
         public decimal? DebtPurchaseAmountUsd { get; set; }
 
         [JsonPropertyName("r")]
-        public BigInteger? ReceivedAmount { get; set; }
+        public ZMDecimal? ReceivedAmount { get; set; }
 
         [JsonPropertyName("a")]
         public int DebtSymbolIndex { get; set; }

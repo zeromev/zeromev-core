@@ -5,7 +5,7 @@
 @if (MEVLiteCache != null)
 {
     MEVLiteCache.CalculateSummaries();
-   
+
     <div class="card text-dark bg-light mb-3">
         <div class="card-body">
             <h4 class="lighter-text">Ethereum Frontrunning Explorer</h4>
@@ -23,7 +23,7 @@
             </p>
         </div>
     </div>
-      
+
     <div class="line">
         <Virtualize Items="@MEVLiteCache.Blocks" Context="mb">
             <p>
@@ -32,7 +32,7 @@
                     <br /><img src="/time.svg" width=24 height=24> @(mb.BlockTime == null ? "?" : mb.BlockTime.Value.ToString(Time.FormatShort))
                 </a>
             </p>
-            @foreach (var m in mb.MEVLite)
+        @foreach (var m in mb.MEVLite)
         {
             <span style="display: inline-block; white-space: nowrap;">
                 <a href="block?num=@mb.BlockNumber">
@@ -44,10 +44,16 @@
                 }
             </span>
         }
-            <hr />
-        </Virtualize>
+        @if (mb.IsFirst)
+        {
+            <p class="mt-2">
+                <button type="button" class="btn btn-outline-light active" @onclick=@RefreshPage><img src="/refresh.svg" width="24" height="24" /> refresh</button>
+            </p>
+        }
         <hr />
-    </div>
+    </Virtualize>
+    <hr />
+</div>
 
 }
 else
@@ -59,4 +65,25 @@ else
 @code {
     [Parameter]
     public MEVLiteCache MEVLiteCache { get; set; }
+
+    DateTime LastRefresh = DateTime.MinValue;
+
+    private async void RefreshPage()
+    {
+        var temp = MEVLiteCache;
+        MEVLiteCache = null;
+        var diff = DateTime.Now - LastRefresh;
+        if (diff.TotalMilliseconds > 1000)
+        {
+            MEVLiteCache = await API.GetMEVLiteCache(Http);
+            LastRefresh = DateTime.Now;
+        }
+        else
+        {
+            temp.InitSummaries();
+            await Task.Delay(100);
+            MEVLiteCache = temp;
+        }
+        this.StateHasChanged();
+    }
 }

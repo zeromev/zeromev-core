@@ -409,25 +409,27 @@ namespace ZeroMev.SharedServer
             cmdFlashbots.Parameters.Add(new NpgsqlParameter<long>("@block_number", blockNumber));
 
             // mev
-            var cmdMevBlock = new NpgsqlBatchCommand(ReadMevBlockSQL);
+            byte[] mevComp = null;
+            var connMev = new NpgsqlConnection(Config.Settings.MevDB);
+            connMev.Open();
+            var cmdMevBlock = new NpgsqlCommand(ReadMevBlockSQL, connMev);
             cmdMevBlock.Parameters.Add(new NpgsqlParameter<long>("@block_number", blockNumber));
+            var taskMev = cmdMevBlock.ExecuteReaderAsync();
 
             List<ExtractorBlock> ebs = null;
             BitArray bundles = null;
-            byte[] mevComp = null;
 
             using (var conn = new NpgsqlConnection(Config.Settings.DB))
             {
                 conn.Open();
 
-                // get them all in a single roundtrip
+                // get them both in a single roundtrip
                 await using var batch = new NpgsqlBatch(conn)
                 {
                     BatchCommands =
                 {
                     cmdExtractors,
-                    cmdFlashbots,
-                    cmdMevBlock
+                    cmdFlashbots
                 }
                 };
                 await using var dr = await batch.ExecuteReaderAsync();
@@ -439,12 +441,13 @@ namespace ZeroMev.SharedServer
                 dr.NextResult();
                 while (dr.Read())
                     bundles = (BitArray)dr["bundle_data"];
-
-                // read mev
-                dr.NextResult();
-                while (dr.Read())
-                    mevComp = (byte[])dr["mev_data"];
             }
+
+            // read mev
+            using var drmev = await taskMev;
+            while (drmev.Read())
+                mevComp = (byte[])drmev["mev_data"];
+            connMev.Close();
 
             // build zm block
             var zb = DB.BuildZMBlock(ebs);
