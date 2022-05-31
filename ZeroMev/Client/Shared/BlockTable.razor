@@ -1,4 +1,6 @@
-﻿<div class="row mb-2">
+﻿@inject ZMCache Cache
+
+<div class="row mb-2">
     <div class="col-md-4 mb-2">
         <div class="card text-dark bg-light h-100">
             <abbr title="@("block number "+ZV.BlockNumber+"\nblock time "+(ZV.HasStats ? ZV.BlockTimeAvg.ToString(Time.Format) : "-")+"\ntx count "+ZV.TxCount)">
@@ -14,7 +16,7 @@
                         {
                             <a title='no previous block'><img src="left.svg" width="16" height="16" class="greyout"/></a>
                         }
-                        @if (ZV == null || ZV.LastBlockNumber == null || ZV.BlockNumber < ZV.LastBlockNumber)
+                        @if (ZV == null || ZV.LastBlockNumber == null || ZV.BlockNumber < Cache.LastBlockNumber)
                         {
                             <a href='/block?num=@(ZV.BlockNumber+1)' title='next block'><img src="right.svg" width="16" height="16" /></a>
                         }

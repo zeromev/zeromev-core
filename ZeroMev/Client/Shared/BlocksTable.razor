@@ -74,6 +74,7 @@ else
             MEVLiteCache = newCache;
             if (newCache.LastBlockNumber.HasValue)
                 LastBlockNumber = newCache.LastBlockNumber.Value;
+            Cache.SetLastBlockNumber(LastBlockNumber);
         }
         else
         {

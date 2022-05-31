@@ -46,7 +46,7 @@ app.MapRazorPages();
 app.MapControllers();
 app.MapFallbackToFile("index.html");
 
-app.MapGet("/zmhealth", () => "ok");
+app.MapGet("/zmhealth", () => "ok. ");
 
 app.MapGet("/zmsummary/{id}", async (long id) =>
 {
