@@ -8,7 +8,7 @@
 
     <div class="card text-dark bg-light mb-3">
         <div class="card-body">
-            <h4 class="lighter-text">Ethereum Frontrunning Explorer</h4>
+            <h4 class="lighter-text">ethereum frontrunning explorer</h4>
         </div>
     </div>
 
@@ -25,6 +25,9 @@
     </div>
 
     <div class="line">
+        <p class="mt-2">
+            <button type="button" class="btn btn-outline-light active" @onclick=@RefreshPage disabled="@IsRefreshing"><img src="/refresh.svg" width="24" height="24" /> refresh</button>
+        </p>
         <Virtualize Items="@MEVLiteCache.Blocks" Context="mb">
             <p>
                 <a href="block?num=@mb.BlockNumber" class="link-primary">
@@ -32,8 +35,8 @@
                     <br /><img src="/time.svg" width=24 height=24> @(mb.BlockTime == null ? "?" : mb.BlockTime.Value.ToString(Time.FormatShort))
                 </a>
             </p>
-        @foreach (var m in mb.MEVLite)
-        {
+            @foreach (var m in mb.MEVLite)
+            {
             <span style="display: inline-block; white-space: nowrap;">
                 <a href="block?num=@mb.BlockNumber">
                     <span class="badge text-light mx-2 @MEVWeb.CssClass(m.MEVClass)">@m.MEVType.ToString()</span>
@@ -43,47 +46,41 @@
                     @("$"+m.MEVAmountUsd.Value.ToString("0.00"))
                 }
             </span>
-        }
-        @if (mb.IsFirst)
-        {
-            <p class="mt-2">
-                <button type="button" class="btn btn-outline-light active" @onclick=@RefreshPage><img src="/refresh.svg" width="24" height="24" /> refresh</button>
-            </p>
-        }
+            }
         <hr />
     </Virtualize>
-    <hr />
 </div>
-
 }
 else
 {
-    <hr />
     <p><em>loading recent mev...</em></p>
 }
 
 @code {
     [Parameter]
-    public MEVLiteCache MEVLiteCache { get; set; }
+    public MEVLiteCache? MEVLiteCache { get; set; }
 
-    DateTime LastRefresh = DateTime.MinValue;
+    long LastBlockNumber = -1;
+    private bool IsRefreshing = false;
 
     private async void RefreshPage()
     {
-        var temp = MEVLiteCache;
-        MEVLiteCache = null;
-        var diff = DateTime.Now - LastRefresh;
-        if (diff.TotalMilliseconds > 1000)
+        IsRefreshing = true;
+        this.StateHasChanged();
+
+        var newCache = await API.GetMEVLiteCache(Http, LastBlockNumber);
+        if (newCache != null)
         {
-            MEVLiteCache = await API.GetMEVLiteCache(Http);
-            LastRefresh = DateTime.Now;
+            MEVLiteCache = newCache;
+            if (newCache.LastBlockNumber.HasValue)
+                LastBlockNumber = newCache.LastBlockNumber.Value;
         }
         else
         {
-            temp.InitSummaries();
-            await Task.Delay(100);
-            MEVLiteCache = temp;
+            await Task.Delay(500);
         }
+
+        IsRefreshing = false;
         this.StateHasChanged();
     }
 }

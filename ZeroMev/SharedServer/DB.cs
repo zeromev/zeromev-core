@@ -16,6 +16,8 @@ namespace ZeroMev.SharedServer
 {
     public class DB
     {
+        const int MevCacheCacheExpirySecs = 3;
+
         // sql
         const string WriteExtractorBlockSQL = @"INSERT INTO public.extractor_block(" +
         "block_number, extractor_index, block_time, extractor_start_time, arrival_count, pending_count, tx_data) " +
@@ -72,7 +74,95 @@ namespace ZeroMev.SharedServer
         static List<MEVBlock> _mevBlocks = new List<MEVBlock>();
 
         static public long? LastBlockNumber = null;
-        static public string? MEVLiteCacheJson = JsonSerializer.Serialize<MEVLiteCache>(new MEVLiteCache(), ZMSerializeOptions.Default);
+        private static MEVLiteCache _mevCache = null;
+        private static string? _mevCacheJson = JsonSerializer.Serialize<MEVLiteCache>(new MEVLiteCache(), ZMSerializeOptions.Default);
+        private static DateTime _lastMevCache = DateTime.MinValue;
+        private static object _mevCacheLock = new object();
+
+        public static async Task<string> MEVLiteCacheJson(long lastBlockNumber)
+        {
+            // determine whether we need to refresh the cache in a threadsafe lock
+            bool doGetNew = false;
+            lock (_mevCacheLock)
+            {
+                var diff = DateTime.Now - _lastMevCache;
+                if (diff.TotalSeconds > MevCacheCacheExpirySecs)
+                {
+                    _lastMevCache = DateTime.Now;
+                    doGetNew = true;
+                }
+            }
+
+            // refresh outside the lock
+            if (doGetNew)
+            {
+                var cache = await RefreshMevCache();
+                if (cache != null)
+                {
+                    _mevCache = cache;
+                    _mevCacheJson = JsonSerializer.Serialize<MEVLiteCache>(cache, ZMSerializeOptions.Default);
+                    _lastMevCache = DateTime.Now;
+                }
+            }
+
+            // if the client already has the data, don't send again
+            if (_mevCache != null && lastBlockNumber == _mevCache.LastBlockNumber)
+                return "null";
+
+            return _mevCacheJson;
+        }
+
+        private static async Task<MEVLiteCache> RefreshMevCache()
+        {
+            try
+            {
+                // if a new block has arrived, build and cache a new mev summary for the home page
+                var latest = await DB.ReadLatestMevBlock();
+
+                if (latest != null && DB.LastBlockNumber != latest)
+                {
+                    DB.LastBlockNumber = latest;
+
+                    var mevBlocks = await DB.ReadMevBlocks(latest.Value - MEVLiteCache.CachedMevBlockCount, latest.Value);
+                    if (mevBlocks != null)
+                    {
+                        MEVLiteCache cache = new MEVLiteCache();
+                        cache.LastBlockNumber = latest;
+                        bool isFirst = true;
+                        foreach (var mb in mevBlocks)
+                        {
+                            var lb = new MEVLiteBlock(mb.BlockNumber, mb.BlockTime);
+                            var zv = new ZMView(mb.BlockNumber);
+                            zv.RefreshOffline(null, 10000); // fake the tx count
+                            zv.SetMev(mb);
+                            lb.MEVLite = BuildMevLite(zv);
+                            if (lb.MEVLite.Count > 0 || isFirst)
+                            {
+                                isFirst = false;
+                                cache.Blocks.Add(lb);
+                                if (cache.Blocks.Count >= MEVLiteCache.CachedMevBlockCount) break;
+                            }
+                        }
+                        return cache;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+            }
+            return null;
+        }
+
+        public static List<MEVLite> BuildMevLite(ZMView zv)
+        {
+            var r = new List<MEVLite>();
+            foreach (ZMTx tx in zv.Txs)
+            {
+                if (tx.MEV == null || tx.MEVClass == MEVClass.Info) continue;
+                r.Add(new MEVLite(tx.MEV));
+            }
+            return r;
+        }
 
         public static void QueueWriteExtractorBlockAsync(ExtractorBlock extractorBlock)
         {

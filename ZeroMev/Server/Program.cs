@@ -19,7 +19,6 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
-builder.Services.AddHostedService<CacheService>();
 
 var app = builder.Build();
 
@@ -49,7 +48,10 @@ app.MapFallbackToFile("index.html");
 
 app.MapGet("/zmhealth", () => "ok");
 
-app.MapGet("/zmsummary", () => DB.MEVLiteCacheJson);
+app.MapGet("/zmsummary/{id}", async (long id) =>
+{
+    return Results.Text(await DB.MEVLiteCacheJson(id));
+});
 
 app.MapGet("/zmblock/{id}", async (long id) =>
 {

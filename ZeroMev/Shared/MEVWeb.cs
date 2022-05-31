@@ -144,13 +144,10 @@ namespace ZeroMev.Shared
         {
         }
 
-        public void InitSummaries()
-        {
-            Totals = new MEVSummary[Enum.GetValues(typeof(MEVFilter)).Length];
-        }
-
         public void CalculateSummaries()
         {
+            Array.Clear(Totals);
+
             for (int i = 0; i < Blocks.Count; i++)
             {
                 MEVLiteBlock mb = Blocks[i];

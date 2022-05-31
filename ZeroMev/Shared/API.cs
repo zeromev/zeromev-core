@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Text.Json;
 using System.Net.Http;
 using System.Net.Http.Json;
 
@@ -25,9 +26,13 @@ namespace ZeroMev.Shared
             return await http.GetFromJsonAsync<ZMBlock>(@"zmblock/" + blockNumber, ZMSerializeOptions.Default);
         }
 
-        public static async Task<MEVLiteCache?> GetMEVLiteCache(HttpClient http)
+        public static async Task<MEVLiteCache?> GetMEVLiteCache(HttpClient http, long? lastBlockNumber)
         {
-            return await http.GetFromJsonAsync<MEVLiteCache>(@"zmsummary", ZMSerializeOptions.Default);
+            string url = @"zmsummary" + (lastBlockNumber != null ? "/" + lastBlockNumber.ToString() : "");
+            var json = await http.GetStringAsync(url);
+            if (json == "null")
+                return null;
+            return JsonSerializer.Deserialize<MEVLiteCache>(json, ZMSerializeOptions.Default);
         }
 
         public static async Task<GetTxnByHash?> GetTxByHash(HttpClient http, string fromTxh)
