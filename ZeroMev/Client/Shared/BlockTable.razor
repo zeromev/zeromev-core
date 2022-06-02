@@ -10,7 +10,7 @@
                         <b>@(ZV.BlockNumber)</b>
                         @if (ZV.BlockNumber > 0)
                         {
-                            <a href='/block?num=@(ZV.BlockNumber-1)' title='previous block'><img src="left.svg" width="16" height="16" /></a>
+                            <a href='/block?num=@(ZV.BlockNumber-1)' title='previous block'><img src="left.svg" class="imgbtn" width="16" height="16" /></a>
                         }
                         else
                         {
@@ -18,7 +18,7 @@
                         }
                         @if (ZV == null || ZV.LastBlockNumber == null || ZV.BlockNumber < Cache.LastBlockNumber)
                         {
-                            <a href='/block?num=@(ZV.BlockNumber+1)' title='next block'><img src="right.svg" width="16" height="16" /></a>
+                            <a href='/block?num=@(ZV.BlockNumber+1)' title='next block'><img src="right.svg" class="imgbtn" width="16" height="16" /></a>
                         }
                         else
                         {

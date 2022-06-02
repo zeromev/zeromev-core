@@ -94,7 +94,15 @@ a {
 }
 
 .greyout {
-    opacity: 0.3;
+    opacity: 0.2;
+}
+
+.imgbtn {
+    opacity: 0.6;
+}
+
+.imgbtn:hover {
+    opacity: 1.0;
 }
 
 /* table rows */
