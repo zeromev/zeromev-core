@@ -1,46 +1,22 @@
 ﻿@page "/about"
+@inject HttpClient Http
 
 <div class="container">
   <div class="row">
-
-<h2 class="display-4">about</h2>
-
-<h2>why zeromev</h2>
-
-<p class="lead">Zeromev aims to protect Ethereum users from frontrunning, censorship and other harmful transaction reordering attacks.</p>
-<p>Figures show that billions of dollars have been lost by users to such exploits, often called Miner Extractable Value (MEV).</p>
-
-<h2>zeromev aims</h2>
-
-<p>Funded by a grant from the Ethereum Foundation, we aim to:</p>
-<ul>
-<li>Empower Users by providing information to help users understand and avoid MEV</li>
-<li>Protect Users by researching and advocating for genuinely preventative protocol level solutions</li>
-</ul>
-
-<h2>what’s the problem?</h2>
-<p>The Ethereum blockchain is written by consensus, but the content of each block is chosen by just one miner acting as a centralized intermediary between you and the blockchain.</p>
-<p>Miners can profit from users by frontrunning, backrunning, sandwiching and generally exploiting transactions in their block however they choose.</p>
-
-<h2>frontrunning</h2>
-<p>Blah</p>
-<h2>censorship</h2>
-<p>Blah</p>
-
-<h2>how can I protect myself?</h2>
-<p>Fortunately, there is a lot you can do right now to protect yourself.</p>
-<p>Layer 2 networks (L2s for short) have been designed to improve scaling on Ethereum. However, a well chosen L2 is also your best defense against MEV.</p>
-<p>By moving your activities to a MEV minimizing L2 wherever possible, you are removing MEV opportunities from the Ethereum blockchain. Doing this:</p>
-<p>Protects you from being exploited</p>
-<p>Costs less in transaction fees</p>
-<p>Reduces the centralizing effects of MEV on the Ethereum base layer</p>
-<p>It's good for you, and it's good for the network.</p>
-<p>It is important to note that most L2s are currently trusted, not decentralized. As such it is important to choose an L2 you can trust.</p>
-
-<h2>which L2 do I choose?</h2>
-<p>That’s coming! Zeromev intends to produce comparison data on the MEV performance of different L2s in due course.</p>
-<p>Until then, we advise you to consider how committed to fair-ordering and frontrunning minimization different L2s are, and that you are aware of the MEV policy of any L2 you consider.</p>
-<p>For example, Arbitrum has made it clear that front-running will not be tolerated whereas Optimism has looked to extract MEV from users by design.</p>
-
+@((MarkupString)Doc)
   </div>
 </div>
+
+@code {
+    bool IsLoaded = false;
+    string? Doc;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (IsLoaded == false)
+        {
+            IsLoaded = true;
+            Doc = await Content.GetWithinTag(Http, "about");
+        }
+    }
+}
