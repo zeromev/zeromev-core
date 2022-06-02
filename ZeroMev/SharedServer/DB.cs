@@ -490,123 +490,73 @@ namespace ZeroMev.SharedServer
 
         public async static Task<string> GetZmBlockJson(long blockNumber)
         {
-            StringBuilder sb = new StringBuilder();
+            // extractors
+            var cmdExtractors = new NpgsqlBatchCommand(ReadExtractorBlockSQL);
+            cmdExtractors.Parameters.Add(new NpgsqlParameter<long>("@block_number", blockNumber));
 
-            try
+            // flashbots
+            var cmdFlashbots = new NpgsqlBatchCommand(ReadFlashbotsBundleSQL);
+            cmdFlashbots.Parameters.Add(new NpgsqlParameter<long>("@block_number", blockNumber));
+
+            // mev
+            byte[] mevComp = null;
+            var connMev = new NpgsqlConnection(Config.Settings.MevDB);
+            connMev.Open();
+            var cmdMevBlock = new NpgsqlCommand(ReadMevBlockSQL, connMev);
+            cmdMevBlock.Parameters.Add(new NpgsqlParameter<long>("@block_number", blockNumber));
+            var taskMev = cmdMevBlock.ExecuteReaderAsync();
+
+            List<ExtractorBlock> ebs = null;
+            BitArray bundles = null;
+
+            using (var conn = new NpgsqlConnection(Config.Settings.DB))
             {
-                // extractors
-                var cmdExtractors = new NpgsqlBatchCommand(ReadExtractorBlockSQL);
-                cmdExtractors.Parameters.Add(new NpgsqlParameter<long>("@block_number", blockNumber));
+                conn.Open();
 
-                // flashbots
-                var cmdFlashbots = new NpgsqlBatchCommand(ReadFlashbotsBundleSQL);
-                cmdFlashbots.Parameters.Add(new NpgsqlParameter<long>("@block_number", blockNumber));
-
-                sb.AppendLine(Config.Settings.DB);
-                sb.AppendLine(Config.Settings.MevDB);
-                sb.AppendLine(blockNumber.ToString());
-
-                // mev
-                byte[] mevComp = null;
-                var connMev = new NpgsqlConnection(Config.Settings.MevDB);
-                connMev.Open();
-                var cmdMevBlock = new NpgsqlCommand(ReadMevBlockSQL, connMev);
-                cmdMevBlock.Parameters.Add(new NpgsqlParameter<long>("@block_number", blockNumber));
-                var taskMev = cmdMevBlock.ExecuteReaderAsync();
-
-                sb.AppendLine("A");
-
-                List<ExtractorBlock> ebs = null;
-                BitArray bundles = null;
-
-                using (var conn = new NpgsqlConnection(Config.Settings.DB))
+                // get them both in a single roundtrip
+                await using var batch = new NpgsqlBatch(conn)
                 {
-                    conn.Open();
-                    sb.AppendLine("B");
-
-                    // get them both in a single roundtrip
-                    await using var batch = new NpgsqlBatch(conn)
-                    {
-                        BatchCommands =
+                    BatchCommands =
                 {
                     cmdExtractors,
                     cmdFlashbots
                 }
-                    };
-                    await using var dr = await batch.ExecuteReaderAsync();
-                    sb.AppendLine("C");
+                };
+                await using var dr = await batch.ExecuteReaderAsync();
 
-                    // read extractors
-                    ebs = ReadExtractorBlocks(blockNumber, dr);
-                    sb.AppendLine("D");
-                    if (ebs == null)
-                        sb.AppendLine("ebs null");
-                    else
-                        sb.AppendLine(ebs.Count + " ebs count");
+                // read extractors
+                ebs = ReadExtractorBlocks(blockNumber, dr);
 
-                    // read flashbots
-                    dr.NextResult();
-                    while (dr.Read())
-                        bundles = (BitArray)dr["bundle_data"];
-
-                    if (bundles == null)
-                        sb.AppendLine("bundles null");
-                    else
-                        sb.AppendLine(bundles.Count + " bundles count");
-                }
-                
-                sb.AppendLine("E");
-
-                // read mev
-                using var drmev = await taskMev;
-                while (drmev.Read())
-                    mevComp = (byte[])drmev["mev_data"];
-                connMev.Close();
-
-                sb.AppendLine("F");
-
-                // build zm block
-                var zb = DB.BuildZMBlock(ebs);
-
-                if (zb.PoPs == null)
-                    sb.AppendLine("F1 zb.PoPs null");
-                else
-                    sb.AppendLine("F1 zb.PoPs " + zb.PoPs.Count);
-
-                if (zb == null)
-                    zb = new ZMBlock(blockNumber, null);
-
-                if (zb.PoPs == null)
-                    sb.AppendLine("F2 zb.PoPs null");
-                else
-                    sb.AppendLine("F2 zb.PoPs " + zb.PoPs.Count);
-
-                zb.Bundles = bundles;
-                if (DB.LastBlockNumber != null)
-                    zb.LastBlockNumber = DB.LastBlockNumber;
-                var json = JsonSerializer.Serialize(zb, ZMSerializeOptions.Default);
-
-                sb.AppendLine("G");
-
-                // inject mev data into the json
-                if (mevComp != null)
-                {
-                    byte[] mev = Binary.Decompress(mevComp);
-                    var mevJson = ASCIIEncoding.ASCII.GetString(mev);
-                    json = json.Replace("\"mev\":null", "\"mev\":" + mevJson);
-                    sb.AppendLine("H");
-                }
-
-                sb.AppendLine("I");
-
-                //return json;
-                sb.AppendLine(json);
+                // read flashbots
+                dr.NextResult();
+                while (dr.Read())
+                    bundles = (BitArray)dr["bundle_data"];
             }
-            catch (Exception ex)
+
+            // read mev
+            using var drmev = await taskMev;
+            while (drmev.Read())
+                mevComp = (byte[])drmev["mev_data"];
+            connMev.Close();
+
+            // build zm block
+            var zb = DB.BuildZMBlock(ebs);
+            if (zb == null)
+                zb = new ZMBlock(blockNumber, null);
+            zb.Bundles = bundles;
+            if (DB.LastBlockNumber != null)
+                zb.LastBlockNumber = DB.LastBlockNumber;
+            var json = JsonSerializer.Serialize(zb, ZMSerializeOptions.Default);
+
+            // inject mev data into the json
+            if (mevComp != null)
             {
-                sb.AppendLine(ex.ToString());
+                byte[] mev = Binary.Decompress(mevComp);
+                var mevJson = ASCIIEncoding.ASCII.GetString(mev);
+                json = json.Replace("\"mev\":null", "\"mev\":" + mevJson);
             }
-            return sb.ToString();
+
+            return json;
         }
 
         public static async Task<long?> ReadLatestMevBlock()
