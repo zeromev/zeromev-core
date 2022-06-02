@@ -567,8 +567,20 @@ namespace ZeroMev.SharedServer
 
                 // build zm block
                 var zb = DB.BuildZMBlock(ebs);
+
+                if (zb.PoPs == null)
+                    sb.AppendLine("F1 zb.PoPs null");
+                else
+                    sb.AppendLine("F1 zb.PoPs " + zb.PoPs.Count);
+
                 if (zb == null)
                     zb = new ZMBlock(blockNumber, null);
+
+                if (zb.PoPs == null)
+                    sb.AppendLine("F2 zb.PoPs null");
+                else
+                    sb.AppendLine("F2 zb.PoPs " + zb.PoPs.Count);
+
                 zb.Bundles = bundles;
                 if (DB.LastBlockNumber != null)
                     zb.LastBlockNumber = DB.LastBlockNumber;
@@ -588,6 +600,7 @@ namespace ZeroMev.SharedServer
                 sb.AppendLine("I");
 
                 //return json;
+                sb.AppendLine(json);
             }
             catch (Exception ex)
             {
