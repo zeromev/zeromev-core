@@ -16,6 +16,6 @@ FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS runtime
 WORKDIR /app
 
 COPY --from=build-env /build .
-COPY appsettings.json .
+COPY ZeroMev/Server/appsettings.json .
 # By default the SportAdvisor.Api project is started
 ENTRYPOINT ["dotnet", "ZeroMev.Server.dll"]
