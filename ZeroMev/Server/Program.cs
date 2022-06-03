@@ -22,7 +22,6 @@ builder.Services.AddOptions();
 builder.Services.AddMemoryCache();
 builder.Services.Configure<IpRateLimitOptions>(ConfigBuilder.GetSection("IpRateLimiting"));
 builder.Services.AddInMemoryRateLimiting();
-//builder.Services.AddMvc();
 builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
 
 // Add services to the container.
@@ -33,7 +32,6 @@ var app = builder.Build();
 
 // Rate limit
 app.UseIpRateLimiting();
-//app.UseMvc();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

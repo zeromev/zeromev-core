@@ -24,7 +24,16 @@ namespace ZeroMev.Shared
 
         public static async Task<string> GetZMBlockJson(HttpClient http, long blockNumber)
         {
-            return await http.GetStringAsync(@"zmblock/" + blockNumber);
+            try
+            {
+                return await http.GetStringAsync(@"zmblock/" + blockNumber);
+            }
+            catch (HttpRequestException ex)
+            {
+                if (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                    return QuotaExceeded;
+                throw ex;
+            }
         }
 
         public static ZMBlock? ReadZMBlockJson(string json, out bool isQuotaExceeded)
@@ -40,11 +49,20 @@ namespace ZeroMev.Shared
 
         public static async Task<MEVLiteCache?> GetMEVLiteCache(HttpClient http, long? lastBlockNumber)
         {
-            string url = @"zmsummary" + (lastBlockNumber != null ? "/" + lastBlockNumber.ToString() : "");
-            var json = await http.GetStringAsync(url);
-            if (json == "null" || json.Contains(QuotaExceeded))
-                return null;
-            return JsonSerializer.Deserialize<MEVLiteCache>(json, ZMSerializeOptions.Default);
+            try
+            {
+                string url = @"zmsummary" + (lastBlockNumber != null ? "/" + lastBlockNumber.ToString() : "");
+                var json = await http.GetStringAsync(url);
+                if (json == "null" || json.Contains(QuotaExceeded))
+                    return null;
+                return JsonSerializer.Deserialize<MEVLiteCache>(json, ZMSerializeOptions.Default);
+            }
+            catch (HttpRequestException ex)
+            {
+                if (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                    return null;
+                throw ex;
+            }
         }
 
         public static async Task<GetTxnByHash?> GetTxByHash(HttpClient http, string fromTxh)
