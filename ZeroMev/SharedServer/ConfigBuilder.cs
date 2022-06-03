@@ -11,14 +11,21 @@ namespace ZeroMev.SharedServer
 {
     public static class ConfigBuilder
     {
+        static IConfigurationRoot _config;
+
         public static void Build()
         {
-            var config = new ConfigurationBuilder()
+            _config = new ConfigurationBuilder()
                     .AddEnvironmentVariables()
                     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                     .Build();
 
-            Config.Settings = config.GetSection("AppSettings").Get<AppSettings>();
+            Config.Settings = _config.GetSection("AppSettings").Get<AppSettings>();
+        }
+
+        public static IConfigurationSection GetSection(string sectionName)
+        {
+            return _config.GetSection(sectionName);
         }
     }
 }
