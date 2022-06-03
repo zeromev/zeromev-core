@@ -523,7 +523,7 @@ namespace ZeroMev.ClassifierService
             return restIndex;
         }
 
-        public async void Run()
+        public void Run()
         {
             Tokens.Load();
 

@@ -50,6 +50,11 @@ else
         if (zv == null)
             NavigationManager.NavigateTo("searchfailed");
         else
-            Cache.SetLastBlockNumber(zv.LastBlockNumber);
+        {
+            if (zv.IsQuotaExceeded)
+                NavigationManager.NavigateTo("quotaexceeded");
+            else
+                Cache.SetLastBlockNumber(zv.LastBlockNumber);
+        }
     }
 }

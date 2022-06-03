@@ -197,6 +197,7 @@ namespace ZeroMev.Shared
         public bool HasStats;
         public bool HasZM;
         public bool HasMEV;
+        public bool IsQuotaExceeded;
 
         private DateTime _zmBlockResultTime;
         private bool _isZMBlockResultYoung;
@@ -216,7 +217,7 @@ namespace ZeroMev.Shared
         public async Task<bool> Refresh(HttpClient http)
         {
             Task<GetBlockByNumber?> blockTask = null;
-            Task<ZMBlock?> zbTask = null;
+            Task<string> zbTask = null;
 
             // churn caches of recent blocks as data may still be arriving
             if (ZMBlockResult == APIResult.Ok)
@@ -232,7 +233,7 @@ namespace ZeroMev.Shared
                 if (BlockNumber < API.EarliestMevBlock)
                     ZMBlockResult = APIResult.NoData;
                 else
-                    zbTask = API.GetZMBlock(http, BlockNumber);
+                    zbTask = API.GetZMBlockJson(http, BlockNumber);
             }
 
             // await block result
@@ -248,10 +249,12 @@ namespace ZeroMev.Shared
             if (ZMBlockResult == APIResult.Retry)
             {
                 ZMBlockResult = APIResult.NoData;
-                var zmBlock = await zbTask;
+                var json = await zbTask;
+                var zmBlock = API.ReadZMBlockJson(json, out IsQuotaExceeded);
                 if (SetZMBlock(zmBlock))
                 {
                     ZMBlockResult = APIResult.Ok;
+                    IsQuotaExceeded = false;
                     HasZM = true;
                     _zmBlockResultTime = DateTime.Now;
                     _isZMBlockResultYoung = DateTime.Now.AddSeconds(-API.RecentBlockSecs) < this.BlockTimeAvg;

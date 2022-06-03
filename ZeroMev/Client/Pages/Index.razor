@@ -10,6 +10,8 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        MEVLiteCache = await API.GetMEVLiteCache(Http, MEVLiteCache != null ? MEVLiteCache.LastBlockNumber : -1);
+        var cache = await API.GetMEVLiteCache(Http, MEVLiteCache != null ? MEVLiteCache.LastBlockNumber : -1);
+        if (cache != null)
+            MEVLiteCache = cache;
     }
 }
