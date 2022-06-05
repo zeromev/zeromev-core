@@ -55,6 +55,12 @@ namespace ZeroMev.SharedServer
         "ON CONFLICT (block_number) DO UPDATE SET " +
         "mev_data = EXCLUDED.mev_data;";
 
+        const string WriteMevBlockSummarySQL = @"INSERT INTO public.zm_mev_summary(" +
+        "block_number, mev_type, mev_class, mev_amount_usd) " +
+        "VALUES (@block_number, @mev_type, @mev_class, @mev_amount_usd) " +
+        "ON CONFLICT (block_number, mev_type, mev_class) DO UPDATE SET " +
+        "mev_amount_usd = EXCLUDED.mev_amount_usd;";
+
         const string ReadLatestMevBlockSQL = @"SELECT block_number FROM public.latest_mev_block LIMIT 1;";
 
         const string WriteLatestMevBlockSQL = @"UPDATE public.latest_mev_block SET block_number = @block_number WHERE @block_number > block_number;";
@@ -447,8 +453,17 @@ namespace ZeroMev.SharedServer
             var cmdLatestMevBlock = new NpgsqlBatchCommand(WriteLatestMevBlockSQL);
             cmdLatestMevBlock.Parameters.Add(new NpgsqlParameter<long>("@block_number", mb.BlockNumber));
 
-            // write them both in a single roundtrip
-            await using var batch = new NpgsqlBatch(conn)
+            /*
+            // mev totals
+            var zv = new ZMView(mb.BlockNumber);
+            zv.RefreshOffline(null, 10000); // fake the tx count
+            zv.SetMev(mb);
+            var mev = BuildMevLite(zv);
+            TODO aggregate by type & class and insert below
+            */
+
+            // write them all in a single roundtrip
+            using var batch = new NpgsqlBatch(conn)
             {
                 BatchCommands =
                 {
@@ -456,6 +471,20 @@ namespace ZeroMev.SharedServer
                     cmdLatestMevBlock
                 }
             };
+
+            /*
+            foreach (var m in mev)
+            {
+                if (m.MEVAmountUsd == 0) continue;
+                var cmdMevBlockSummary = new NpgsqlBatchCommand(WriteMevBlockSummarySQL);
+                cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<long>("@block_number", mb.BlockNumber));
+                cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<short>("@mev_type", (short)m.MEVType));
+                cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<short>("@mev_class", (short)m.MEVClass));
+                cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<decimal>("@mev_amount_usd", m.MEVAmountUsd.Value));
+                batch.BatchCommands.Add(cmdMevBlockSummary);
+            }
+            */
+
             await batch.ExecuteNonQueryAsync();
         }
 

@@ -26,7 +26,7 @@ namespace ZeroMev.Shared
         {
             try
             {
-                return await http.GetStringAsync(@"zmblock/" + blockNumber);
+                return await http.GetStringAsync(Config.Settings.ZeromevAPI + @"zmblock/" + blockNumber);
             }
             catch (HttpRequestException ex)
             {
@@ -51,7 +51,7 @@ namespace ZeroMev.Shared
         {
             try
             {
-                string url = @"zmsummary" + (lastBlockNumber != null ? "/" + lastBlockNumber.ToString() : "");
+                string url = Config.Settings.ZeromevAPI + @"zmsummary" + (lastBlockNumber != null ? "/" + lastBlockNumber.ToString() : "");
                 var json = await http.GetStringAsync(url);
                 if (json == "null" || json.Contains(QuotaExceeded))
                     return null;
