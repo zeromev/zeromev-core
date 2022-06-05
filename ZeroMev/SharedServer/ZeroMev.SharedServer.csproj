@@ -22,7 +22,6 @@
   </ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\MevEFC\ZeroMev.MevEFC.csproj" />
 		<ProjectReference Include="..\Shared\ZeroMev.Shared.csproj" />
 	</ItemGroup>
 </Project>

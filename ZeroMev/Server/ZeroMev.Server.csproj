@@ -17,7 +17,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Client\ZeroMev.Client.csproj" />
     <ProjectReference Include="..\SharedServer\ZeroMev.SharedServer.csproj" />
     <ProjectReference Include="..\Shared\ZeroMev.Shared.csproj" />
   </ItemGroup>
