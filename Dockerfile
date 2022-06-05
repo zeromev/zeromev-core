@@ -6,9 +6,9 @@ WORKDIR /app
 COPY . ./
 
 # Restore dependencies
-RUN dotnet restore
+RUN dotnet restore ZeroMevApi.sln
 
-RUN dotnet publish -c Release -o /build
+RUN dotnet publish ZeroMevApi.sln -c Release -o /build
 
 # Build runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS runtime
