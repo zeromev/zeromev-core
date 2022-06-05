@@ -16,6 +16,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\ClassifierService\ZeroMev.ClassifierService.csproj" />
+    <ProjectReference Include="..\SharedServer\ZeroMev.SharedServer.csproj" />
     <ProjectReference Include="..\Shared\ZeroMev.Shared.csproj" />
   </ItemGroup>
 
