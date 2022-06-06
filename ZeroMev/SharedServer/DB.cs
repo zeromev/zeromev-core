@@ -56,10 +56,10 @@ namespace ZeroMev.SharedServer
         "mev_data = EXCLUDED.mev_data;";
 
         const string WriteMevBlockSummarySQL = @"INSERT INTO public.zm_mev_summary(" +
-        "block_number, mev_type, mev_class, mev_amount_usd) " +
-        "VALUES (@block_number, @mev_type, @mev_class, @mev_amount_usd) " +
-        "ON CONFLICT (block_number, mev_type, mev_class) DO UPDATE SET " +
-        "mev_amount_usd = EXCLUDED.mev_amount_usd;";
+        "block_number, mev_type, mev_amount_usd, mev_count) " +
+        "VALUES (@block_number, @mev_type, @mev_amount_usd, @mev_count) " +
+        "ON CONFLICT (block_number, mev_type) DO UPDATE SET " +
+        "mev_amount_usd = EXCLUDED.mev_amount_usd, mev_count = EXCLUDED.mev_count;";
 
         const string ReadLatestMevBlockSQL = @"SELECT block_number FROM public.latest_mev_block LIMIT 1;";
 
@@ -168,6 +168,26 @@ namespace ZeroMev.SharedServer
                 r.Add(new MEVLite(tx.MEV));
             }
             return r;
+        }
+
+        public static List<MEVTypeSummary> BuildMEVTypeSummary(ZMView zv)
+        {
+            MEVTypeSummary[] r = new MEVTypeSummary[Enum.GetValues(typeof(MEVType)).Length];
+            foreach (ZMTx tx in zv.Txs)
+            {
+                if (tx.MEV == null || tx.MEVClass == MEVClass.Info) continue;
+                int i = (int)tx.MEV.MEVType;
+                if (r[i] == null)
+                {
+                    r[i] = new MEVTypeSummary();
+                    r[i].MEVType = (MEVType)i;
+                    r[i].Count = 0;
+                    r[i].AmountUsd = 0;
+                }
+                r[i].Count++;
+                r[i].AmountUsd += tx.MEV.MEVAmountUsd ?? 0;
+            }
+            return r.Where(x => x != null).ToList();
         }
 
         public static void QueueWriteExtractorBlockAsync(ExtractorBlock extractorBlock)
@@ -453,14 +473,11 @@ namespace ZeroMev.SharedServer
             var cmdLatestMevBlock = new NpgsqlBatchCommand(WriteLatestMevBlockSQL);
             cmdLatestMevBlock.Parameters.Add(new NpgsqlParameter<long>("@block_number", mb.BlockNumber));
 
-            /*
             // mev totals
             var zv = new ZMView(mb.BlockNumber);
             zv.RefreshOffline(null, 10000); // fake the tx count
             zv.SetMev(mb);
-            var mev = BuildMevLite(zv);
-            TODO aggregate by type & class and insert below
-            */
+            var mev = BuildMEVTypeSummary(zv); // groups by mev type
 
             // write them all in a single roundtrip
             using var batch = new NpgsqlBatch(conn)
@@ -472,18 +489,15 @@ namespace ZeroMev.SharedServer
                 }
             };
 
-            /*
             foreach (var m in mev)
             {
-                if (m.MEVAmountUsd == 0) continue;
                 var cmdMevBlockSummary = new NpgsqlBatchCommand(WriteMevBlockSummarySQL);
                 cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<long>("@block_number", mb.BlockNumber));
-                cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<short>("@mev_type", (short)m.MEVType));
-                cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<short>("@mev_class", (short)m.MEVClass));
-                cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<decimal>("@mev_amount_usd", m.MEVAmountUsd.Value));
+                cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<int>("@mev_type", (int)m.MEVType));
+                cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<decimal>("@mev_amount_usd", m.AmountUsd));
+                cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<int>("@mev_count", m.Count));
                 batch.BatchCommands.Add(cmdMevBlockSummary);
             }
-            */
 
             await batch.ExecuteNonQueryAsync();
         }

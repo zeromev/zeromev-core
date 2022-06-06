@@ -2,15 +2,15 @@
 @inject ZMCache Cache
 @inject NavigationManager NavigationManager
 
-<div class="card text-dark bg-light mb-3">
-    <div class="card-body">
-        <h4 class="lighter-text">ethereum frontrunning explorer <abbr title="frontrunning in ethereum is when miners extract money from users by inserting transactions infront of user transactions.@("\n")this is illegal in regulated financial markets because of the harm it causes to users.@("\n")for this reason, zeromev labels frontrunning attacks as 'toxic'."><img class="imgbtn" src="/help.svg" width=24 height=24></abbr></h4>
-    </div>
-</div>
-
 @if (MEVLiteCache != null)
 {
     MEVLiteCache.CalculateSummaries();
+
+    <div class="card text-dark bg-light mb-3">
+        <div class="card-body">
+            <h4 class="lighter-text">ethereum frontrunning explorer <abbr title="frontrunning in ethereum is when miners extract money from users by inserting transactions infront of user transactions.@("\n")this is illegal in regulated financial markets because of the harm it causes to users.@("\n")for this reason, zeromev labels frontrunning attacks as 'toxic'."><img class="imgbtn" src="/help.svg" width=24 height=24></abbr></h4>
+        </div>
+    </div>
 
     <div class="card text-dark bg-light mb-3">
         <div class="card-body">
@@ -36,7 +36,7 @@
                 </a>
             </p>
             @foreach (var m in mb.MEVLite)
-            {
+        {
             <span style="display: inline-block; white-space: nowrap;">
                 <a href="block?num=@mb.BlockNumber">
                     <span class="badge text-light mx-2 @MEVWeb.CssClass(m.MEVClass)">@m.MEVType.ToString()</span>
@@ -46,14 +46,51 @@
                     @("$"+m.MEVAmountUsd.Value.ToString("0.00"))
                 }
             </span>
-            }
+        }
         <hr />
     </Virtualize>
 </div>
 }
 else
 {
-    <p><em>loading recent mev...</em></p>
+    <div class="card text-dark bg-light mb-3" aria-hidden="true">
+        <div class="card-body">
+            <h4 class="placeholder-glow"><span class="placeholder col-6"></span></h4>
+        </div>
+    </div>
+
+    <div class="card text-dark bg-light mb-3" aria-hidden="true">
+        <div class="card-body">
+            <h5 class="card-title placeholder-glow"><span class="placeholder col-2"></span></h5>
+            <p class="card-text placeholder-glow">
+                <span class="placeholder col-2"></span><br>
+                <span class="placeholder col-4"></span><br>
+                <span class="placeholder col-3"></span><br>
+            </p>
+        </div>
+    </div>
+
+    <div class="line">
+        <p class="placeholder-glow" aria-hidden="true">
+            <span class="placeholder col-1"></span>
+        </p>
+        @{
+            for (int i = 0; i < 30; i++)
+            {
+                <p class="placeholder-glow">
+                <span class="placeholder col-2"></span><br>
+                <span class="placeholder col-3"></span><br>
+                </p>
+                <p class="placeholder-glow">
+                    <span class="placeholder col-1"></span>
+                    <span class="placeholder col-1"></span>
+                    <span class="placeholder col-1"></span>
+                    <span class="placeholder col-1"></span>
+                </p>
+                <hr />
+            }
+        }
+    </div>
 }
 
 @code {

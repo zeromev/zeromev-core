@@ -1343,6 +1343,13 @@ namespace ZeroMev.Shared
         public decimal AmountUsd;
     }
 
+    public class MEVTypeSummary
+    {
+        public MEVType MEVType;
+        public int Count;
+        public decimal AmountUsd;
+    }
+
     public class MEVRow
     {
         public MEVRow(int index, MEVType mevType, decimal? mevAmount, string mevComment)
