@@ -1076,45 +1076,7 @@ namespace ZeroMev.Shared
             {
                 sb.AppendLine("arb missing exchange rates, can't calculate.");
             }
-            /*
-            else
-            {
-                var swaps = Swaps.Swaps;
-                int first = ArbSwapIndex[0].Value;
-                int last = ArbSwapIndex[ArbSwapIndex.Count - 1].Value;
-                if (swaps != null && ArbSwapIndex != null && ArbSwapIndex.Count != 0)
-                {
-                    // recalculate arb profits
-                    decimal? calcProfit = null;
-                    switch (ArbCase)
-                    {
-                        case 1:
-                            var inUsd = MEVCalc.ConsistentAmountUsd(mevBlock, swaps[first].SymbolInIndex, swaps[first].AmountIn, swaps[first].AmountInUsd);
-                            var outUsd = MEVCalc.ConsistentAmountUsd(mevBlock, swaps[last].SymbolOutIndex, swaps[last].AmountOut, swaps[last].AmountOutUsd);
-                            if (inUsd != null && outUsd != null && inUsd != 0 && outUsd / inUsd < MaxUsdRate)
-                                calcProfit = Math.Round(inUsd.Value - outUsd.Value, 2);
-                            break;
-
-                        case 2:
-                            calcProfit = 0;
-                            foreach (var si in ArbSwapIndex)
-                            {
-                                var s = swaps[si.Value];
-                                var sInUsd = MEVCalc.ConsistentAmountUsd(mevBlock, s.SymbolInIndex, s.AmountIn, s.AmountInUsd);
-                                var sOutUsd = MEVCalc.ConsistentAmountUsd(mevBlock, s.SymbolOutIndex, s.AmountOut, s.AmountOutUsd);
-                                if (sInUsd != null && sOutUsd != null && sInUsd != 0 && sOutUsd / sInUsd < MaxUsdRate)
-                                    calcProfit -= Math.Round(sOutUsd.Value - sInUsd.Value);
-                            }
-                            break;
-                    }
-                    MEVAmountUsd = calcProfit;
-                }
-                else
-                {
-                    MEVAmountUsd = null;
-                }
-            */
-            if (Swaps?.Swaps == null || Swaps.Swaps.Count == 0)
+            else if (Swaps?.Swaps == null || Swaps.Swaps.Count == 0)
             {
                 sb.AppendLine("no arb swaps.");
             }
