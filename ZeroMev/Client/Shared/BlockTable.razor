@@ -62,7 +62,15 @@
 
                                 <span> in user losses from mev </span>
                             }
-                            <span>and @ZV.TxCount transactions.</span>
+                            <span>and @ZV.TxCount transactions</span>
+                            if (ZV.EthUsd.HasValue)
+                            {
+                                <span>. Eth price was $@(ZV.EthUsd.Value).</span>
+                            }
+                            else
+                            {
+                                <span>.</span>
+                            }
                         }
                     </p>
                 </div>

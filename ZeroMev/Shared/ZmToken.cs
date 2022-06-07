@@ -21,18 +21,13 @@ namespace ZeroMev.MevEFC
         public string? Coingecko { get; set; }
 
         private ZMDecimal? _divisor;
-        public ZMDecimal Divisor
+        public ZMDecimal? Divisor
         {
             get
             {
-                if (_divisor == null)
-                {
-                    if (!Decimals.HasValue)
-                        _divisor = BigInteger.Pow(10, 18);
-                    else
-                        _divisor = BigInteger.Pow(10, Decimals.Value);
-                }
-                return _divisor.Value;
+                if (_divisor == null && Decimals.HasValue)
+                    _divisor = BigInteger.Pow(10, Decimals.Value);
+                return _divisor;
             }
         }
     }

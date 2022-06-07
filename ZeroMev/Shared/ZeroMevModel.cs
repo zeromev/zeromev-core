@@ -169,6 +169,7 @@ namespace ZeroMev.Shared
         public int TxCount;
         public string BlockHash;
         public string BlockHashShort;
+        public decimal? EthUsd = null;
 
         // set from zm block
         public long? LastBlockNumber;
@@ -506,6 +507,7 @@ namespace ZeroMev.Shared
                     SetMev(s, mb, i);
             for (int i = 0; i < mb.Backruns.Count; i++) SetMev(mb.Backruns[i], mb, i);
 
+            EthUsd = mb.EthUsd;
             HasMEV = true;
         }
 

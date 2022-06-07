@@ -2,13 +2,54 @@
 @inject ZMCache Cache
 @inject NavigationManager NavigationManager
 
-@if (MEVLiteCache != null)
+@if (MEVLiteCache == null)
+{
+    <div class="card text-dark bg-light mb-3" aria-hidden="true">
+        <div class="card-body">
+            <h4 class="placeholder-glow"><span class="placeholder col-8"></span></h4>
+        </div>
+    </div>
+
+    <div class="card text-dark bg-light mb-3" aria-hidden="true">
+        <div class="card-body">
+            <h5 class="card-title placeholder-glow"><span class="placeholder col-3"></span></h5>
+            <p class="card-text placeholder-glow">
+                <span class="placeholder col-3"></span><br>
+                <span class="placeholder col-5"></span><br>
+                <span class="placeholder col-4"></span><br>
+            </p>
+        </div>
+    </div>
+
+    <div class="line">
+        <p class="placeholder-glow" aria-hidden="true">
+            <span class="placeholder col-1"></span>
+        </p>
+        @{
+            for (int i = 0; i < 30; i++)
+            {
+                <p class="placeholder-glow">
+                <span class="placeholder col-2"></span><br>
+                <span class="placeholder col-3"></span><br>
+                </p>
+                <p class="placeholder-glow">
+                    <span class="placeholder col-1"></span>
+                    <span class="placeholder col-1"></span>
+                    <span class="placeholder col-1"></span>
+                    <span class="placeholder col-1"></span>
+                </p>
+                <hr />
+            }
+        }
+    </div>
+}
+else
 {
     MEVLiteCache.CalculateSummaries();
 
     <div class="card text-dark bg-light mb-3">
         <div class="card-body">
-            <h4 class="lighter-text">ethereum frontrunning explorer <abbr title="frontrunning in ethereum is when miners extract money from users by inserting transactions infront of user transactions.@("\n")this is illegal in regulated financial markets because of the harm it causes to users.@("\n")for this reason, zeromev labels frontrunning attacks as 'toxic'."><img class="imgbtn" src="/help.svg" width=24 height=24></abbr></h4>
+            <h4 class="lighter-text">ethereum frontrunning explorer <img class="imgbtn" src="/help.svg" width=24 height=24></h4>
         </div>
     </div>
 
@@ -19,7 +60,7 @@
             <p class="card-text">
                 <a href="http://info.zeromev.org/about#frontrunning" target="_blank"><span class="badge text-light @MEVWeb.CssClass(MEVClass.Toxic)">Toxic</span></a> frontrunning caused <span class="@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd==0?null:"fw-bold text-danger")">$@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00"))</span> in user losses <abbr title="frontrunning in ethereum is when miners extract money from users by inserting transactions infront of user transactions.@("\n")this is illegal in regulated financial markets because of the harm it causes to users.@("\n")for this reason, zeromev labels frontrunning attacks as 'toxic'."><img class="imgbtn" src="/help.svg" width=24 height=24></abbr>
                 <br>
-                <span class="badge text-light @MEVWeb.CssClass(MEVClass.Unclassified)">Other</span> mev caused <b>$@(MEVLiteCache.Totals[(int)MEVFilter.Other].AmountUsd.ToString("0.00"))</b> in losses. <abbr title="at the moment zeromev does not detect when strategies such as arbitrage and liquidations involve frontrunning or censorship.@("\n")until this is established they are considered unclassified as indicated by 'other'."><img class="imgbtn" src="/help.svg" width=24 height=24></abbr>
+                <span class="badge text-light @MEVWeb.CssClass(MEVClass.Unclassified)">Other</span> mev caused <b>$@(MEVLiteCache.Totals[(int)MEVFilter.Other].AmountUsd.ToString("0.00"))</b> in losses. <img class="imgbtn" src="/help.svg" width=24 height=24>
             </p>
         </div>
     </div>
@@ -50,47 +91,6 @@
         <hr />
     </Virtualize>
 </div>
-}
-else
-{
-    <div class="card text-dark bg-light mb-3" aria-hidden="true">
-        <div class="card-body">
-            <h4 class="placeholder-glow"><span class="placeholder col-6"></span></h4>
-        </div>
-    </div>
-
-    <div class="card text-dark bg-light mb-3" aria-hidden="true">
-        <div class="card-body">
-            <h5 class="card-title placeholder-glow"><span class="placeholder col-2"></span></h5>
-            <p class="card-text placeholder-glow">
-                <span class="placeholder col-2"></span><br>
-                <span class="placeholder col-4"></span><br>
-                <span class="placeholder col-3"></span><br>
-            </p>
-        </div>
-    </div>
-
-    <div class="line">
-        <p class="placeholder-glow" aria-hidden="true">
-            <span class="placeholder col-1"></span>
-        </p>
-        @{
-            for (int i = 0; i < 30; i++)
-            {
-                <p class="placeholder-glow">
-                <span class="placeholder col-2"></span><br>
-                <span class="placeholder col-3"></span><br>
-                </p>
-                <p class="placeholder-glow">
-                    <span class="placeholder col-1"></span>
-                    <span class="placeholder col-1"></span>
-                    <span class="placeholder col-1"></span>
-                    <span class="placeholder col-1"></span>
-                </p>
-                <hr />
-            }
-        }
-    </div>
 }
 
 @code {

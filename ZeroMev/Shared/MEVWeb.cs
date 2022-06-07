@@ -89,6 +89,7 @@ namespace ZeroMev.Shared
 
     public class Symbol
     {
+        public const int UnknownSymbolIndex = -1;
         public const int EthSymbolIndex = -2;
         public const string UnknownImage = @"/un.png";
         public static Symbol EthSymbol = new Symbol("Eth", "eth.png", "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2");
@@ -401,7 +402,7 @@ namespace ZeroMev.Shared
         {
         }
 
-        public MEVSwap(TraceAddress traceAddress, ProtocolSwap protocol, int symbolInIndex, int symbolOutIndex, ZMDecimal amountIn, ZMDecimal amountOut, ZMDecimal? inUsdRate, ZMDecimal? outUsdRate)
+        public MEVSwap(TraceAddress traceAddress, ProtocolSwap protocol, int symbolInIndex, int symbolOutIndex, ZMDecimal? amountIn, ZMDecimal? amountOut, ZMDecimal? inUsdRate, ZMDecimal? outUsdRate)
         {
             TraceAddress = traceAddress;
             Protocol = protocol;
@@ -411,11 +412,19 @@ namespace ZeroMev.Shared
             AmountOut = amountOut;
 
             // store the output usd because it's smaller than the BigDecimal rate and generally more useful
-            if (inUsdRate.HasValue) AmountInUsd = (amountIn * inUsdRate.Value).ToUsd();
-            if (outUsdRate.HasValue) AmountOutUsd = (amountOut * outUsdRate.Value).ToUsd();
+            if (inUsdRate.HasValue && amountIn.HasValue) AmountInUsd = (amountIn.Value * inUsdRate.Value).ToUsd();
+            if (outUsdRate.HasValue && amountOut.HasValue) AmountOutUsd = (amountOut.Value * outUsdRate.Value).ToUsd();
 
             if (AmountInUsd > Num.OversizedAmount) AmountInUsd = null;
             if (AmountOutUsd > Num.OversizedAmount) AmountOutUsd = null;
+        }
+
+        public bool IsKnown
+        {
+            get
+            {
+                return SymbolInIndex != Symbol.UnknownSymbolIndex && SymbolOutIndex != Symbol.UnknownSymbolIndex;
+            }
         }
 
         // maintained by the owner parent IMEV instance
@@ -435,10 +444,10 @@ namespace ZeroMev.Shared
         public int SymbolOutIndex { get; set; }
 
         [JsonPropertyName("c")]
-        public ZMDecimal AmountIn { get; set; }
+        public ZMDecimal? AmountIn { get; set; }
 
         [JsonPropertyName("d")]
-        public ZMDecimal AmountOut { get; set; }
+        public ZMDecimal? AmountOut { get; set; }
 
         [JsonPropertyName("e")]
         public decimal? AmountInUsd { get; set; }
@@ -448,15 +457,6 @@ namespace ZeroMev.Shared
 
         [JsonPropertyName("p")]
         public ProtocolSwap Protocol { get; set; }
-
-        [JsonIgnore]
-        public ZMDecimal Rate
-        {
-            get
-            {
-                return AmountOut / AmountIn;
-            }
-        }
 
         [JsonIgnore]
         public MEVType MEVType => MEVType.Swap;
@@ -495,7 +495,7 @@ namespace ZeroMev.Shared
         public ZMDecimal? InUsdRate()
         {
             if (AmountInUsd == null) return null;
-            if (AmountIn < Num.EpsilonAmount) return null;
+            if (AmountIn == null || AmountIn < Num.EpsilonAmount) return null;
             if (AmountInUsd > Num.OversizedAmount) return null;
             return (ZMDecimal)AmountInUsd / AmountIn;
         }
@@ -503,7 +503,7 @@ namespace ZeroMev.Shared
         public ZMDecimal? OutUsdRate()
         {
             if (AmountOutUsd == null) return null;
-            if (AmountOut < Num.EpsilonAmount) return null;
+            if (AmountOut == null || AmountOut < Num.EpsilonAmount) return null;
             if (AmountOutUsd > Num.OversizedAmount) return null;
             return (ZMDecimal)AmountOutUsd / AmountOut;
         }
@@ -523,11 +523,11 @@ namespace ZeroMev.Shared
             sb.Append(" ");
             sb.Append(mevBlock.GetSymbolName(SymbolInIndex));
             sb.Append(" ");
-            sb.Append(AmountIn.Shorten());
+            sb.Append((AmountIn ?? 0).Shorten());
             sb.Append(" > ");
             sb.Append(mevBlock.GetSymbolName(SymbolOutIndex));
             sb.Append(" ");
-            sb.Append(AmountOut.Shorten());
+            sb.Append((AmountOut ?? 0).Shorten());
             sb.Append(" ($");
             sb.Append(AmountOutUsd != null ? AmountOutUsd.ToString() : "?");
             sb.Append(")");
@@ -736,7 +736,7 @@ namespace ZeroMev.Shared
             {
                 // these sandwiches tend to be well balanced as the attacker is trying to get their money out not take a position
                 decimal? wrapProfitUsd = null;
-                if (backWrap.AmountOutUsd != null && frontWrap.AmountInUsd != null)
+                if (backWrap.AmountOutUsd != null && frontWrap.AmountInUsd != null && backWrap.AmountOut != null && frontWrap.AmountIn != null)
                 {
                     // use consistent base currency values when available
                     var symbol = mevBlock.GetSymbolName(backWrap.SymbolOutIndex);
@@ -1019,19 +1019,30 @@ namespace ZeroMev.Shared
 
     public class MEVArb : IMEV
     {
+        public static decimal MaxUsdRate = 100000;
+
         public MEVArb()
         {
         }
 
-        public MEVArb(int? txIndex, MEVClass mevClass, decimal? mevAmountUsd)
+        public MEVArb(int? txIndex, MEVClass mevClass, decimal? mevAmountUsd, int arbCase, MEVSwap swap)
         {
             TxIndex = txIndex;
             MEVClass = mevClass;
             MEVAmountUsd = mevAmountUsd;
+            ArbCase = arbCase;
+            Swaps = new MEVSwaps(swap);
+            ArbSwapIndex = new List<int?>() { 0 };
         }
 
+        [JsonPropertyName("a")]
+        public int ArbCase { get; set; }
+
+        [JsonPropertyName("w")]
+        public List<int?> ArbSwapIndex { get; set; }
+
         [JsonPropertyName("s")]
-        public MEVSwaps Swaps { get; set; } = new MEVSwaps();
+        public MEVSwaps Swaps { get; set; }
 
         [JsonPropertyName("i")]
         public int? TxIndex { get; set; }
@@ -1065,21 +1076,57 @@ namespace ZeroMev.Shared
             {
                 sb.AppendLine("arb missing exchange rates, can't calculate.");
             }
+            /*
             else
             {
-                if (Swaps?.Swaps == null || Swaps.Swaps.Count == 0)
+                var swaps = Swaps.Swaps;
+                int first = ArbSwapIndex[0].Value;
+                int last = ArbSwapIndex[ArbSwapIndex.Count - 1].Value;
+                if (swaps != null && ArbSwapIndex != null && ArbSwapIndex.Count != 0)
                 {
-                    sb.AppendLine("no arb swaps.");
+                    // recalculate arb profits
+                    decimal? calcProfit = null;
+                    switch (ArbCase)
+                    {
+                        case 1:
+                            var inUsd = MEVCalc.ConsistentAmountUsd(mevBlock, swaps[first].SymbolInIndex, swaps[first].AmountIn, swaps[first].AmountInUsd);
+                            var outUsd = MEVCalc.ConsistentAmountUsd(mevBlock, swaps[last].SymbolOutIndex, swaps[last].AmountOut, swaps[last].AmountOutUsd);
+                            if (inUsd != null && outUsd != null && inUsd != 0 && outUsd / inUsd < MaxUsdRate)
+                                calcProfit = Math.Round(inUsd.Value - outUsd.Value, 2);
+                            break;
+
+                        case 2:
+                            calcProfit = 0;
+                            foreach (var si in ArbSwapIndex)
+                            {
+                                var s = swaps[si.Value];
+                                var sInUsd = MEVCalc.ConsistentAmountUsd(mevBlock, s.SymbolInIndex, s.AmountIn, s.AmountInUsd);
+                                var sOutUsd = MEVCalc.ConsistentAmountUsd(mevBlock, s.SymbolOutIndex, s.AmountOut, s.AmountOutUsd);
+                                if (sInUsd != null && sOutUsd != null && sInUsd != 0 && sOutUsd / sInUsd < MaxUsdRate)
+                                    calcProfit -= Math.Round(sOutUsd.Value - sInUsd.Value);
+                            }
+                            break;
+                    }
+                    MEVAmountUsd = calcProfit;
                 }
                 else
                 {
-                    sb.Append(Swaps.Swaps.Count);
-                    sb.AppendLine(" swaps in arb.");
+                    MEVAmountUsd = null;
                 }
-                sb.Append("arb victim impact $");
-                sb.Append(MEVAmountUsd);
-                sb.AppendLine(".");
+            */
+            if (Swaps?.Swaps == null || Swaps.Swaps.Count == 0)
+            {
+                sb.AppendLine("no arb swaps.");
             }
+            else
+            {
+                sb.Append(Swaps.Swaps.Count);
+                sb.AppendLine(" swaps in arb.");
+            }
+            sb.Append("arb victim impact $");
+            sb.Append(MEVAmountUsd);
+            sb.AppendLine(".");
+
             MEVDetail = sb.ToString();
 
             Swaps.Cache(mevBlock, mevIndex);
@@ -1087,7 +1134,15 @@ namespace ZeroMev.Shared
 
         public int? AddSwap(MEVSwap swap)
         {
-            return Swaps.AddSwap(swap);
+            var insertedIndex = Swaps.AddSwap(swap);
+            for (int i = 0; i < ArbSwapIndex.Count; i++)
+                ArbSwapIndex[i] = MEVSwaps.Shuffle(insertedIndex, ArbSwapIndex[i]);
+            return null;
+        }
+        public void AddArbSwap(MEVSwap swap)
+        {
+            var index = Swaps.AddSwap(swap);
+            ArbSwapIndex.Add(index);
         }
     }
 
@@ -1466,6 +1521,9 @@ namespace ZeroMev.Shared
             back = mb.Backruns[index];
             sandwiched = mb.Sandwiched[index];
 
+            if (!front.Swap.IsKnown) return false;
+            if (!back.Swap.IsKnown) return false;
+
             var a = new List<ZMDecimal>();
             var b = new List<ZMDecimal>();
 
@@ -1477,8 +1535,8 @@ namespace ZeroMev.Shared
                 for (int j = 0; j < ms.SandwichedSwapIndex.Count; j++)
                 {
                     var swap = ms.Swaps.Swaps[ms.SandwichedSwapIndex[j].Value];
-                    if (protocol != null && swap.Protocol != protocol)
-                        return false;
+                    if (!swap.IsKnown) return false;
+                    if (protocol != null && swap.Protocol != protocol) return false;
                     protocol = swap.Protocol;
                 }
             }
@@ -1496,8 +1554,8 @@ namespace ZeroMev.Shared
                 for (int j = 0; j < ms.SandwichedSwapIndex.Count; j++)
                 {
                     var swap = ms.Swaps.Swaps[ms.SandwichedSwapIndex[j].Value];
-                    a.Add(swap.AmountIn);
-                    b.Add(swap.AmountOut);
+                    a.Add(swap.AmountIn ?? 0);
+                    b.Add(swap.AmountOut ?? 0);
                 }
             }
 
@@ -1513,6 +1571,23 @@ namespace ZeroMev.Shared
             return true;
         }
 
+        public static decimal? ConsistentAmountUsd(MEVBlock mevBlock, int symbolIndex, ZMDecimal amount, decimal? amountUsd)
+        {
+            if (symbolIndex == Symbol.UnknownSymbolIndex) 
+                return null;
+
+            decimal? r;
+            var symbol = mevBlock.GetSymbolName(symbolIndex);
+            if (symbol == MEVCalc.EthSymbolName && mevBlock.EthUsd.HasValue)
+                r = (decimal)amount * mevBlock.EthUsd.Value;
+            else if (MEVCalc.UsdSymbolNames.Contains(symbol))
+                r = (decimal)amount;
+            else
+                r = amountUsd;
+
+            return r;
+        }
+
         private static bool AmountCoalescing(ProtocolSwap? protocol, MEVSwap swap, List<MEVSwap> swaps, out ZMDecimal sumIn, out ZMDecimal sumOut)
         {
             sumIn = 0;
@@ -1526,8 +1601,8 @@ namespace ZeroMev.Shared
                     s.SymbolOutIndex == swap.SymbolOutIndex &&
                     s.Protocol == protocol)
                 {
-                    sumIn += s.AmountIn;
-                    sumOut += s.AmountOut;
+                    sumIn += s.AmountIn ?? 0;
+                    sumOut += s.AmountOut ?? 0;
                     success = true;
                 }
             }
@@ -1546,6 +1621,7 @@ namespace ZeroMev.Shared
             backWrap = back.Swap;
 
             // wrapped sandwiches must be well balanced or we should use the pool extraction method instead
+            if (front.Swap.AmountOut == null || back.Swap.AmountIn == null) return false;
             var p = (front.Swap.AmountOut / (front.Swap.AmountOut + back.Swap.AmountIn));
             if (p > 0.51 || p < 0.49)
                 return false;
