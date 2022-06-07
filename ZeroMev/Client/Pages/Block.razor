@@ -135,7 +135,12 @@ else
 
         // fail if we don't have a valid block view by now
         if (zv == null)
-            NavigationManager.NavigateTo("searchfailed");
+        {
+            if (Cache.LastBlockNumber != null && BlockNumber != null && BlockNumber.Value > Cache.LastBlockNumber)
+                NavigationManager.NavigateTo("tooearly");
+            else
+                NavigationManager.NavigateTo("searchfailed");
+        }
         else
         {
             if (zv.IsQuotaExceeded)
