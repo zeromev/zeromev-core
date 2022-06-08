@@ -740,9 +740,9 @@ namespace ZeroMev.ClassifierService
 
                 var protocol = MEVHelper.GetProtocolLiquidation(l.Protocol);
                 var debtSymbolIndex = MEVHelper.GetSymbolIndex(mevBlock, l.DebtTokenAddress);
-                var debtPurchaseAmountUsd = XRates.ConvertToUsd(l.DebtTokenAddress, l.DebtPurchaseAmount);
+                var debtPurchaseAmountUsd = FlashbotsSummaryTokens.Contains(l.DebtTokenAddress) ? XRates.ConvertToUsd(l.DebtTokenAddress, l.DebtPurchaseAmount) : null;
                 var receivedSymbolIndex = MEVHelper.GetSymbolIndex(mevBlock, l.ReceivedTokenAddress);
-                var receivedAmountUsd = XRates.ConvertToUsd(l.ReceivedTokenAddress, l.ReceivedAmount);
+                var receivedAmountUsd = l.ReceivedTokenAddress != null && FlashbotsSummaryTokens.Contains(l.ReceivedTokenAddress) ? XRates.ConvertToUsd(l.ReceivedTokenAddress, l.ReceivedAmount) : null;
                 bool? isReverted = l.Error == "Reverted" ? true : null;
 
                 var mevLiquidation = new MEVLiquidation(l.TransactionHash, protocol, (ZMDecimal)l.DebtPurchaseAmount, debtPurchaseAmountUsd, debtSymbolIndex, (ZMDecimal)l.ReceivedAmount, receivedAmountUsd, receivedSymbolIndex, isReverted);

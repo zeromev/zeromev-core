@@ -144,5 +144,11 @@ namespace ZeroMev.Shared
             d /= DivAfterValue;
             return d.ToString();
         }
+
+        public static string ToUsdStr(decimal? usd)
+        {
+            if (!usd.HasValue) return "";
+            return "$" + usd.Value.ToString("0.00");
+        }
     }
 }

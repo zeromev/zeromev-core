@@ -170,26 +170,6 @@ namespace ZeroMev.SharedServer
             return r;
         }
 
-        public static List<MEVTypeSummary> BuildMEVTypeSummary(ZMView zv)
-        {
-            MEVTypeSummary[] r = new MEVTypeSummary[Enum.GetValues(typeof(MEVType)).Length];
-            foreach (ZMTx tx in zv.Txs)
-            {
-                if (tx.MEV == null || tx.MEVClass == MEVClass.Info) continue;
-                int i = (int)tx.MEV.MEVType;
-                if (r[i] == null)
-                {
-                    r[i] = new MEVTypeSummary();
-                    r[i].MEVType = (MEVType)i;
-                    r[i].Count = 0;
-                    r[i].AmountUsd = 0;
-                }
-                r[i].Count++;
-                r[i].AmountUsd += tx.MEV.MEVAmountUsd ?? 0;
-            }
-            return r.Where(x => x != null).ToList();
-        }
-
         public static void QueueWriteExtractorBlockAsync(ExtractorBlock extractorBlock)
         {
             if (extractorBlock == null)
@@ -474,10 +454,7 @@ namespace ZeroMev.SharedServer
             cmdLatestMevBlock.Parameters.Add(new NpgsqlParameter<long>("@block_number", mb.BlockNumber));
 
             // mev totals
-            var zv = new ZMView(mb.BlockNumber);
-            zv.RefreshOffline(null, 10000); // fake the tx count
-            zv.SetMev(mb);
-            var mev = BuildMEVTypeSummary(zv); // groups by mev type
+            var mev = MEVTypeSummaries.FromMevBlock(mb);
 
             // write them all in a single roundtrip
             using var batch = new NpgsqlBatch(conn)

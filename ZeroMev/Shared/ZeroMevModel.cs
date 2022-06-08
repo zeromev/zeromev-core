@@ -634,8 +634,8 @@ namespace ZeroMev.Shared
         {
             get
             {
-                if (MEV == null || !MEV.MEVAmountUsd.HasValue) return "";
-                return "$" + MEV.MEVAmountUsd.Value.ToString("0.00");
+                if (MEV == null) return "";
+                return Num.ToUsdStr(MEV.MEVAmountUsd);
             }
         }
 

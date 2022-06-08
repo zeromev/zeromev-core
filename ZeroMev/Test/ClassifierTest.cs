@@ -276,6 +276,27 @@ namespace ZeroMev.Test
         }
 
         [TestMethod]
+        public async Task ExportMevSummary()
+        {
+            // this writes to the db
+            //return;
+
+            const long first = API.EarliestMevBlock;
+            const long last = 14925700;
+            const long chunk = 1000;
+
+            for (long from = first; from <= last; from += chunk)
+            {
+                long to = from + chunk;
+                if (to > last)
+                    to = last;
+
+                var mevBlocks = await DB.ReadMevBlocks(from, to);
+                await DB.QueueWriteMevBlocksAsync(mevBlocks);
+            }
+        }
+
+        [TestMethod]
         public async Task TestSandwichesExport()
         {
             const long first = 13232490;

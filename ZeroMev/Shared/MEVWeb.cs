@@ -749,7 +749,7 @@ namespace ZeroMev.Shared
                     wrapProfitUsd = Math.Round(wrapProfitUsd.Value, 2);
                     sandwiched[0].MEVAmountUsd = -wrapProfitUsd;
                 }
-                SetMevDetail(false, false, true, mevBlock, front, back, sandwiched, (wrapProfitUsd != null) ? -wrapProfitUsd : null, wrapProfitUsd, null);
+                SetMevDetail(false, false, true, mevBlock, front, back, sandwiched, (wrapProfitUsd != null) ? -wrapProfitUsd : null, wrapProfitUsd);
                 return;
             }
 
@@ -796,7 +796,10 @@ namespace ZeroMev.Shared
 
             decimal? backrunVictimImpactUsd = null;
             if (backrunVictimImpact != null)
+            {
                 backrunVictimImpactUsd = MEVCalc.SwapUsd(back.Swap.OutUsdRate(), backrunVictimImpact.Value);
+                back.BackrunAmountUsd = backrunVictimImpactUsd;
+            }
 
             decimal sumFrontrunVictimImpactUsd = 0;
             if (imbalanceSwitch || isLowLiquidity)
@@ -841,10 +844,10 @@ namespace ZeroMev.Shared
                 }
             }
 
-            SetMevDetail(imbalanceSwitch, isLowLiquidity, false, mevBlock, front, back, sandwiched, sumFrontrunVictimImpactUsd, sandwichProfitUsd, backrunVictimImpactUsd);
+            SetMevDetail(imbalanceSwitch, isLowLiquidity, false, mevBlock, front, back, sandwiched, sumFrontrunVictimImpactUsd, sandwichProfitUsd);
         }
 
-        private void SetMevDetail(bool imbalanceSwitch, bool isLowLiquidity, bool isWrapped, MEVBlock mevBlock, MEVFrontrun front, MEVBackrun back, MEVSandwiched[] sandwiched, decimal? victimImpactUsd, decimal? profitUsd, decimal? victimImpactBackrunUsd)
+        private void SetMevDetail(bool imbalanceSwitch, bool isLowLiquidity, bool isWrapped, MEVBlock mevBlock, MEVFrontrun front, MEVBackrun back, MEVSandwiched[] sandwiched, decimal? victimImpactUsd, decimal? profitUsd)
         {
             StringBuilder sb = new StringBuilder();
             if (isWrapped)
@@ -854,9 +857,13 @@ namespace ZeroMev.Shared
             else if (isLowLiquidity)
                 sb.AppendLine("low liquidity pair.");
             sb.AppendLine($"{sandwiched.Length} sandwiched swaps.\nvictim impact (frontrun) = ${(victimImpactUsd != null ? victimImpactUsd.ToString() : "?")}.");
-            if (victimImpactBackrunUsd != null)
-                sb.AppendLine($"victim impact (backrun) = ${(victimImpactBackrunUsd != null ? victimImpactBackrunUsd.ToString() : "?")}.");
             sb.AppendLine($"sandwich profit = ${(profitUsd != null ? profitUsd.ToString() : "?")}.");
+            if (back.BackrunAmountUsd != null)
+            {
+                sb.AppendLine("");
+                sb.AppendLine($"the attacker used the sandwich to take a position at an inflated price,");
+                sb.AppendLine($"backrun position = ${(back.BackrunAmountUsd != null ? back.BackrunAmountUsd.ToString() : "?")} of {mevBlock.Symbols[back.Swap.SymbolOutIndex].Name}.");
+            }
 
             sb.AppendLine("\nfrontrun");
             front.Swap.BuildActionDetail(mevBlock, sb);
@@ -980,6 +987,9 @@ namespace ZeroMev.Shared
         [JsonPropertyName("b")]
         public int? BackrunSwapIndex { get; set; }
 
+        [JsonPropertyName("u")]
+        public decimal? BackrunAmountUsd { get; set; }
+
         [JsonIgnore]
         public MEVSwap Swap => BackrunSwapIndex != null && Swaps != null ? Swaps.Swaps[BackrunSwapIndex.Value] : null;
 
@@ -1003,6 +1013,14 @@ namespace ZeroMev.Shared
 
         [JsonIgnore]
         public string? ActionDetail => Swaps.ActionDetail;
+
+        public string BackrunAmountStr
+        {
+            get
+            {
+                return Num.ToUsdStr(BackrunAmountUsd);
+            }
+        }
 
         public void Cache(MEVBlock mevBlock, int mevIndex)
         {
@@ -1121,11 +1139,14 @@ namespace ZeroMev.Shared
             DebtPurchaseAmount = debtPurchaseAmount;
             DebtPurchaseAmountUsd = debtPurchaseAmountUsd;
             ReceivedAmount = receivedAmount;
+            ReceivedAmountUsd = receivedAmountUsd;
             DebtSymbolIndex = debtSymbolIndex;
-            MEVAmountUsd = receivedAmountUsd;
             ReceivedSymbolIndex = receivedSymbolIndex;
             IsReverted = isReverted;
         }
+
+        decimal? _receivedAmountUsd = null;
+        decimal? _debtPurchaseAmountUsd = null;
 
         [JsonPropertyName("p")]
         public ProtocolLiquidation Protocol { get; set; }
@@ -1134,10 +1155,35 @@ namespace ZeroMev.Shared
         public ZMDecimal? DebtPurchaseAmount { get; set; }
 
         [JsonPropertyName("du")]
-        public decimal? DebtPurchaseAmountUsd { get; set; }
+        public decimal? DebtPurchaseAmountUsd
+        {
+            get
+            {
+                if (Protocol == ProtocolLiquidation.CompoundV2) return null;
+                return _debtPurchaseAmountUsd;
+            }
+            set
+            {
+                _debtPurchaseAmountUsd = value;
+            }
+        }
 
         [JsonPropertyName("r")]
         public ZMDecimal? ReceivedAmount { get; set; }
+
+        [JsonPropertyName("ru")]
+        public decimal? ReceivedAmountUsd
+        {
+            get
+            {
+                if (Protocol == ProtocolLiquidation.CompoundV2) return null;
+                return _receivedAmountUsd;
+            }
+            set
+            {
+                _receivedAmountUsd = value;
+            }
+        }
 
         [JsonPropertyName("a")]
         public int DebtSymbolIndex { get; set; }
@@ -1147,9 +1193,6 @@ namespace ZeroMev.Shared
 
         [JsonPropertyName("v")]
         public bool? IsReverted { get; set; }
-
-        [JsonPropertyName("u")]
-        public decimal? MEVAmountUsd { get; set; }
 
         [JsonPropertyName("h")]
         public string TxHash { get; set; }
@@ -1171,6 +1214,21 @@ namespace ZeroMev.Shared
 
         [JsonIgnore]
         public string? ActionDetail { get; set; }
+
+        [JsonIgnore]
+        public decimal? MEVAmountUsd
+        {
+            get
+            {
+                if (Protocol == ProtocolLiquidation.CompoundV2 || ReceivedAmountUsd == null || DebtPurchaseAmountUsd == null)
+                    return null;
+
+                return DebtPurchaseAmountUsd - ReceivedAmountUsd;
+            }
+            set
+            {
+            }
+        }
 
         public void Cache(MEVBlock mevBlock, int mevIndex)
         {
@@ -1214,13 +1272,19 @@ namespace ZeroMev.Shared
             sb.Append("received amount ");
             sb.Append(mevBlock.GetSymbolName(ReceivedSymbolIndex));
             sb.Append(" $");
-            if (MEVAmountUsd != null)
-                sb.Append(MEVAmountUsd);
+            if (ReceivedAmountUsd != null)
+                sb.Append(ReceivedAmountUsd);
             else
                 sb.Append("?");
             sb.Append(" (");
             sb.Append(ReceivedAmount);
             sb.AppendLine(").");
+
+            sb.Append("liquidation amount $");
+            if (ReceivedAmountUsd != null)
+                sb.Append(ReceivedAmountUsd);
+            else
+                sb.Append("?");
 
             return sb.ToString();
         }
@@ -1357,13 +1421,6 @@ namespace ZeroMev.Shared
     {
         public MEVFilter MEVFilter;
         public decimal Count;
-        public decimal AmountUsd;
-    }
-
-    public class MEVTypeSummary
-    {
-        public MEVType MEVType;
-        public int Count;
         public decimal AmountUsd;
     }
 

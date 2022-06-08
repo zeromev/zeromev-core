@@ -95,7 +95,14 @@
                         {
                             <td></td>
                         }
-                        <td>@tx.MEVAmountStr</td>
+                        @if (tx.MEV != null && tx.MEV.MEVType == MEVType.Backrun && ((MEVBackrun)tx.MEV).BackrunAmountUsd != null)
+                        {
+                            <td><span class="text-secondary">(@((MarkupString)((MEVBackrun)tx.MEV).BackrunAmountStr))</span></td>
+                        }
+                        else
+                        {
+                            <td>@((MarkupString)tx.MEVAmountStr)</td>
+                        }
                         @if (tx.MEVActionDetail == null)
                         {
                             <td>@((MarkupString)tx.MEVActionSummary)</td>
