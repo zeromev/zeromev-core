@@ -1282,7 +1282,7 @@ namespace ZeroMev.Shared
 
             sb.Append("liquidation amount $");
             if (ReceivedAmountUsd != null)
-                sb.Append(ReceivedAmountUsd);
+                sb.Append(MEVAmountUsd);
             else
                 sb.Append("?");
 
