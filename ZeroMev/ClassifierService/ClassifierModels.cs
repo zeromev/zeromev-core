@@ -300,9 +300,9 @@ namespace ZeroMev.ClassifierService
                 if (mevIndex >= mb.Sandwiched.Count) return;
                 MEVSandwiched[] sd = mb.Sandwiched[mevIndex];
                 if (sd == null) return;
-                decimal sumVictimImpact = 0;
+                decimal sumUserLoss = 0;
                 foreach (var s in sd)
-                    sumVictimImpact += s.MEVAmountUsd ?? 0;
+                    sumUserLoss += s.MEVAmountUsd ?? 0;
 
                 var fr = (MEVFrontrun)mev;
 
@@ -311,7 +311,7 @@ namespace ZeroMev.ClassifierService
                     arbsUsd += arb.MEVAmountUsd ?? 00;
 
                 AltSandwichProfit(mev, mb, mevIndex, out var profitNaive, out var profitFrontrun, out var profitBackrun, out var profitRateDiff2Way, out var profitFbOnePercent);
-                sw.WriteLine($"{mb.BlockNumber}\t{mev.TxIndex}\t{arbsUsd}\t{sumVictimImpact}\t{br.MEVAmountUsd}\t{fr.SandwichProfitUsd}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(), profitNaive)}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(), profitFrontrun)}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(), profitBackrun)}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(), profitRateDiff2Way)}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(), profitFbOnePercent)}");
+                sw.WriteLine($"{mb.BlockNumber}\t{mev.TxIndex}\t{arbsUsd}\t{sumUserLoss}\t{br.MEVAmountUsd}\t{fr.SandwichProfitUsd}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(), profitNaive)}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(), profitFrontrun)}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(), profitBackrun)}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(), profitRateDiff2Way)}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(), profitFbOnePercent)}");
             }
         }
 
@@ -849,7 +849,7 @@ namespace ZeroMev.ClassifierService
             }
         }
 
-        private void VictimImpact(ZMSwap zmSwap, Pair pair)
+        private void UserLoss(ZMSwap zmSwap, Pair pair)
         {
             // TODO under development
             ZMSwap zmSwapPrevByTime;
@@ -859,15 +859,15 @@ namespace ZeroMev.ClassifierService
                 {
                     // if the prev swap is of the same sign, it acts against the current swap
                     // if the prev swap is of a different sign, it benefits the current swap
-                    // victim impact is expressed as positive when good for the current swap, and negative when bad (frontrun)
+                    // user loss is expressed as positive when good for the current swap, and negative when bad (frontrun)
                     zmSwapPrevByTime = prevEntry.Value;
                     if (zmSwapPrevByTime.ImpactDelta != null)
                     {
-                        ZMDecimal? victimImpact = -(pair.PreviousZmSwap.ImpactDelta - zmSwapPrevByTime.ImpactDelta);
-                        ZMDecimal? victimImpactUsd = victimImpact * zmSwap.BRateUsd;
-                        if (zmSwap.ImpactDelta < 0) victimImpact = -victimImpact; // switch sells to give a consistent victim impact
+                        ZMDecimal? userLoss = -(pair.PreviousZmSwap.ImpactDelta - zmSwapPrevByTime.ImpactDelta);
+                        ZMDecimal? userLossUsd = userLoss * zmSwap.BRateUsd;
+                        if (zmSwap.ImpactDelta < 0) userLoss = -userLoss; // switch sells to give a consistent user loss
                         if (pair.ToString() == "WETH:UsdC")
-                            Debug.WriteLine($"{pair} {zmSwap.Order} victim impact ${victimImpactUsd.Value.RoundAwayFromZero(4)} {victimImpact} prev block {pair.PreviousZmSwap.ImpactDelta} prev time {zmSwapPrevByTime.ImpactDelta} current {zmSwap.ImpactDelta} {zmSwap.IsSell}");
+                            Debug.WriteLine($"{pair} {zmSwap.Order} user loss ${userLossUsd.Value.RoundAwayFromZero(4)} {userLoss} prev block {pair.PreviousZmSwap.ImpactDelta} prev time {zmSwapPrevByTime.ImpactDelta} current {zmSwap.ImpactDelta} {zmSwap.IsSell}");
                     }
                 }
             }

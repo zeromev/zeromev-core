@@ -162,17 +162,17 @@ namespace ZeroMev.Test
         [TestMethod]
         public void RunSandwichSim()
         {
-            const int SandwichTxCount = 3; // profit will always be < victim impact for 3, victim impact can be > profit for 4+ as the model assumes sandwiched transactions are fair ordered (when usually they will not be)
+            const int SandwichTxCount = 3; // profit will always be < user loss for 3, user loss can be > profit for 4+ as the model assumes sandwiched transactions are fair ordered (when usually they will not be)
             const int dec = 5;
 
-            // verification that victim impact > sandwich profit
+            // verification that user loss > sandwich profit
             ZMDecimal x = 10000;
             ZMDecimal y = 10000;
             ZMDecimal c = 0.997;
 
-            Debug.WriteLine($"profitPercent\tvictimImpactPercent");
+            Debug.WriteLine($"profitPercent\tuserLossPercent");
             ZMDecimal sumProfitPercent = 0;
-            ZMDecimal sumVictimImpactPercent = 0;
+            ZMDecimal sumUserLossPercent = 0;
             for (int i = 0; i < 10000; i++)
             {
                 MEVHelper.SimUniswap2(SandwichTxCount, 0.5, false, true, c, x, y, out var a, out var b, out var xOut, out var yOut, out var isBA);
@@ -180,24 +180,24 @@ namespace ZeroMev.Test
                 // get the recalculated original set used for error reduction
                 MEVCalc.CalculateSwaps(x, y, c, a, b, isBA, out var x_, out var y_, out var a_, out var b_, out var imbalanceSwitch);
 
-                // sandwich profit / backrun victim impact
+                // sandwich profit / backrun user loss
                 ZMDecimal sandwichProfit;
-                ZMDecimal? backrunVictimImpact = null;
+                ZMDecimal? backrunUserLoss = null;
                 int backIndex = a.Length - 1;
                 ZMDecimal[] af, bf;
-                sandwichProfit = MEVCalc.SandwichProfitBackHeavy(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_, out backrunVictimImpact, out af, out bf);
+                sandwichProfit = MEVCalc.SandwichProfitBackHeavy(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_, out backrunUserLoss, out af, out bf);
                 var profitPercent = (af[backIndex] / af[0]) - 1;
 
-                // frontrun victim impact
-                var bNoFrontrun = MEVCalc.FrontrunVictimImpact(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_);
-                var victimImpact = b[0] - bNoFrontrun[0];
-                var victimImpactPercent = (bNoFrontrun[1] / b[1]) - 1;
+                // frontrun user loss
+                var bNoFrontrun = MEVCalc.FrontrunUserLoss(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_);
+                var userLoss = b[0] - bNoFrontrun[0];
+                var userLossPercent = (bNoFrontrun[1] / b[1]) - 1;
                 sumProfitPercent += profitPercent;
-                sumVictimImpactPercent += victimImpactPercent;
-                Debug.WriteLine($"{profitPercent}\t{victimImpactPercent}");
+                sumUserLossPercent += userLossPercent;
+                Debug.WriteLine($"{profitPercent}\t{userLossPercent}");
             }
             Debug.WriteLine("-----\t-----");
-            Debug.WriteLine($"{sumProfitPercent}\t{sumVictimImpactPercent}");
+            Debug.WriteLine($"{sumProfitPercent}\t{sumUserLossPercent}");
         }
 
         [TestMethod]
