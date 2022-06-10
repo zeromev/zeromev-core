@@ -16,6 +16,8 @@ namespace ZeroMev.SharedServer
 {
     public class DB
     {
+        const int MevCacheCacheExpirySecs = 3;
+
         // sql
         const string WriteExtractorBlockSQL = @"INSERT INTO public.extractor_block(" +
         "block_number, extractor_index, block_time, extractor_start_time, arrival_count, pending_count, tx_data) " +
@@ -30,6 +32,12 @@ namespace ZeroMev.SharedServer
         "FROM public.extractor_block " +
         "WHERE block_number = @block_number " +
         "ORDER BY extractor_index asc, block_time desc;";
+
+        const string ReadExtractorBlocksSQL = @"SELECT block_number, extractor_index, block_time, extractor_start_time, arrival_count, pending_count, tx_data " +
+        "FROM public.extractor_block " +
+        "WHERE block_number >= @from_block_number " +
+        "AND block_number < @to_block_number " +
+        "ORDER BY block_number asc, extractor_index asc, block_time desc;";
 
         const string WriteFlashbotsBlockSQL = @"INSERT INTO public.fb_block(" +
         "block_number, bundle_data) " +
@@ -46,6 +54,12 @@ namespace ZeroMev.SharedServer
         "VALUES (@block_number, @mev_data) " +
         "ON CONFLICT (block_number) DO UPDATE SET " +
         "mev_data = EXCLUDED.mev_data;";
+
+        const string WriteMevBlockSummarySQL = @"INSERT INTO public.zm_mev_summary(" +
+        "block_number, mev_type, mev_amount_usd, mev_count) " +
+        "VALUES (@block_number, @mev_type, @mev_amount_usd, @mev_count) " +
+        "ON CONFLICT (block_number, mev_type) DO UPDATE SET " +
+        "mev_amount_usd = EXCLUDED.mev_amount_usd, mev_count = EXCLUDED.mev_count;";
 
         const string ReadLatestMevBlockSQL = @"SELECT block_number FROM public.latest_mev_block LIMIT 1;";
 
@@ -66,7 +80,95 @@ namespace ZeroMev.SharedServer
         static List<MEVBlock> _mevBlocks = new List<MEVBlock>();
 
         static public long? LastBlockNumber = null;
-        static public string? MEVLiteCacheJson = JsonSerializer.Serialize<MEVLiteCache>(new MEVLiteCache(), ZMSerializeOptions.Default);
+        private static MEVLiteCache _mevCache = null;
+        private static string? _mevCacheJson = JsonSerializer.Serialize<MEVLiteCache>(new MEVLiteCache(), ZMSerializeOptions.Default);
+        private static DateTime _lastMevCache = DateTime.MinValue;
+        private static object _mevCacheLock = new object();
+
+        public static async Task<string> MEVLiteCacheJson(long lastBlockNumber)
+        {
+            // determine whether we need to refresh the cache in a threadsafe lock
+            bool doGetNew = false;
+            lock (_mevCacheLock)
+            {
+                var diff = DateTime.Now - _lastMevCache;
+                if (diff.TotalSeconds > MevCacheCacheExpirySecs)
+                {
+                    _lastMevCache = DateTime.Now;
+                    doGetNew = true;
+                }
+            }
+
+            // refresh outside the lock
+            if (doGetNew)
+            {
+                var cache = await RefreshMevCache();
+                if (cache != null)
+                {
+                    _mevCache = cache;
+                    _mevCacheJson = JsonSerializer.Serialize<MEVLiteCache>(cache, ZMSerializeOptions.Default);
+                    _lastMevCache = DateTime.Now;
+                }
+            }
+
+            // if the client already has the data, don't send again
+            if (_mevCache != null && lastBlockNumber == _mevCache.LastBlockNumber)
+                return "null";
+
+            return _mevCacheJson;
+        }
+
+        private static async Task<MEVLiteCache> RefreshMevCache()
+        {
+            try
+            {
+                // if a new block has arrived, build and cache a new mev summary for the home page
+                var latest = await DB.ReadLatestMevBlock();
+
+                if (latest != null && DB.LastBlockNumber != latest)
+                {
+                    DB.LastBlockNumber = latest;
+
+                    var mevBlocks = await DB.ReadMevBlocks(latest.Value - MEVLiteCache.CachedMevBlockCount, latest.Value);
+                    if (mevBlocks != null)
+                    {
+                        MEVLiteCache cache = new MEVLiteCache();
+                        cache.LastBlockNumber = latest;
+                        bool isFirst = true;
+                        foreach (var mb in mevBlocks)
+                        {
+                            var lb = new MEVLiteBlock(mb.BlockNumber, mb.BlockTime);
+                            var zv = new ZMView(mb.BlockNumber);
+                            zv.RefreshOffline(null, 10000); // fake the tx count
+                            zv.SetMev(mb);
+                            lb.MEVLite = BuildMevLite(zv);
+                            if (lb.MEVLite.Count > 0 || isFirst)
+                            {
+                                isFirst = false;
+                                cache.Blocks.Add(lb);
+                                if (cache.Blocks.Count >= MEVLiteCache.CachedMevBlockCount) break;
+                            }
+                        }
+                        return cache;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+            }
+            return null;
+        }
+
+        public static List<MEVLite> BuildMevLite(ZMView zv)
+        {
+            var r = new List<MEVLite>();
+            foreach (ZMTx tx in zv.Txs)
+            {
+                if (tx.MEV == null || tx.MEVClass == MEVClass.Info) continue;
+                r.Add(new MEVLite(tx.MEV));
+            }
+            return r;
+        }
 
         public static void QueueWriteExtractorBlockAsync(ExtractorBlock extractorBlock)
         {
@@ -174,6 +276,52 @@ namespace ZeroMev.SharedServer
             return ebs;
         }
 
+        public static Dictionary<long, List<ExtractorBlock>> ReadExtractorBlocks(long fromBlockNumber, long toBlockNumber)
+        {
+            var all = new Dictionary<long, List<ExtractorBlock>>();
+
+            using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.DB))
+            {
+                conn.Open();
+                using (var cmd = new NpgsqlCommand(ReadExtractorBlocksSQL, conn))
+                {
+                    cmd.Parameters.Add(new NpgsqlParameter<long>("@from_block_number", fromBlockNumber));
+                    cmd.Parameters.Add(new NpgsqlParameter<long>("@to_block_number", toBlockNumber));
+                    cmd.Prepare();
+                    var dr = cmd.ExecuteReader();
+
+                    long currentBlockNumber = -1;
+                    List<ExtractorBlock> ebs = null;
+                    while (dr.Read())
+                    {
+                        //extractor_index, block_time, extractor_start_time, arrival_count, pending_count, tx_data
+                        ExtractorBlock eb = new ExtractorBlock((long)dr["block_number"],
+                            (short)dr["extractor_index"],
+                            DateTime.SpecifyKind((DateTime)dr["block_time"], DateTimeKind.Utc),
+                            DateTime.SpecifyKind((DateTime)dr["extractor_start_time"], DateTimeKind.Utc),
+                            (long)dr["arrival_count"],
+                            (int)dr["pending_count"],
+                            (byte[])dr["tx_data"]);
+
+                        if (currentBlockNumber != eb.BlockNumber)
+                        {
+                            if (ebs != null && ebs.Count != 0)
+                                all.Add(ebs[0].BlockNumber, ebs);
+                            ebs = new List<ExtractorBlock>();
+                            currentBlockNumber = eb.BlockNumber;
+                        }
+                        ebs.Add(eb);
+                    }
+
+                    if (ebs != null && ebs.Count != 0)
+                        all.Add(ebs[0].BlockNumber, ebs);
+                }
+                conn.Close();
+            }
+
+            return all;
+        }
+
         public static void QueueWriteFlashbotsBlocksAsync(List<FBBlock> fbs)
         {
             if (fbs == null || fbs.Count == 0)
@@ -269,7 +417,7 @@ namespace ZeroMev.SharedServer
                 Stopwatch sw = new Stopwatch();
                 sw.Start();
 
-                using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.DB))
+                using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.MevDB))
                 {
                     conn.Open();
 
@@ -305,8 +453,11 @@ namespace ZeroMev.SharedServer
             var cmdLatestMevBlock = new NpgsqlBatchCommand(WriteLatestMevBlockSQL);
             cmdLatestMevBlock.Parameters.Add(new NpgsqlParameter<long>("@block_number", mb.BlockNumber));
 
-            // write them both in a single roundtrip
-            await using var batch = new NpgsqlBatch(conn)
+            // mev totals
+            var mev = MEVTypeSummaries.FromMevBlock(mb);
+
+            // write them all in a single roundtrip
+            using var batch = new NpgsqlBatch(conn)
             {
                 BatchCommands =
                 {
@@ -314,6 +465,17 @@ namespace ZeroMev.SharedServer
                     cmdLatestMevBlock
                 }
             };
+
+            foreach (var m in mev)
+            {
+                var cmdMevBlockSummary = new NpgsqlBatchCommand(WriteMevBlockSummarySQL);
+                cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<long>("@block_number", mb.BlockNumber));
+                cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<int>("@mev_type", (int)m.MEVType));
+                cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<decimal>("@mev_amount_usd", m.AmountUsd));
+                cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<int>("@mev_count", m.Count));
+                batch.BatchCommands.Add(cmdMevBlockSummary);
+            }
+
             await batch.ExecuteNonQueryAsync();
         }
 
@@ -357,25 +519,27 @@ namespace ZeroMev.SharedServer
             cmdFlashbots.Parameters.Add(new NpgsqlParameter<long>("@block_number", blockNumber));
 
             // mev
-            var cmdMevBlock = new NpgsqlBatchCommand(ReadMevBlockSQL);
+            byte[] mevComp = null;
+            var connMev = new NpgsqlConnection(Config.Settings.MevDB);
+            connMev.Open();
+            var cmdMevBlock = new NpgsqlCommand(ReadMevBlockSQL, connMev);
             cmdMevBlock.Parameters.Add(new NpgsqlParameter<long>("@block_number", blockNumber));
+            var taskMev = cmdMevBlock.ExecuteReaderAsync();
 
             List<ExtractorBlock> ebs = null;
             BitArray bundles = null;
-            byte[] mevComp = null;
 
             using (var conn = new NpgsqlConnection(Config.Settings.DB))
             {
                 conn.Open();
 
-                // get them all in a single roundtrip
+                // get them both in a single roundtrip
                 await using var batch = new NpgsqlBatch(conn)
                 {
                     BatchCommands =
                 {
                     cmdExtractors,
-                    cmdFlashbots,
-                    cmdMevBlock
+                    cmdFlashbots
                 }
                 };
                 await using var dr = await batch.ExecuteReaderAsync();
@@ -387,12 +551,13 @@ namespace ZeroMev.SharedServer
                 dr.NextResult();
                 while (dr.Read())
                     bundles = (BitArray)dr["bundle_data"];
-
-                // read mev
-                dr.NextResult();
-                while (dr.Read())
-                    mevComp = (byte[])dr["mev_data"];
             }
+
+            // read mev
+            using var drmev = await taskMev;
+            while (drmev.Read())
+                mevComp = (byte[])drmev["mev_data"];
+            connMev.Close();
 
             // build zm block
             var zb = DB.BuildZMBlock(ebs);
@@ -418,7 +583,7 @@ namespace ZeroMev.SharedServer
         {
             long? latestBlockNumber = null;
 
-            using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.DB))
+            using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.MevDB))
             {
                 conn.Open();
                 using (var cmd = new NpgsqlCommand(ReadLatestMevBlockSQL, conn))
@@ -439,7 +604,7 @@ namespace ZeroMev.SharedServer
         {
             List<MEVBlock> mbs = new List<MEVBlock>();
 
-            using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.DB))
+            using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.MevDB))
             {
                 conn.Open();
                 using (var cmd = new NpgsqlCommand(ReadMevBlocksSQL, conn))

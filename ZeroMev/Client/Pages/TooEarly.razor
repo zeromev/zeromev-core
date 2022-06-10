@@ -1,0 +1,19 @@
+﻿@page "/tooearly"
+@inject ZMCache Cache
+
+<div class="row">
+    <div class="col-8">
+        <p>
+            <h5>sorry, the data for that block is not yet available.</h5>
+        </p>
+        @if (Cache.LastBlockNumber!=null)
+        {
+        <p>
+            <h7>the latest known block is <a href="block?num=@Cache.LastBlockNumber">@Cache.LastBlockNumber.</a></h7>
+        </p>            
+        }
+        <p>
+            <h7>please try again soon or go back to the <a href="" class="link-primary">home page</a>.</h7>
+        </p>
+    </div>
+</div>

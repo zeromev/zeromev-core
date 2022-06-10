@@ -1,6 +1,4 @@
-﻿@import url('open-iconic/font/css/open-iconic-bootstrap.min.css');
-
-h1:focus {
+﻿h1:focus {
     outline: none;
 }
 
@@ -60,6 +58,10 @@ a {
     text-decoration: none;
 }
 
+.lighter-text {
+    color: #7590a1;
+}
+
 /* mev classes */
 .mev-any {
     background-color: transparent;
@@ -91,6 +93,18 @@ a {
     background-color: darkgrey;
 }
 
+.greyout {
+    opacity: 0.2;
+}
+
+.imgbtn {
+    opacity: 0.6;
+}
+
+.imgbtn:hover {
+    opacity: 1.0;
+}
+
 /* table rows */
 .tr-fb-odd {
     background-color: #f8f8ff;
@@ -113,18 +127,8 @@ a {
 }
 
 
-.content {
-    padding-top: 1.1rem;
-    padding-left: 1rem !important;
-    padding-right: 1rem !important;
-}
-
-@media (min-width: 768px) {
-    .content {
-        padding-top: 1.1rem;
-        padding-left: 2rem !important;
-        padding-right: 2rem !important;
-    } 
+.container-fluid.page-content {
+    padding-top: 1rem;
 }
 
 @media (max-width: 767.98px) {
@@ -137,7 +141,6 @@ a {
         margin-top: 0 !important;
     }
 }
-
 
 
 .btn.btn-outline-light.active,
@@ -187,14 +190,10 @@ a {
     }
 }
 
-
-@media (max-width: 767px) {
-    .table-res {
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-    }
+.table-res {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
 }
-
 
 .tnavbar {
     padding-top: 0.5rem;
@@ -236,6 +235,7 @@ a {
 }
 
 .tnavbar__toggle {
+    display: block !important;
     width: 60px;
 }
 
@@ -249,7 +249,11 @@ a {
     margin-bottom: 15px;
 }
 
-@media (min-width: 768px) {
+.collapse.navbar-collapse:not(.show) {
+    display: none;
+}
+
+@media (min-width: 801px) {
     .tnavbar {
         flex-direction: row;
         align-items: center;
@@ -275,6 +279,13 @@ a {
         display: none;
     }
 
+    .tnavbar__toggle {
+        display: none !important;
+    }
+
+    .collapse.navbar-collapse {
+        display: block !important;
+    }
 }
 
 
@@ -282,16 +293,17 @@ a {
 
 img.ani-breathing {
     height: auto;
-    animation: breathing 1.5s linear infinite;
+    animation: breathing 1.45s linear infinite;
     transform-origin: center;
     vertical-align: middle;
     will-change: transform;
 }
 
+
 @keyframes breathing {
     0% {
       
-        transform: scale(0.9);
+        transform: scale(0.85);
     }
 
     25% {
@@ -300,13 +312,10 @@ img.ani-breathing {
     }
 
     60% {
-       
-        transform: scale(0.9);
+        transform: scale(0.85);
     }
 
     100% {
-       
-        transform: scale(0.9);
+        transform: scale(0.85);
     }
 }
-

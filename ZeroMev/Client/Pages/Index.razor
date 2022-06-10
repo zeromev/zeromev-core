@@ -3,8 +3,6 @@
 @inject ZMCache Cache
 @inject NavigationManager NavigationManager
 
-<p class="h4">recent mev</p>
-
 <BlocksTable MEVLiteCache=MEVLiteCache/>
 
 @code {
@@ -12,6 +10,8 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        MEVLiteCache = await API.GetMEVLiteCache(Http);
+        var cache = await API.GetMEVLiteCache(Http, MEVLiteCache != null ? MEVLiteCache.LastBlockNumber : -1);
+        if (cache != null)
+            MEVLiteCache = cache;
     }
 }

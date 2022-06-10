@@ -12,6 +12,8 @@ namespace ZeroMev.Shared
         public override ZMDecimal Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             var s = JsonSerializer.Deserialize<string>(ref reader, options);
+            if (s == "{\"IsPowerOfTwo\":false,\"IsZero\":false,\"IsOne\":false,\"IsEven\":true,\"Sign\":1}")
+                return 0;
             return ZMDecimal.Parse(s);
         }
 

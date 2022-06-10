@@ -4,22 +4,30 @@
 @if (ZV.BlockNumber < API.EarliestZMBlock)
 {
     <div class="alert alert-warning" role="alert">
-        no zeromev time order data available before block @API.EarliestZMBlock
+        no time order data before block @API.EarliestZMBlock
     </div>
 }
-else
+
+@if (ZV.BlockNumber < API.EarliestMevBlock)
 {
+    <div class="alert alert-warning" role="alert">
+        no mev data before block @API.EarliestMevBlock
+    </div>
+}
+
+@{
     ZV.SetOrderBy(Order);
-    bool isDisabled = (ZV.TxCount == 0);
+    bool isDisabled = (ZV.TxCount == 0 || !ZV.HasZM);
     string canvasStyle = null;
     if (!isDisabled)
         canvasStyle = "border:1px solid #000000";
+    if (!ZV.HasMEV) SetFilter(MEVFilter.All);
 
     <div class="row-filter">
         <div class="order-group">
             <div class="btn-group" role="group" aria-label="transaction filter">
-                <abbr title="the final block order chosen by the miner"><button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Block?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Block)" disabled="@isDisabled">block order</button></abbr>
-                <abbr title="the order if the miner had ordered by gas price"><button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Gas?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Gas)" disabled="@isDisabled">gas order</button></abbr>
+                <abbr title="the final block order chosen by the miner"><button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Block?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Block)">block order</button></abbr>
+                <abbr title="the order if the miner had ordered by gas price"><button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Gas?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Gas)">gas order</button></abbr>
                 <abbr title="the order if the miner had ordered fairly by arrival time"><button type="button" class="btn btn-outline-light @(ZV.OrderBy==OrderBy.Time?"active":"text-dark")" @onclick="async () => await SetOrder(OrderBy.Time)" disabled="@isDisabled">fair order</button></abbr>
             </div>
             @if (TxIndex.HasValue)
@@ -29,42 +37,42 @@ else
         </div>
         <div class="filter-group">
             <div class="btn-group" role="group" aria-label="transaction filter">
-                <abbr title="all (@ZV.TxCount)"><button type="button" class="btn btn-outline-light @(Filter==MEVFilter.All?"active":"text-dark")" @onclick="() => SetFilter(MEVFilter.All)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />all</button></abbr>
-                <abbr title="info (@ZV.MEVSummaries[(int)MEVFilter.Info].Count)"><button type="button" class="btn btn-outline-light @(Filter==MEVFilter.Info?"active":"text-dark")" @onclick="() => SetFilter(MEVFilter.Info)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />info</button></abbr>
-                <abbr title="toxic mev (@ZV.MEVSummaries[(int)MEVFilter.Toxic].Count)"><button type="button" class="btn btn-outline-light @(Filter==MEVFilter.Toxic?"active":"text-dark")" @onclick="() => SetFilter(MEVFilter.Toxic)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />toxic</button></abbr>
-                <abbr title="other mev (@ZV.MEVSummaries[(int)MEVFilter.Other].Count)"><button type="button" class="btn btn-outline-light @(Filter==MEVFilter.Other?"active":"text-dark")" @onclick="() => SetFilter(MEVFilter.Other)" disabled="@isDisabled"><img src="filter.svg" width="20" height="20" />other</button></abbr>
+                <abbr title="all (@ZV.TxCount)"><button type="button" class="btn btn-outline-light @(Filter==MEVFilter.All?"active":"text-dark")" @onclick="() => SetFilter(MEVFilter.All)" disabled="@(!ZV.HasMEV)"><img src="filter.svg" width="20" height="20" />all</button></abbr>
+                <abbr title="info (@ZV.MEVSummaries[(int)MEVFilter.Info].Count)"><button type="button" class="btn btn-outline-light @(Filter==MEVFilter.Info?"active":"text-dark")" @onclick="() => SetFilter(MEVFilter.Info)" disabled="@(!ZV.HasMEV)"><img src="filter.svg" width="20" height="20" />info</button></abbr>
+                <abbr title="toxic mev (@ZV.MEVSummaries[(int)MEVFilter.Toxic].Count)"><button type="button" class="btn btn-outline-light @(Filter==MEVFilter.Toxic?"active":"text-dark")" @onclick="() => SetFilter(MEVFilter.Toxic)" disabled="@(!ZV.HasMEV)"><img src="filter.svg" width="20" height="20" />toxic</button></abbr>
+                <abbr title="other mev (@ZV.MEVSummaries[(int)MEVFilter.Other].Count)"><button type="button" class="btn btn-outline-light @(Filter==MEVFilter.Other?"active":"text-dark")" @onclick="() => SetFilter(MEVFilter.Other)" disabled="@(!ZV.HasMEV)"><img src="filter.svg" width="20" height="20" />other</button></abbr>
             </div>
         </div>
     </div>
 
-    @if (ZV.TxCount >= 391)
+    @if (ZV.HasZM)
     {
-        <div style="max-width: @(ZV.TxCount)px">
-            <canvas id="orderCanvas" style="@canvasStyle; width:100%; height: 8px"></canvas>
-        </div>
+        if (ZV.TxCount >= 391)
+        {
+            <div style="max-width: @(ZV.TxCount)px">
+                <canvas id="orderCanvas" style="@canvasStyle; width:100%; height: 8px"></canvas>
+            </div>
+        }
+        else
+        {
+            <canvas id="orderCanvas" width="@ZV.TxCount" height="8" style="@canvasStyle"></canvas>
+        }
     }
-    else
-    {
-        <canvas id="orderCanvas" width="@ZV.TxCount" height="8" style="@canvasStyle"></canvas>
-    }
-
 }
 
-
-<div class="table-res">
-
-    <table name="txtable" class="table table-hover table-sm tableflx">
+<div id='txtablediv' class="">
+    <table id='txtable' name="txtable" class="table table-hover table-sm">
         <thead>
             <tr>
                 <th scope="col">time</th>
                 <th scope="col" class="px-2"></th>
                 <th scope="col">delay</th>
-                <th scope="col">txn hash</th>
-                <th scope="col">arrival time</th>
-                <th scope="col">action</th>
                 <th scope="col">mev</th>
                 <th scope="col">impact</th>
+                <th scope="col">action</th>
                 <th scope="col"><img src="FB.png" /></th>
+                <th scope="col">txn hash</th>
+                <th scope="col">arrival time</th>
                 <th scope="col">from</th>
                 <th scope="col">to</th>
                 <th scope="col">value (Eth)</th>
@@ -72,24 +80,13 @@ else
             </tr>
         </thead>
         <tbody>
-            @if (ZV.HasZM)
-            {
+            @{
                 filtered = ZV.GetFiltered(Filter);
                 <Virtualize Items="@filtered" Context="tx" OverscanCount=@(!TxIndex.HasValue||TxIndex.Value<3?3:TxIndex.Value)>
                     <tr id="@tx.TrId(TxIndex)" class="@tx.TrClass(TxIndex)">
-                        <td>@tx.TimeOrderIndex</td>
-                        <td style="background-color:@tx.HeatmapRGB"></td>
-                        <td style="width: 120px"><abbr title="@((MarkupString)tx.InclusionDelayDetail)">@tx.InclusionDelayShort</abbr></td>
-                        <td>@((MarkupString)tx.TxnHashShort)</td>
-                        <td><abbr title="@((MarkupString)tx.TimeOrderDetail)">@(tx.TimeOrder.ToString(Time.Format))</abbr></td>
-                        @if (tx.MEVActionDetail == null)
-                        {
-                            <td>@((MarkupString)tx.MEVActionSummary)</td>
-                        }
-                        else
-                        {
-                            <td><abbr title="@tx.MEVActionDetail">@((MarkupString)tx.MEVActionSummary)</abbr></td>
-                        }
+                        <td>@(ZV.HasZM ? tx.TimeOrderIndex : "-")</td>
+                        <td style="@(ZV.HasZM ? "background-color:"+tx.HeatmapRGB: null)"></td>
+                        <td style="width: 120px"><abbr title="@((MarkupString)tx.InclusionDelayDetail)">@(ZV.HasZM ? tx.InclusionDelayShort : "-")</abbr></td>
                         @if (MEVWeb.Get(tx.MEVClass).IsVisible)
                         {
                             <td><abbr title="@tx.MEVDetail"><span class="badge text-light @MEVWeb.CssClass(tx.MEVClass)">@tx.MEVName</span></abbr></td>
@@ -98,24 +95,14 @@ else
                         {
                             <td></td>
                         }
-                        <td>@tx.MEVAmountStr</td>
-                        <td>@tx.Bundle</td>
-                        <td>@((MarkupString)tx.FromShort)</td>
-                        <td>@((MarkupString)tx.ToShort)</td>
-                        <td>@tx.Value</td>
-                        <td>@tx.GasPrice</td>
-                    </tr>
-                </Virtualize>
-            }
-            else
-            {
-                filtered = ZV.GetFiltered(Filter);
-                <Virtualize Items="@filtered" Context="tx" OverscanCount=@(!TxIndex.HasValue||TxIndex.Value<3?3:TxIndex.Value)>
-                    <tr class="@tx.TrClass(TxIndex)">
-                        <td>-</td>
-                        <td></td>
-                        <td>-</td>
-                        <td>@((MarkupString)tx.TxnHashShort)</td>
+                        @if (tx.MEV != null && tx.MEV.MEVType == MEVType.Backrun && ((MEVBackrun)tx.MEV).BackrunAmountUsd != null)
+                        {
+                            <td><span class="text-secondary">(@((MarkupString)((MEVBackrun)tx.MEV).BackrunAmountStr))</span></td>
+                        }
+                        else
+                        {
+                            <td>@((MarkupString)tx.MEVAmountStr)</td>
+                        }
                         @if (tx.MEVActionDetail == null)
                         {
                             <td>@((MarkupString)tx.MEVActionSummary)</td>
@@ -124,16 +111,9 @@ else
                         {
                             <td><abbr title="@tx.MEVActionDetail">@((MarkupString)tx.MEVActionSummary)</abbr></td>
                         }
-                        @if (MEVWeb.Get(tx.MEVClass).IsVisible)
-                        {
-                            <td><abbr title="@tx.MEVDetail"><span class="badge text-light @MEVWeb.CssClass(tx.MEVClass)">@tx.MEVName</span></abbr></td>
-                        }
-                        else
-                        {
-                            <td></td>
-                        }
-                        <td>@tx.MEVAmountStr</td>
                         <td>@tx.Bundle</td>
+                        <td>@((MarkupString)tx.TxnHashShort)</td>
+                        <td><abbr title="@((MarkupString)tx.TimeOrderDetail)">@(ZV.HasZM ? tx.TimeOrder.ToString(Time.Format) : "-")</abbr></td>
                         <td>@((MarkupString)tx.FromShort)</td>
                         <td>@((MarkupString)tx.ToShort)</td>
                         <td>@tx.Value</td>
@@ -143,7 +123,6 @@ else
             }
         </tbody>
     </table>
-
 </div>
 
 @if (ZV.TxCount == 0)
@@ -183,7 +162,18 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await DisplayOrderBar();
+        try
+        {
+            if (ZV != null)
+            {
+                await DisplayOrderBar();
+                await Task.Delay(500);
+                await _jsRuntime.InvokeVoidAsync("makeTableResponsive");
+            }
+        }
+        catch (Exception e)
+        {
+        }
     }
 
     private async Task DisplayOrderBar()

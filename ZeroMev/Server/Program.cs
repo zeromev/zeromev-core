@@ -11,17 +11,27 @@ using System.Collections;
 using ZeroMev.Shared;
 using ZeroMev.SharedServer;
 using ZeroMev.Server;
+using AspNetCoreRateLimit;
 
 ConfigBuilder.Build();
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Rate limit
+builder.Services.AddOptions();
+builder.Services.AddMemoryCache();
+builder.Services.Configure<IpRateLimitOptions>(ConfigBuilder.GetSection("IpRateLimiting"));
+builder.Services.AddInMemoryRateLimiting();
+builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
+
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
-builder.Services.AddHostedService<CacheService>();
 
 var app = builder.Build();
+
+// Rate limit
+app.UseIpRateLimiting();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -42,14 +52,16 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
-
 app.MapRazorPages();
 app.MapControllers();
 app.MapFallbackToFile("index.html");
 
-app.MapGet("/zmhealth", () => "ok");
+app.MapGet("/zmhealth", () => "ok. ");
 
-app.MapGet("/zmsummary", () => DB.MEVLiteCacheJson);
+app.MapGet("/zmsummary/{id}", async (long id) =>
+{
+    return Results.Text(await DB.MEVLiteCacheJson(id));
+});
 
 app.MapGet("/zmblock/{id}", async (long id) =>
 {

@@ -6,12 +6,99 @@
 
 @if (zv == null)
 {
-    <p><em>loading block...</em></p>
+    <div class="row mb-2">
+        <div class="col-md-4 mb-2">
+            <div class="card text-dark bg-light h-100" aria-hidden="true">
+                <div class="card-body">
+                    <h5 class="card-title placeholder-glow"><span class="placeholder col-2"></span><span class="placeholder col-4"></span></h5>
+                    <p class="card-text placeholder-glow">
+                        <span class="placeholder col-4"></span>
+                        <span class="placeholder col-1"></span>
+                        <span class="placeholder col-1"></span>
+                        <span class="placeholder col-7"></span>
+                        <span class="placeholder col-4"></span>
+                        <span class="placeholder col-4"></span>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-2">
+            <div class="card text-dark bg-light h-100" aria-hidden="true">
+                <div class="card-body">
+                    <h5 class="card-title placeholder-glow"><span class="placeholder col-2"></span><span class="placeholder col-4"></span></h5>
+                    <p class="card-text placeholder-glow">
+                        <span class="placeholder col-4"></span>
+                        <span class="placeholder col-6"></span>
+                        <span class="placeholder col-8"></span>
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-2">
+            <div class="card text-dark bg-light h-100" aria-hidden="true">
+                <div class="card-body">
+                    <h5 class="card-title placeholder-glow"><span class="placeholder col-2"></span><span class="placeholder col-4"></span></h5>
+                    <p class="card-text placeholder-glow">
+                        <span class="placeholder col-6"></span>
+                        <span class="placeholder col-8"></span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <p class="placeholder-glow" aria-hidden="true">
+        <span class="placeholder col-1"></span>
+    </p>
+
+    <div class="table-responsive">
+        <table class="placeholder-glow table table-sm">
+            <thead>
+                <tr>
+                    <th scope="col"><span class="placeholder" style="display: inline-block; width: 80px;"></span></th>
+                    <th scope="col"><span class="placeholder" style="display: inline-block; width: 25px;"></span></th>
+                    <th scope="col"><span class="placeholder" style="display: inline-block; width: 160px;"></span></th>
+                    <th scope="col"><span class="placeholder" style="display: inline-block; width: 100px;"></span></th>
+                    <th scope="col"><span class="placeholder" style="display: inline-block; width: 90px;"></span></th>
+                    <th scope="col"><span class="placeholder" style="display: inline-block; width: 90px;"></span></th>
+                    <th scope="col"><span class="placeholder" style="display: inline-block; width: 25px;"></span></th>
+                    <th scope="col"><span class="placeholder" style="display: inline-block; width: 190px;"></span></th>
+                    <th scope="col"><span class="placeholder" style="display: inline-block; width: 220px;"></span></th>
+                    <th scope="col"><span class="placeholder" style="display: inline-block; width: 180px;"></span></th>
+                    <th scope="col"><span class="placeholder" style="display: inline-block; width: 180px;"></span></th>
+                    <th scope="col"><span class="placeholder" style="display: inline-block; width: 180px;"></span></th>
+                    <th scope="col"><span class="placeholder" style="display: inline-block; width: 150px;"></span></th>
+                </tr>
+            </thead>
+            <tbody>
+                @{
+                    for (int i = 0; i < 30; i++)
+                    {
+                        <tr>
+                            <td><span class="placeholder" style="display: inline-block; width: 80px;"></span></td>
+                            <td><span class="placeholder" style="display: inline-block; width: 25px;"></span></td>
+                            <td><span class="placeholder" style="display: inline-block; width: 160px;"></span></td>
+                            <td><span class="placeholder" style="display: inline-block; width: 100px;"></span></td>
+                            <td><span class="placeholder" style="display: inline-block; width: 90px;"></span></td>
+                            <td><span class="placeholder" style="display: inline-block; width: 90px;"></span></td>
+                            <td><span class="placeholder" style="display: inline-block; width: 25px;"></span></td>
+                            <td><span class="placeholder" style="display: inline-block; width: 190px;"></span></td>
+                            <td><span class="placeholder" style="display: inline-block; width: 220px;"></span></td>
+                            <td><span class="placeholder" style="display: inline-block; width: 180px;"></span></td>
+                            <td><span class="placeholder" style="display: inline-block; width: 180px;"></span></td>
+                            <td><span class="placeholder" style="display: inline-block; width: 180px;"></span></td>
+                            <td><span class="placeholder" style="display: inline-block; width: 150px;"></span></td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    </div>
 }
 else
 {
-    <BlockTable ZV=@zv/>
-    <BlockTxTable ZV=@zv TxIndex=@TxIndex/>
+    <BlockTable ZV=@zv />
+    <BlockTxTable ZV=@zv TxIndex=@TxIndex />
 }
 
 @code {
@@ -48,8 +135,18 @@ else
 
         // fail if we don't have a valid block view by now
         if (zv == null)
-            NavigationManager.NavigateTo("searchfailed");
+        {
+            if (Cache.LastBlockNumber != null && BlockNumber != null && BlockNumber.Value > Cache.LastBlockNumber)
+                NavigationManager.NavigateTo("tooearly");
+            else
+                NavigationManager.NavigateTo("searchfailed");
+        }
         else
-            Cache.SetLastBlockNumber(zv.LastBlockNumber);
+        {
+            if (zv.IsQuotaExceeded)
+                NavigationManager.NavigateTo("quotaexceeded");
+            else
+                Cache.SetLastBlockNumber(zv.LastBlockNumber);
+        }
     }
 }

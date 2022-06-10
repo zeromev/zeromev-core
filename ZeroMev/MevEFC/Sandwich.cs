@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Numerics;
 
 namespace ZeroMev.MevEFC
 {
@@ -18,6 +19,8 @@ namespace ZeroMev.MevEFC
         public int[] FrontrunSwapTraceAddress { get; set; } = null!;
         public string BackrunSwapTransactionHash { get; set; } = null!;
         public int[] BackrunSwapTraceAddress { get; set; } = null!;
+        public string? ProfitTokenAddress { get; set; }
+        public BigInteger? ProfitAmount { get; set; }
 
         public virtual ICollection<SandwichedSwap> SandwichedSwaps { get; set; }
     }

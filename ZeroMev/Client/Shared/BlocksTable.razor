@@ -2,58 +2,123 @@
 @inject ZMCache Cache
 @inject NavigationManager NavigationManager
 
-@if (MEVLiteCache != null)
+@if (MEVLiteCache == null)
 {
-    MEVLiteCache.CalculateSummaries();
-    <div class=row>
-        <div class="col">
-            <p>
-                <span style="display: inline-block; white-space: nowrap;">
-                    <span class="badge text-light mx-2 @MEVWeb.CssClass(MEVClass.Toxic)">Toxic MEV</span> $@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00"))
-                </span>
-                <span style="display: inline-block; white-space: nowrap;">
-                    <span class="badge text-light mx-2 @MEVWeb.CssClass(MEVClass.Unclassified)">Other MEV</span> $@(MEVLiteCache.Totals[(int)MEVFilter.Other].AmountUsd.ToString("0.00"))
-                </span>
-                <span class="mx-2"><img src="/time.svg" width=24 height=24> over @MEVLiteCache.Duration()</span>
+    <div class="card text-dark bg-light mb-3" aria-hidden="true">
+        <div class="card-body">
+            <h4 class="placeholder-glow"><span class="placeholder col-8"></span></h4>
+        </div>
+    </div>
+
+    <div class="card text-dark bg-light mb-3" aria-hidden="true">
+        <div class="card-body">
+            <h5 class="card-title placeholder-glow"><span class="placeholder col-3"></span></h5>
+            <p class="card-text placeholder-glow">
+                <span class="placeholder col-3"></span><br>
+                <span class="placeholder col-5"></span><br>
+                <span class="placeholder col-4"></span><br>
             </p>
         </div>
     </div>
-    <div class="row">
-        <div class="col">
-            <Virtualize Items="@MEVLiteCache.Blocks" Context="mb">
-                <hr />
-                <p>
-                    <a href="block?num=@mb.BlockNumber" class="link-primary"><img src="/block.svg" width=24 height=24> @mb.BlockNumber
-                    <br /><img src="/time.svg" width=24 height=24> @(mb.BlockTime == null ? "?" : mb.BlockTime.Value.ToString(Time.FormatShort))
-                    </a>
-                </p>
-               
-                    @foreach (var m in mb.MEVLite)
-                    {
-                        <span style="display: inline-block; white-space: nowrap;">
-                            <a href="block?num=@mb.BlockNumber">
-                                <span class="badge text-light mx-2 @MEVWeb.CssClass(m.MEVClass)">@m.MEVType.ToString()</span>
-                            </a>
-                            @if (m.MEVAmountUsd.HasValue)
-                            {
-                                @("$"+m.MEVAmountUsd.Value.ToString("0.00"))
-                            }
-                        </span>
-                    }
-               
 
-        </Virtualize>
-        <hr />
+    <div class="line">
+        <p class="placeholder-glow" aria-hidden="true">
+            <span class="placeholder col-1"></span>
+        </p>
+        @{
+            for (int i = 0; i < 30; i++)
+            {
+                <p class="placeholder-glow">
+                <span class="placeholder col-2"></span><br>
+                <span class="placeholder col-3"></span><br>
+                </p>
+                <p class="placeholder-glow">
+                    <span class="placeholder col-1"></span>
+                    <span class="placeholder col-1"></span>
+                    <span class="placeholder col-1"></span>
+                    <span class="placeholder col-1"></span>
+                </p>
+                <hr />
+            }
+        }
     </div>
-</div>
 }
 else
 {
-    <hr />
-<p><em>loading recent mev...</em></p>
+    MEVLiteCache.CalculateSummaries();
+
+    <div class="card text-dark bg-light mb-3">
+        <div class="card-body">
+            <h4 class="lighter-text">ethereum frontrunning explorer <img class="imgbtn" src="/help.svg" width=24 height=24></h4>
+        </div>
+    </div>
+
+    <div class="card text-dark bg-light mb-3">
+        <div class="card-body">
+            <h5 class="card-title">recent user losses</h5>
+            <span class=""><img src="/time.svg" width=24 height=24> over the last @MEVLiteCache.Duration()</span>
+            <p class="card-text">
+                <a href="http://info.zeromev.org/about#frontrunning" target="_blank"><span class="badge text-light @MEVWeb.CssClass(MEVClass.Toxic)">Toxic</span></a> frontrunning caused <span class="@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd==0?null:"fw-bold text-danger")">$@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00"))</span> in user losses <abbr title="frontrunning in ethereum is when miners extract money from users by inserting transactions infront of user transactions.@("\n")this is illegal in regulated financial markets because of the harm it causes to users.@("\n")for this reason, zeromev labels frontrunning attacks as 'toxic'."><img class="imgbtn" src="/help.svg" width=24 height=24></abbr>
+                <br>
+                <span class="badge text-light @MEVWeb.CssClass(MEVClass.Unclassified)">Other</span> mev caused <b>$@(MEVLiteCache.Totals[(int)MEVFilter.Other].AmountUsd.ToString("0.00"))</b> in losses. <img class="imgbtn" src="/help.svg" width=24 height=24>
+            </p>
+        </div>
+    </div>
+
+    <div class="line">
+        <p class="mt-2">
+            <button type="button" class="btn btn-outline-light active" @onclick=@RefreshPage disabled="@IsRefreshing"><img src="/refresh.svg" width="24" height="24" /> refresh</button>
+        </p>
+        <Virtualize Items="@MEVLiteCache.Blocks" Context="mb">
+            <p>
+                <a href="block?num=@mb.BlockNumber" class="link-primary">
+                    <img src="/block.svg" width=24 height=24> @mb.BlockNumber
+                    <br /><img src="/time.svg" width=24 height=24> @(mb.BlockTime == null ? "?" : mb.BlockTime.Value.ToString(Time.FormatShort))
+                </a>
+            </p>
+            @foreach (var m in mb.MEVLite)
+        {
+            <span style="display: inline-block; white-space: nowrap;">
+                <a href="block?num=@mb.BlockNumber">
+                    <span class="badge text-light mx-2 @MEVWeb.CssClass(m.MEVClass)">@m.MEVType.ToString()</span>
+                </a>
+                @if (m.MEVAmountUsd.HasValue)
+                {
+                    @("$"+m.MEVAmountUsd.Value.ToString("0.00"))
+                }
+            </span>
+        }
+        <hr />
+    </Virtualize>
+</div>
 }
 
 @code {
     [Parameter]
-    public MEVLiteCache MEVLiteCache { get; set; }
+    public MEVLiteCache? MEVLiteCache { get; set; }
+
+    long LastBlockNumber = -1;
+    private bool IsRefreshing = false;
+
+    private async void RefreshPage()
+    {
+        IsRefreshing = true;
+        this.StateHasChanged();
+
+        var newCache = await API.GetMEVLiteCache(Http, LastBlockNumber);
+        if (newCache != null)
+        {
+            MEVLiteCache = newCache;
+            if (newCache.LastBlockNumber.HasValue)
+                LastBlockNumber = newCache.LastBlockNumber.Value;
+            Cache.SetLastBlockNumber(LastBlockNumber);
+        }
+        else
+        {
+            await Task.Delay(500);
+        }
+
+        IsRefreshing = false;
+        this.StateHasChanged();
+    }
 }

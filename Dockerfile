@@ -6,9 +6,9 @@ WORKDIR /app
 COPY . ./
 
 # Restore dependencies
-RUN dotnet restore
+RUN dotnet restore ZeroMevApi.sln
 
-RUN dotnet publish -c Release -o /build
+RUN dotnet publish ZeroMevApi.sln -c Release -o /build
 
 # Build runtime image
 FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS runtime
@@ -16,6 +16,6 @@ FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS runtime
 WORKDIR /app
 
 COPY --from=build-env /build .
-COPY appsettings.json .
+COPY ZeroMev/Server/appsettings.json .
 # By default the SportAdvisor.Api project is started
 ENTRYPOINT ["dotnet", "ZeroMev.Server.dll"]

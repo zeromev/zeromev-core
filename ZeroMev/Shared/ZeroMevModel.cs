@@ -169,6 +169,7 @@ namespace ZeroMev.Shared
         public int TxCount;
         public string BlockHash;
         public string BlockHashShort;
+        public decimal? EthUsd = null;
 
         // set from zm block
         public long? LastBlockNumber;
@@ -196,6 +197,8 @@ namespace ZeroMev.Shared
         // display members
         public bool HasStats;
         public bool HasZM;
+        public bool HasMEV;
+        public bool IsQuotaExceeded;
 
         private DateTime _zmBlockResultTime;
         private bool _isZMBlockResultYoung;
@@ -215,7 +218,7 @@ namespace ZeroMev.Shared
         public async Task<bool> Refresh(HttpClient http)
         {
             Task<GetBlockByNumber?> blockTask = null;
-            Task<ZMBlock?> zbTask = null;
+            Task<string> zbTask = null;
 
             // churn caches of recent blocks as data may still be arriving
             if (ZMBlockResult == APIResult.Ok)
@@ -228,10 +231,10 @@ namespace ZeroMev.Shared
             if (BlockResult == APIResult.Retry) blockTask = API.GetBlockByNumber(http, BlockNumber);
             if (ZMBlockResult == APIResult.Retry)
             {
-                if (BlockNumber < API.EarliestFlashbotsBlock)
+                if (BlockNumber < API.EarliestMevBlock)
                     ZMBlockResult = APIResult.NoData;
                 else
-                    zbTask = API.GetZMBlock(http, BlockNumber);
+                    zbTask = API.GetZMBlockJson(http, BlockNumber);
             }
 
             // await block result
@@ -247,10 +250,12 @@ namespace ZeroMev.Shared
             if (ZMBlockResult == APIResult.Retry)
             {
                 ZMBlockResult = APIResult.NoData;
-                var zmBlock = await zbTask;
+                var json = await zbTask;
+                var zmBlock = API.ReadZMBlockJson(json, out IsQuotaExceeded);
                 if (SetZMBlock(zmBlock))
                 {
                     ZMBlockResult = APIResult.Ok;
+                    IsQuotaExceeded = false;
                     HasZM = true;
                     _zmBlockResultTime = DateTime.Now;
                     _isZMBlockResultYoung = DateTime.Now.AddSeconds(-API.RecentBlockSecs) < this.BlockTimeAvg;
@@ -501,6 +506,9 @@ namespace ZeroMev.Shared
                 foreach (var s in mb.Sandwiched[i])
                     SetMev(s, mb, i);
             for (int i = 0; i < mb.Backruns.Count; i++) SetMev(mb.Backruns[i], mb, i);
+
+            EthUsd = mb.EthUsd;
+            HasMEV = true;
         }
 
         private void SetMev(IMEV mev, MEVBlock mb, int mevIndex)
@@ -626,8 +634,8 @@ namespace ZeroMev.Shared
         {
             get
             {
-                if (MEV == null || !MEV.MEVAmountUsd.HasValue) return "";
-                return "$" + MEV.MEVAmountUsd.Value.ToString("0.00");
+                if (MEV == null) return "";
+                return Num.ToUsdStr(MEV.MEVAmountUsd);
             }
         }
 

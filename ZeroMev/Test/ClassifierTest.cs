@@ -22,6 +22,28 @@ namespace ZeroMev.Test
     public class ClassifierTest
     {
         [TestMethod]
+        public void JsonBigInt()
+        {
+            MEVLiquidation l = new MEVLiquidation("hash", ProtocolLiquidation.Aave, 10, 10, 0, 10, 10, 2, false);
+            Debug.WriteLine(JsonSerializer.Serialize(l, ZMSerializeOptions.Default));
+
+            MEVSwap s = new MEVSwap(new TraceAddress(new int[] { }), ProtocolSwap.Uniswap2, 10, 11, 0, 1, 0, 1);
+            Debug.WriteLine(JsonSerializer.Serialize(s, ZMSerializeOptions.Default));
+
+            Debug.WriteLine("BigInteger");
+            Debug.WriteLine(JsonSerializer.Serialize((BigInteger)0, ZMSerializeOptions.Default));
+            Debug.WriteLine(JsonSerializer.Serialize((BigInteger)1, ZMSerializeOptions.Default));
+            Debug.WriteLine(JsonSerializer.Serialize((BigInteger)2, ZMSerializeOptions.Default));
+            Debug.WriteLine(JsonSerializer.Serialize((BigInteger)232432, ZMSerializeOptions.Default));
+
+            Debug.WriteLine("ZMDecimal");
+            Debug.WriteLine(JsonSerializer.Serialize((ZMDecimal?)0, ZMSerializeOptions.Default));
+            Debug.WriteLine(JsonSerializer.Serialize((ZMDecimal?)1, ZMSerializeOptions.Default));
+            Debug.WriteLine(JsonSerializer.Serialize((ZMDecimal?)2, ZMSerializeOptions.Default));
+            Debug.WriteLine(JsonSerializer.Serialize((ZMDecimal?)232432, ZMSerializeOptions.Default));
+        }
+
+        [TestMethod]
         public async Task ReportSandwichMevProtection()
         {
             // retrieve mev in blocks of 1000
@@ -123,7 +145,7 @@ namespace ZeroMev.Test
         [TestMethod]
         public async Task TestCalculateSandwiches()
         {
-            const long testBlock = 13371782;
+            const long testBlock = 11443713;
 
             var mevBlocks = await DB.ReadMevBlocks(testBlock, testBlock + 1);
             if (mevBlocks != null)
@@ -140,17 +162,17 @@ namespace ZeroMev.Test
         [TestMethod]
         public void RunSandwichSim()
         {
-            const int SandwichTxCount = 3; // profit will always be < victim impact for 3, victim impact can be > profit for 4+ as the model assumes sandwiched transactions are fair ordered (when usually they will not be)
+            const int SandwichTxCount = 3; // profit will always be < user loss for 3, user loss can be > profit for 4+ as the model assumes sandwiched transactions are fair ordered (when usually they will not be)
             const int dec = 5;
 
-            // verification that victim impact > sandwich profit
+            // verification that user loss > sandwich profit
             ZMDecimal x = 10000;
             ZMDecimal y = 10000;
             ZMDecimal c = 0.997;
 
-            Debug.WriteLine($"profitPercent\tvictimImpactPercent");
+            Debug.WriteLine($"profitPercent\tuserLossPercent");
             ZMDecimal sumProfitPercent = 0;
-            ZMDecimal sumVictimImpactPercent = 0;
+            ZMDecimal sumUserLossPercent = 0;
             for (int i = 0; i < 10000; i++)
             {
                 MEVHelper.SimUniswap2(SandwichTxCount, 0.5, false, true, c, x, y, out var a, out var b, out var xOut, out var yOut, out var isBA);
@@ -158,30 +180,30 @@ namespace ZeroMev.Test
                 // get the recalculated original set used for error reduction
                 MEVCalc.CalculateSwaps(x, y, c, a, b, isBA, out var x_, out var y_, out var a_, out var b_, out var imbalanceSwitch);
 
-                // sandwich profit / backrun victim impact
+                // sandwich profit / backrun user loss
                 ZMDecimal sandwichProfit;
-                ZMDecimal? backrunVictimImpact = null;
+                ZMDecimal? backrunUserLoss = null;
                 int backIndex = a.Length - 1;
                 ZMDecimal[] af, bf;
-                sandwichProfit = MEVCalc.SandwichProfitBackHeavy(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_, out backrunVictimImpact, out af, out bf);
+                sandwichProfit = MEVCalc.SandwichProfitBackHeavy(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_, out backrunUserLoss, out af, out bf);
                 var profitPercent = (af[backIndex] / af[0]) - 1;
 
-                // frontrun victim impact
-                var bNoFrontrun = MEVCalc.FrontrunVictimImpact(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_);
-                var victimImpact = b[0] - bNoFrontrun[0];
-                var victimImpactPercent = (bNoFrontrun[1] / b[1]) - 1;
+                // frontrun user loss
+                var bNoFrontrun = MEVCalc.FrontrunUserLoss(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_);
+                var userLoss = b[0] - bNoFrontrun[0];
+                var userLossPercent = (bNoFrontrun[1] / b[1]) - 1;
                 sumProfitPercent += profitPercent;
-                sumVictimImpactPercent += victimImpactPercent;
-                Debug.WriteLine($"{profitPercent}\t{victimImpactPercent}");
+                sumUserLossPercent += userLossPercent;
+                Debug.WriteLine($"{profitPercent}\t{userLossPercent}");
             }
             Debug.WriteLine("-----\t-----");
-            Debug.WriteLine($"{sumProfitPercent}\t{sumVictimImpactPercent}");
+            Debug.WriteLine($"{sumProfitPercent}\t{sumUserLossPercent}");
         }
 
         [TestMethod]
         public void TestProcessSandwiches()
         {
-            var bp = BlockProcess.Load(11685998, 11687998, new DEXs());
+            var bp = BlockProcess.Load(14404171, 14404172, new DEXs());
             bp.Run();
         }
 
@@ -254,13 +276,34 @@ namespace ZeroMev.Test
         }
 
         [TestMethod]
-        public async Task TestSandwichesExport()
+        public async Task ExportMevSummary()
         {
-            const long first = 13358564;
-            const long last = 14153369;
+            // this writes to the db
+            //return;
+
+            const long first = API.EarliestMevBlock;
+            const long last = 14925700;
             const long chunk = 1000;
 
-            using (StreamWriter sw = new StreamWriter(@"E:\TestSandwiches3.txt"))
+            for (long from = first; from <= last; from += chunk)
+            {
+                long to = from + chunk;
+                if (to > last)
+                    to = last;
+
+                var mevBlocks = await DB.ReadMevBlocks(from, to);
+                await DB.QueueWriteMevBlocksAsync(mevBlocks);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestSandwichesExport()
+        {
+            const long first = 13232490;
+            const long last = 14761425;
+            const long chunk = 1000;
+
+            using (StreamWriter sw = new StreamWriter(@"E:\TestSandwiches8MaxAmountC2Limit.txt"))
             {
                 sw.WriteLine("block\ttxIndex\tarbs\tfrontrunImpact\tbackrunImpact\tprofitPoolExtract\tprofitNaive\tprofitFrontrun\tprofitBackrun\tprofitRateDiff2Way\tprofitFbOnePercent");
                 for (long from = first; from <= last; from += chunk)

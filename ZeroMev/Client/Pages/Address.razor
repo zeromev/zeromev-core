@@ -5,14 +5,47 @@
 
 @if (addrTxs == null)
 {
-    <p><em>loading account...</em></p>
+    <p class="placeholder-glow"><span class="placeholder col-4"></span></p>
+
+    <div class="table-responsive">
+        <table class="placeholder-glow table table-sm">
+            <thead>
+                <tr>
+                    <th scope="col"><span class="placeholder" style="display: inline-block; width: 230px;"></span></th>
+                    <th scope="col"><span class="placeholder" style="display: inline-block; width: 90px;"></span></th>
+                    <th scope="col"><span class="placeholder" style="display: inline-block; width: 170px;"></span></th>
+                    <th scope="col"><span class="placeholder" style="display: inline-block; width: 230px;"></span></th>
+                    <th scope="col"><span class="placeholder" style="display: inline-block; width: 230px;"></span></th>
+                    <th scope="col"><span class="placeholder" style="display: inline-block; width: 230px;"></span></th>
+                    <th scope="col"><span class="placeholder" style="display: inline-block; width: 230px;"></span></th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (int i = 0; i < AddressPageSize; i++)
+                {
+                    <tr>
+                        <td><span class="placeholder" style="display: inline-block; width: 230px;"></span></td>
+                        <td><span class="placeholder" style="display: inline-block; width: 90px;"></span></td>
+                        <td><span class="placeholder" style="display: inline-block; width: 170px;"></span></td>
+                        <td><span class="placeholder" style="display: inline-block; width: 230px;"></span></td>
+                        <td><span class="placeholder" style="display: inline-block; width: 230px;"></span></td>
+                        <td><span class="placeholder" style="display: inline-block; width: 230px;"></span></td>
+                        <td><span class="placeholder" style="display: inline-block; width: 230px;"></span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <p class="placeholder-glow" aria-hidden="true">
+        <span class="placeholder col-1"></span>
+    </p>
 }
 else
 {
     <p style="white-space: normal; word-break: break-word;"><img src="/addr.svg" width=32 height=32><span class="h4"> address </span><small>@Addr</small></p>
 
     <div class="table-res">
-
         <table class="table table-hover table-sm tableflx">
             <thead>
                 <tr>
@@ -39,7 +72,6 @@ else
                 </Virtualize>
             </tbody>
         </table>
-
     </div>
 
     <nav>

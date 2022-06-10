@@ -1,51 +1,115 @@
-﻿<div class="table-res">
-    <table class="table tableflx">
-        <thead>
-            <tr>
-                <th scope="col">
-                    <div style="display: flex; align-items: center; justify-content: flex-start;">
-                        <img src="/block.svg" width=24 height=24> <span style="padding-left: 4px;">block number</span>
-                    </div>
-                </th>
-                <th scope="col">toxic mev</th>
-                <th scope="col">total mev</th>
-                <th scope="col">txs delayed by avg (max)</th>
-                <th scope="col">p2p latency</th>
-                <th scope="col">
-                    <div style="display: flex; align-items: center; justify-content: flex-start;">
-                        <img src="/time.svg" width=24 height=24>  <span style="padding-left: 4px;">block time</span>
-                    </div>
-                </th>
-                <th scope="col">tx count</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>
-                    @ZV.BlockNumber
-                    <a href='/block?num=@(ZV.BlockNumber-1)' title='previous block'><img src="left.svg" width="16" height="16" /></a>
-                    <a href='/block?num=@(ZV.BlockNumber+1)' title='next block'><img src="right.svg" width="16" height="16" /></a>
-                </td>
-                <td class="@(ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd==0?null:"fw-bold text-danger")">$@ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00")</td>
-                <td>$@((ZV.MEVSummaries[(int)MEVFilter.Other].AmountUsd+ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd).ToString("0.00"))</td>
-                <td>@(ZV.HasStats && ZV.InclusionDelayMeanShort!=null ? ZV.InclusionDelayMeanShort+" ("+ZV.InclusionDelayMaxShort+")" : "-")</td>
-                @if (ZV.HasStats && ZV.ValidPopCount > 1)
-                {
-                    <td><abbr title="@ZV.PoPDetail">@Math.Round(ZV.BlockTimeRangeStdev.TotalMilliseconds, 0) ms (@ZV.ValidPopCount nodes)</abbr></td>
-                }
-                else
-                {
-                    <td>-</td>
-                }
-                <td>@((MarkupString)(ZV.HasStats ? "<abbr title=\""+ZV.BlockTimeDetail+"\">"+ZV.BlockTimeAvg.ToString(Time.Format)+"</abbr>" : "-"))</td>
-                <td>@ZV.TxCount</td>
-            </tr>
-        </tbody>
-    </table>
+﻿@inject ZMCache Cache
+
+<div class="row mb-2">
+    <div class="col-md-4 mb-2">
+        <div class="card text-dark bg-light h-100">
+            <abbr title="@("block number "+ZV.BlockNumber+"\nblock time "+(ZV.HasStats ? ZV.BlockTimeAvg.ToString(Time.Format) : "-")+"\ntx count "+ZV.TxCount)">
+                <div class="card-body">
+                    <h5 class="card-title"><img src="/block.svg" width=24 height=24> block</h5>
+                    <p class="card-text">
+                        <b>@(ZV.BlockNumber)</b>
+                        @if (ZV.BlockNumber > 0)
+                        {
+                            <a href='/block?num=@(ZV.BlockNumber-1)' title='previous block'><img src="left.svg" class="imgbtn" width="16" height="16" /></a>
+                        }
+                        else
+                        {
+                            <a title='no previous block'><img src="left.svg" width="16" height="16" class="greyout"/></a>
+                        }
+                        @if (ZV == null || ZV.LastBlockNumber == null || ZV.BlockNumber < Cache.LastBlockNumber)
+                        {
+                            <a href='/block?num=@(ZV.BlockNumber+1)' title='next block'><img src="right.svg" class="imgbtn" width="16" height="16" /></a>
+                        }
+                        else
+                        {
+                            <a title='no next block'><img src="right.svg" width="16" height="16" class="greyout"/></a>
+                        }
+                        contains
+                        @if (ZV.TxCount == 0)
+                        {
+                            <span>no transactions.</span>
+                        }
+                        else if (ZV.BlockNumber < API.EarliestMevBlock)
+                        {
+                            <span>@ZV.TxCount transactions.</span>
+                        }
+                        else
+                        {
+                            if (ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd == 0 && ZV.MEVSummaries[(int)MEVFilter.Other].AmountUsd == 0)
+                            {
+                                <span> no idenitified user losses </span>
+                            }
+                            else if (ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd != 0)
+                            {
+                                <span class="fw-bold text-danger">$@(ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00"))</span>
+
+                                <span> in user losses from </span>
+
+                                <span class="badge text-light @MEVWeb.CssClass(MEVClass.Toxic)">Toxic</span><span> frontrunning </span>
+
+                                if (ZV.MEVSummaries[(int)MEVFilter.Other].AmountUsd != 0)
+                                {
+                                    <span>and </span>
+
+                                    <span class="fw-bold">$@((ZV.MEVSummaries[(int)MEVFilter.Other].AmountUsd+ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd).ToString("0.00"))</span>
+
+                                    <span> mev in total </span>
+                                }
+                            }
+                            else if (ZV.MEVSummaries[(int)MEVFilter.Other].AmountUsd != 0)
+                            {
+                                <span class="fw-bold">$@((ZV.MEVSummaries[(int)MEVFilter.Other].AmountUsd+ZV.MEVSummaries[(int)MEVFilter.Toxic].AmountUsd).ToString("0.00"))</span>
+
+                                <span> in user losses from mev </span>
+                            }
+                            <span>and @ZV.TxCount transactions</span>
+                            if (ZV.EthUsd.HasValue)
+                            {
+                                <span>. <img src="eth.svg" width="22" height="22" alt="eth price"/> $@(ZV.EthUsd.Value).</span>
+                            }
+                            else
+                            {
+                                <span>.</span>
+                            }
+                        }
+                    </p>
+                </div>
+            </abbr>
+        </div>
+    </div>
+    <div class="col-md-4 mb-2">
+        <div class="card text-dark bg-light h-100">
+            <abbr title="@(ZV.HasStats ? "block arrival times\n"+ZV.BlockTimeDetail+"\n(avg "+ZV.BlockTimeAvg.ToString(Time.Format)+")\n" : null)see arrival time tooltips for tx arrival times.">
+                <div class="card-body">
+                    <h5 class="card-title"><img src="/time.svg" width=24 height=24> delay</h5>
+                    <p class="card-text">
+                        transactions were delayed by @((MarkupString)(ZV.HasStats && ZV.InclusionDelayMeanShort!=null ? "<b>"+ZV.InclusionDelayMeanShort+" avg</b> and "+ZV.InclusionDelayMaxShort+" max" : "an unknown amount")) before being included@(ZV.HasStats ? " at "+ZV.BlockTimeAvg.ToString(Time.FormatShort) : "").
+                    </p>
+                </div>
+            </abbr>
+        </div>
+    </div>
+    <div class="col-md-4 mb-2">
+        <div class="card text-dark bg-light h-100">
+            <abbr title="@ZV.PoPDetail">
+                <div class="card-body">
+                    <h5 class="card-title"><img src="/globe.svg" width=24 height=24> network</h5>
+                    <p class="card-text">
+                        p2p latency was
+                        @if (ZV.HasStats && ZV.ValidPopCount > 1)
+                        {
+                            <span>measured at <b>@Math.Round(ZV.BlockTimeRangeStdev.TotalMilliseconds, 0) ms</b> by @ZV.ValidPopCount nodes.</span>
+                        }
+                        else
+                        {
+                            <span>not measured for this block.</span>
+                        }
+                    </p>
+                </div>
+            </abbr>
+        </div>
+    </div>
 </div>
-
-<div class="mobile-space"></div>
-
 
 @code {
     [Parameter]
