@@ -18,4 +18,4 @@ WORKDIR /app
 COPY --from=build-env /build .
 COPY ZeroMev/Server/appsettings.json .
 # By default the SportAdvisor.Api project is started
-ENTRYPOINT ["dotnet", "ZeroMev.Server.dll"]
+ENTRYPOINT ["dotnet", "ZeroMev.ServerNoClient.dll"]
