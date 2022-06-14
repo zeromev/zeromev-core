@@ -953,7 +953,8 @@ namespace ZeroMev.Shared
         public void AddSandwichedSwap(MEVSwap sandwiched)
         {
             var index = Swaps.AddSwap(sandwiched);
-            SandwichedSwapIndex.Add(index);
+            if (index != null)
+                SandwichedSwapIndex.Add(index);
         }
 
         public List<MEVSwap> SandwichedSwaps()
@@ -1128,14 +1129,18 @@ namespace ZeroMev.Shared
         public void AddArbSwap(MEVSwap swap)
         {
             var index = Swaps.AddSwap(swap);
-            ArbSwapIndex.Add(index);
+            if (index != null)
+                ArbSwapIndex.Add(index);
         }
 
         public List<MEVSwap> ArbSwaps()
         {
             List<MEVSwap> arbSwaps = new List<MEVSwap>(Swaps.Swaps.Count);
             for (int i = 0; i < ArbSwapIndex.Count; i++)
-                arbSwaps.Add(Swaps.Swaps[ArbSwapIndex[i].Value]);
+            {
+                if (ArbSwapIndex[i] != null)
+                    arbSwaps.Add(Swaps.Swaps[ArbSwapIndex[i].Value]);
+            }
             return arbSwaps;
         }
     }
