@@ -56,11 +56,11 @@ else
     <div class="card text-dark bg-light mb-3">
         <div class="card-body">
             <h5 class="card-title">recent user losses</h5>
-            <span class=""><img src="/time.svg" width=24 height=24> over the last @MEVLiteCache.Duration()</span>
+            <span class=""><img src="/time.svg" width=24 height=24> over the last hour</span>
             <p class="card-text">
                 <a href="http://info.zeromev.org/about#frontrunning" target="_blank"><span class="badge text-light @MEVWeb.CssClass(MEVClass.Toxic)">Toxic</span></a> frontrunning caused <span class="@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd==0?null:"fw-bold text-danger")">$@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00"))</span> in user losses <abbr title="frontrunning in ethereum is when miners extract money from users by inserting transactions infront of user transactions.@("\n")this is illegal in regulated financial markets because of the harm it causes to users.@("\n")for this reason, zeromev labels frontrunning attacks as 'toxic'."><img class="imgbtn" src="/help.svg" width=24 height=24></abbr>
                 <br>
-                <span class="badge text-light @MEVWeb.CssClass(MEVClass.Unclassified)">Other</span> mev caused <b>$@(MEVLiteCache.Totals[(int)MEVFilter.Other].AmountUsd.ToString("0.00"))</b> in losses. <img class="imgbtn" src="/help.svg" width=24 height=24>
+                <span class="badge text-light @MEVWeb.CssClass(MEVClass.Unclassified)">Other</span> mev totalled <b>$@(MEVLiteCache.Totals[(int)MEVFilter.Other].AmountUsd.ToString("0.00"))</b>. <img class="imgbtn" src="/help.svg" width=24 height=24>
             </p>
         </div>
     </div>
