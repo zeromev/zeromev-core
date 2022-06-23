@@ -58,9 +58,9 @@ else
             <h5 class="card-title">recent user losses</h5>
             <span class=""><img src="/time.svg" width=24 height=24> over the last hour</span>
             <p class="card-text">
-                <a href="http://info.zeromev.org/about#frontrunning" target="_blank"><span class="badge text-light @MEVWeb.CssClass(MEVClass.Toxic)">Toxic</span></a> frontrunning caused <span class="@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd==0?null:"fw-bold text-danger")">$@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00"))</span> in user losses <a href="http://info.zeromev.org/terms.html#toxic-mev" target="_blank"><img class="imgbtn" src="/help.svg" width=24 height=24></a>
+                <a href="http://info.zeromev.org/terms.html#toxic-mev" target="_blank"><span class="badge text-light @MEVWeb.CssClass(MEVClass.Toxic)">Toxic</span></a> frontrunning caused <span class="@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd==0?null:"fw-bold text-danger")">$@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00"))</span> in user losses <a href="http://info.zeromev.org/terms.html#toxic-mev" target="_blank"><img class="imgbtn" src="/help.svg" width=24 height=24></a>
                 <br>
-                <span class="badge text-light @MEVWeb.CssClass(MEVClass.Unclassified)">Other</span> mev totalled <b>$@(MEVLiteCache.Totals[(int)MEVFilter.Other].AmountUsd.ToString("0.00"))</b>. <a href="http://info.zeromev.org/terms.html#unclassified-mev" target="_blank"><img class="imgbtn" src="/help.svg" width=24 height=24></a>
+                <a href="http://info.zeromev.org/terms.html#unclassified-mev" target="_blank"><span class="badge text-light @MEVWeb.CssClass(MEVClass.Unclassified)">Other</span></a> mev totalled <b>$@(MEVLiteCache.Totals[(int)MEVFilter.Other].AmountUsd.ToString("0.00"))</b>. <a href="http://info.zeromev.org/terms.html#unclassified-mev" target="_blank"><img class="imgbtn" src="/help.svg" width=24 height=24></a>
             </p>
         </div>
     </div>

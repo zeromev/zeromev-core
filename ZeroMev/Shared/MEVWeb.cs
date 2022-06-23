@@ -1490,12 +1490,12 @@ namespace ZeroMev.Shared
     public class MEVWeb
     {
         public static MEVDisplay[] Rows = {
-            new MEVDisplay(MEVClass.All, "", false, "mev-any"),
+            new MEVDisplay(MEVClass.All, "", false, "mev-any", "http://info.zeromev.org/explorer.html#mev"),
             new MEVDisplay(MEVClass.Unclassified, "Unclassified", true, "mev-un", "http://info.zeromev.org/terms.html#unclassified-mev"),
-            new MEVDisplay(MEVClass.Positive, "Positive", true, "mev-pos"),
+            new MEVDisplay(MEVClass.Positive, "Positive", true, "mev-pos", "http://info.zeromev.org/explorer.html#mev"),
             new MEVDisplay(MEVClass.Neutral, "Neutral", true, "mev-neu", "http://info.zeromev.org/terms.html#unclassified-mev"),
             new MEVDisplay(MEVClass.Toxic, "Toxic", true, "mev-tox", "http://info.zeromev.org/terms.html#toxic-mev"),
-            new MEVDisplay(MEVClass.Info, "Info", true, "mev-inf")};
+            new MEVDisplay(MEVClass.Info, "Info", true, "mev-inf","http://info.zeromev.org/explorer.html#mev") };
 
         public static MEVDisplay Get(MEVClass mevClass)
         {

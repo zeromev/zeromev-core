@@ -89,7 +89,7 @@
                         <td style="width: 120px"><abbr title="@((MarkupString)tx.InclusionDelayDetail)">@(ZV.HasZM ? tx.InclusionDelayShort : "-")</abbr></td>
                         @if (MEVWeb.Get(tx.MEVClass).IsVisible)
                         {
-                            <td><abbr title="@tx.MEVDetail"><a href="@MEVWeb.Get(tx.MEVClass).HelpLink"><span class="badge text-light @MEVWeb.CssClass(tx.MEVClass)">@tx.MEVName</span></a></abbr></td>
+                            <td><abbr title="@tx.MEVDetail"><a href="@MEVWeb.Get(tx.MEVClass).HelpLink" target="_blank"><span class="badge text-light @MEVWeb.CssClass(tx.MEVClass)">@tx.MEVName</span></a></abbr></td>
                         }
                         else
                         {
