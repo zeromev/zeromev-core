@@ -37,10 +37,10 @@
         </div>
         <div class="filter-group">
             <div class="btn-group" role="group" aria-label="transaction filter">
-                <abbr title="all (@ZV.TxCount)"><button type="button" class="btn btn-outline-light @(Filter==MEVFilter.All?"active":"text-dark")" @onclick="() => SetFilter(MEVFilter.All)" disabled="@(!ZV.HasMEV)"><img src="filter.svg" width="20" height="20" />all</button></abbr>
-                <abbr title="info (@ZV.MEVSummaries[(int)MEVFilter.Info].Count)"><button type="button" class="btn btn-outline-light @(Filter==MEVFilter.Info?"active":"text-dark")" @onclick="() => SetFilter(MEVFilter.Info)" disabled="@(!ZV.HasMEV)"><img src="filter.svg" width="20" height="20" />info</button></abbr>
-                <abbr title="toxic mev (@ZV.MEVSummaries[(int)MEVFilter.Toxic].Count)"><button type="button" class="btn btn-outline-light @(Filter==MEVFilter.Toxic?"active":"text-dark")" @onclick="() => SetFilter(MEVFilter.Toxic)" disabled="@(!ZV.HasMEV)"><img src="filter.svg" width="20" height="20" />toxic</button></abbr>
-                <abbr title="other mev (@ZV.MEVSummaries[(int)MEVFilter.Other].Count)"><button type="button" class="btn btn-outline-light @(Filter==MEVFilter.Other?"active":"text-dark")" @onclick="() => SetFilter(MEVFilter.Other)" disabled="@(!ZV.HasMEV)"><img src="filter.svg" width="20" height="20" />other</button></abbr>
+                <abbr title="show all @ZV.TxCount transactions in this block"><button type="button" class="btn btn-outline-light @(Filter==MEVFilter.All?"active":"text-dark")" @onclick="() => SetFilter(MEVFilter.All)" disabled="@(!ZV.HasMEV)"><img src="filter.svg" width="20" height="20" />all</button></abbr>
+                <abbr title="show the @ZV.MEVSummaries[(int)MEVFilter.Info].Count classified transactions"><button type="button" class="btn btn-outline-light @(Filter==MEVFilter.Info?"active":"text-dark")" @onclick="() => SetFilter(MEVFilter.Info)" disabled="@(!ZV.HasMEV)"><img src="filter.svg" width="20" height="20" />info</button></abbr>
+                <abbr title="show the @ZV.MEVSummaries[(int)MEVFilter.Toxic].Count toxic MEV transactions"><button type="button" class="btn btn-outline-light @(Filter==MEVFilter.Toxic?"active":"text-dark")" @onclick="() => SetFilter(MEVFilter.Toxic)" disabled="@(!ZV.HasMEV)"><img src="filter.svg" width="20" height="20" />toxic</button></abbr>
+                <abbr title="show the @ZV.MEVSummaries[(int)MEVFilter.Other].Count unclassified MEV transactions"><button type="button" class="btn btn-outline-light @(Filter==MEVFilter.Other?"active":"text-dark")" @onclick="() => SetFilter(MEVFilter.Other)" disabled="@(!ZV.HasMEV)"><img src="filter.svg" width="20" height="20" />other</button></abbr>
             </div>
         </div>
     </div>
