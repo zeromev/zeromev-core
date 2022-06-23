@@ -167,6 +167,10 @@ namespace ZeroMev.ClassifierService
 
             switch (protocol)
             {
+                case "uniswap_v2":
+                    return ProtocolSwap.Uniswap2;
+                case "uniswap_v3":
+                    return ProtocolSwap.Uniswap3;
                 case "curve":
                     return ProtocolSwap.Curve;
                 case "balancer_v1":

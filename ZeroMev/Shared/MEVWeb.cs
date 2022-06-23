@@ -953,7 +953,8 @@ namespace ZeroMev.Shared
         public void AddSandwichedSwap(MEVSwap sandwiched)
         {
             var index = Swaps.AddSwap(sandwiched);
-            SandwichedSwapIndex.Add(index);
+            if (index != null)
+                SandwichedSwapIndex.Add(index);
         }
 
         public List<MEVSwap> SandwichedSwaps()
@@ -1128,14 +1129,18 @@ namespace ZeroMev.Shared
         public void AddArbSwap(MEVSwap swap)
         {
             var index = Swaps.AddSwap(swap);
-            ArbSwapIndex.Add(index);
+            if (index != null)
+                ArbSwapIndex.Add(index);
         }
 
         public List<MEVSwap> ArbSwaps()
         {
             List<MEVSwap> arbSwaps = new List<MEVSwap>(Swaps.Swaps.Count);
             for (int i = 0; i < ArbSwapIndex.Count; i++)
-                arbSwaps.Add(Swaps.Swaps[ArbSwapIndex[i].Value]);
+            {
+                if (ArbSwapIndex[i] != null)
+                    arbSwaps.Add(Swaps.Swaps[ArbSwapIndex[i].Value]);
+            }
             return arbSwaps;
         }
     }
@@ -1461,14 +1466,16 @@ namespace ZeroMev.Shared
         public readonly string Name;
         public readonly bool IsVisible;
         public readonly string CssClass;
+        public readonly string HelpLink;
 
-        public MEVDisplay(MEVClass mevClass, string name, bool isVisible, string cssClass)
+        public MEVDisplay(MEVClass mevClass, string name, bool isVisible, string cssClass, string helpLink = "")
         {
             Index = (int)mevClass;
             Class = mevClass;
             Name = name;
             IsVisible = isVisible;
             CssClass = cssClass;
+            HelpLink = helpLink;
         }
 
         public bool DoDisplay
@@ -1483,12 +1490,12 @@ namespace ZeroMev.Shared
     public class MEVWeb
     {
         public static MEVDisplay[] Rows = {
-            new MEVDisplay(MEVClass.All, "", false, "mev-any"),
-            new MEVDisplay(MEVClass.Unclassified, "Unclassified", true, "mev-un"),
-            new MEVDisplay(MEVClass.Positive, "Positive", true, "mev-pos"),
-            new MEVDisplay(MEVClass.Neutral, "Neutral", true, "mev-neu"),
-            new MEVDisplay(MEVClass.Toxic, "Toxic", true, "mev-tox"),
-            new MEVDisplay(MEVClass.Info, "Info", true, "mev-inf")};
+            new MEVDisplay(MEVClass.All, "", false, "mev-any", "http://info.zeromev.org/explorer.html#mev"),
+            new MEVDisplay(MEVClass.Unclassified, "Unclassified", true, "mev-un", "http://info.zeromev.org/terms.html#unclassified-mev"),
+            new MEVDisplay(MEVClass.Positive, "Positive", true, "mev-pos", "http://info.zeromev.org/explorer.html#mev"),
+            new MEVDisplay(MEVClass.Neutral, "Neutral", true, "mev-neu", "http://info.zeromev.org/terms.html#unclassified-mev"),
+            new MEVDisplay(MEVClass.Toxic, "Toxic", true, "mev-tox", "http://info.zeromev.org/terms.html#toxic-mev"),
+            new MEVDisplay(MEVClass.Info, "Info", true, "mev-inf","http://info.zeromev.org/explorer.html#mev") };
 
         public static MEVDisplay Get(MEVClass mevClass)
         {

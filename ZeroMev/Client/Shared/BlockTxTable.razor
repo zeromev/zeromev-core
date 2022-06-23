@@ -50,12 +50,12 @@
         if (ZV.TxCount >= 391)
         {
             <div style="max-width: @(ZV.TxCount)px">
-                <canvas id="orderCanvas" style="@canvasStyle; width:100%; height: 8px"></canvas>
+                <canvas id="orderCanvas" style="@canvasStyle; width:100%; height: 8px"></canvas><a href="http://info.zeromev.org/explorer.html#heatmap" target="_blank"><img class="imgbtn mx-2" src="/help.svg" width=24 height=24></a>
             </div>
         }
         else
         {
-            <canvas id="orderCanvas" width="@ZV.TxCount" height="8" style="@canvasStyle"></canvas>
+            <canvas id="orderCanvas" width="@ZV.TxCount" height="8" style="@canvasStyle"></canvas><a href="http://info.zeromev.org/explorer.html#heatmap" target="_blank"><img class="imgbtn mx-2" src="/help.svg" width=24 height=24></a>
         }
     }
 }
@@ -64,19 +64,19 @@
     <table id='txtable' name="txtable" class="table table-hover table-sm">
         <thead>
             <tr>
-                <th scope="col">time</th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#time" target="_blank">time</a></th>
                 <th scope="col" class="px-2"></th>
-                <th scope="col">delay</th>
-                <th scope="col">mev</th>
-                <th scope="col">impact</th>
-                <th scope="col">action</th>
-                <th scope="col"><img src="FB.png" /></th>
-                <th scope="col">txn hash</th>
-                <th scope="col">arrival time</th>
-                <th scope="col">from</th>
-                <th scope="col">to</th>
-                <th scope="col">value (Eth)</th>
-                <th scope="col">gas price (Gwei)</th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#delay" target="_blank">delay</a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#mev" target="_blank">mev</a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#impact" target="_blank">impact</a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#action" target="_blank">action</a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#flashbots-bundle" target="_blank"><img src="FB.png"/></a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#transaction-hash" target="_blank">txn hash</a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#arrival-time" target="_blank">arrival time</a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#from" target="_blank">from</a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#to" target="_blank">to</a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#value" target="_blank">value (Eth)</a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#gas-price" target="_blank">gas price (Gwei)</a></th>
             </tr>
         </thead>
         <tbody>
@@ -89,7 +89,7 @@
                         <td style="width: 120px"><abbr title="@((MarkupString)tx.InclusionDelayDetail)">@(ZV.HasZM ? tx.InclusionDelayShort : "-")</abbr></td>
                         @if (MEVWeb.Get(tx.MEVClass).IsVisible)
                         {
-                            <td><abbr title="@tx.MEVDetail"><span class="badge text-light @MEVWeb.CssClass(tx.MEVClass)">@tx.MEVName</span></abbr></td>
+                            <td><abbr title="@tx.MEVDetail"><a href="@MEVWeb.Get(tx.MEVClass).HelpLink" target="_blank"><span class="badge text-light @MEVWeb.CssClass(tx.MEVClass)">@tx.MEVName</span></a></abbr></td>
                         }
                         else
                         {

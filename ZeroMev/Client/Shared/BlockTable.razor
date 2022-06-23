@@ -5,7 +5,9 @@
         <div class="card text-dark bg-light h-100">
             <abbr title="@("block number "+ZV.BlockNumber+"\nblock time "+(ZV.HasStats ? ZV.BlockTimeAvg.ToString(Time.Format) : "-")+"\ntx count "+ZV.TxCount)">
                 <div class="card-body">
-                    <h5 class="card-title"><img src="/block.svg" width=24 height=24> block</h5>
+                    <a href="http://info.zeromev.org/explorer.html#block-box" target="_blank">
+                        <h5 class="card-title"><img src="/block.svg" width=24 height=24> block</h5>
+                    </a>
                     <p class="card-text">
                         <b>@(ZV.BlockNumber)</b>
                         @if (ZV.BlockNumber > 0)
@@ -81,7 +83,9 @@
         <div class="card text-dark bg-light h-100">
             <abbr title="@(ZV.HasStats ? "block arrival times\n"+ZV.BlockTimeDetail+"\n(avg "+ZV.BlockTimeAvg.ToString(Time.Format)+")\n" : null)see arrival time tooltips for tx arrival times.">
                 <div class="card-body">
-                    <h5 class="card-title"><img src="/time.svg" width=24 height=24> delay</h5>
+                    <a href="http://info.zeromev.org/explorer.html#delay-box" target="_blank">
+                        <h5 class="card-title"><img src="/time.svg" width=24 height=24> delay</h5>
+                    </a>
                     <p class="card-text">
                         transactions were delayed by @((MarkupString)(ZV.HasStats && ZV.InclusionDelayMeanShort!=null ? "<b>"+ZV.InclusionDelayMeanShort+" avg</b> and "+ZV.InclusionDelayMaxShort+" max" : "an unknown amount")) before being included@(ZV.HasStats ? " at "+ZV.BlockTimeAvg.ToString(Time.FormatShort) : "").
                     </p>
@@ -93,7 +97,9 @@
         <div class="card text-dark bg-light h-100">
             <abbr title="@ZV.PoPDetail">
                 <div class="card-body">
-                    <h5 class="card-title"><img src="/globe.svg" width=24 height=24> network</h5>
+                    <a href="http://info.zeromev.org/explorer.html#network-box" target="_blank">
+                        <h5 class="card-title"><img src="/globe.svg" width=24 height=24> network</h5>
+                    </a>
                     <p class="card-text">
                         p2p latency was
                         @if (ZV.HasStats && ZV.ValidPopCount > 1)
