@@ -45,6 +45,7 @@
         </div>
     </div>
 
+    <abbr title="time order heatmap showing earlier (light-yellow) to later (dark-black) arrival times for each transaction in the block">
     @if (ZV.HasZM)
     {
         if (ZV.TxCount >= 391)
@@ -58,6 +59,7 @@
             <canvas id="orderCanvas" width="@ZV.TxCount" height="8" style="@canvasStyle"></canvas><a href="http://info.zeromev.org/explorer.html#heatmap" target="_blank"><img class="imgbtn mx-2" src="/help.svg" width=24 height=24></a>
         }
     }
+    </abbr>
 }
 
 <div id='txtablediv' class="">

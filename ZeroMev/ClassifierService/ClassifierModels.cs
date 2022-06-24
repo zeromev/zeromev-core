@@ -1057,8 +1057,16 @@ namespace ZeroMev.ClassifierService
                 rate = new XRate();
                 _usdBaseRate.Add(token, rate);
             }
-            if (rate.Rate == 0 || !doLimitRateChange || (newRate / rate.Rate < XRates.MaxRateMove && rate.Rate / newRate < XRates.MaxRateMove))
+
+            if (rate.Rate == 0 || !doLimitRateChange || IsValidRateMove(newRate.Value, rate.Rate))
                 rate.Rate = newRate.Value;
+        }
+
+        public static bool IsValidRateMove(ZMDecimal a, ZMDecimal b)
+        {
+            ZMDecimal min = ZMDecimal.Min(a, b);
+            ZMDecimal max = ZMDecimal.Max(a, b);
+            return (max / min < XRates.MaxRateMove);
         }
 
         public static decimal? ConvertToUsd(string? token, ZMDecimal? amount)
@@ -1311,7 +1319,7 @@ namespace ZeroMev.ClassifierService
                     */
                     if (BaseCurrencyA == BaseCurrency.ETH && BaseCurrencyB == BaseCurrency.USD)
                     {
-                        if (XRates.ETHBaseRate == null || XRates.ETHBaseRate == 0 || (newRate / XRates.ETHBaseRate < XRates.MaxRateMove && XRates.ETHBaseRate / newRate < 1.5))
+                        if (XRates.ETHBaseRate == null || XRates.ETHBaseRate == 0 || XRates.IsValidRateMove(newRate.Value, XRates.ETHBaseRate.Value))
                         {
                             XRates.ETHBaseRate = newRate;
                             XRates.SetUsdBaseRate(TokenA, newRate, zmSwap.IsSell, true);

@@ -491,5 +491,17 @@ namespace ZeroMev.Shared
         }
 
         #endregion
+
+        public static ZMDecimal Min(ZMDecimal a, ZMDecimal b)
+        {
+            if (a < b) return a;
+            return b;
+        }
+
+        public static ZMDecimal Max(ZMDecimal a, ZMDecimal b)
+        {
+            if (a > b) return a;
+            return b;
+        }
     }
 }
