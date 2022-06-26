@@ -377,7 +377,7 @@ namespace ZeroMev.Shared
         public decimal? MEVAmountUsd { get; set; }
 
         [JsonIgnore]
-        public string? MEVDetail { get; set; }
+        public string? MEVDetail { get; set; } = "see action.";
 
         [JsonIgnore]
         public string? ActionSummary => Swaps.ActionSummary;
@@ -1226,7 +1226,7 @@ namespace ZeroMev.Shared
         public MEVClass MEVClass => MEVClass.Unclassified;
 
         [JsonIgnore]
-        public string? MEVDetail { get; set; } = null;
+        public string? MEVDetail { get; set; } = "see action.";
 
         [JsonIgnore]
         public string? ActionSummary { get; set; }
@@ -1365,7 +1365,7 @@ namespace ZeroMev.Shared
         public decimal? MEVAmountUsd { get; set; } = null;
 
         [JsonIgnore]
-        public string? MEVDetail { get; set; } = null;
+        public string? MEVDetail { get; set; } = "see action.";
 
         [JsonIgnore]
         public string? ActionSummary { get; set; }

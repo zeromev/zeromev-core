@@ -1,22 +1,24 @@
 ﻿<nav class="container-fluid tnavbar navbar-dark" aria-label="Navigation" style="background-color:rgb(11,10,30)">
     <div class="tnavbar__logo">
-        <a href=""><img src="zm.svg" height="60" /></a>
+        <a href=""><img src="zm.svg" height="60" title="zeromev is an organization that aims to protect Ethereum users from frontrunning and censorship"/></a>
     </div>
     <div class="tnavbar__search">
         <Search />
     </div>
 
+    <abbr title="open the menu">
     <button title="Navigation menu" class="navbar-toggler tnavbar__toggle" @onclick="ToggleNavMenu">
         <span class="navbar-toggler-icon"></span>
     </button>
+    </abbr>
 
     <div class="@NavMenuCssClass collapse navbar-collapse">
         <ul class="tnavbar__nav">
             <li>
-                <NavLink class="nav-link" href="">home</NavLink>
+                <abbr title="navigate to the home page"><NavLink class="nav-link" href="">home</NavLink></abbr>
             </li>
             <li>
-                <NavLink class="nav-link" href="http://info.zeromev.org/index.html" target="_blank">about</NavLink>
+                <abbr title="read about us, the mev problem and how to protect yourself"><NavLink class="nav-link" href="http://info.zeromev.org/index.html" target="_blank">about</NavLink></abbr>
             </li>
         </ul>
     </div>
