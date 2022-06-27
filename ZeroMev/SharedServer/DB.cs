@@ -77,7 +77,6 @@ namespace ZeroMev.SharedServer
         // write cache
         static List<ExtractorBlock> _extractorBlocks = new List<ExtractorBlock>();
         static List<FBBlock> _fbBlocks = new List<FBBlock>();
-        static List<MEVBlock> _mevBlocks = new List<MEVBlock>();
 
         static public long? LastBlockNumber = null;
         private static MEVLiteCache _mevCache = null;
@@ -404,28 +403,28 @@ namespace ZeroMev.SharedServer
             return bundle;
         }
 
-        public static async Task QueueWriteMevBlocksAsync(List<MEVBlock> mbs)
+        public static async Task QueueWriteMevBlocksAsync(List<MEVBlock> addMevBlocks, string connectionStr, List<MEVBlock> staticQueue, bool doWriteSummary)
         {
-            if (mbs == null || mbs.Count == 0)
+            if (addMevBlocks == null || addMevBlocks.Count == 0)
                 return;
 
             try
             {
                 // employ a simple retry queue for writes so data is not lost even if the DB goes down for long periods (as long as the extractor keeps running)
-                _mevBlocks.AddRange(mbs);
+                staticQueue.AddRange(addMevBlocks);
 
                 Stopwatch sw = new Stopwatch();
                 sw.Start();
 
-                using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.MevDB))
+                using (NpgsqlConnection conn = new NpgsqlConnection(connectionStr))
                 {
                     conn.Open();
 
-                    while (_mevBlocks.Count > 0)
+                    while (staticQueue.Count > 0)
                     {
-                        MEVBlock nextMevBlock = _mevBlocks[0];
-                        await WriteMevBlock(conn, nextMevBlock);
-                        _mevBlocks.RemoveAt(0);
+                        MEVBlock nextMevBlock = staticQueue[0];
+                        await WriteMevBlock(conn, nextMevBlock, doWriteSummary);
+                        staticQueue.RemoveAt(0);
                     }
                 }
 
@@ -435,11 +434,11 @@ namespace ZeroMev.SharedServer
             catch (Exception e)
             {
                 // try catch is vital in this thread to avoid crashing the app
-                Console.WriteLine($"error QueueWriteMevBlocksAsync {e.Message}, with {_mevBlocks.Count} remaining");
+                Console.WriteLine($"error QueueWriteMevBlocksAsync {e.Message}, with {staticQueue.Count} remaining, db {connectionStr}");
             }
         }
 
-        public async static Task WriteMevBlock(NpgsqlConnection conn, MEVBlock mb)
+        public async static Task WriteMevBlock(NpgsqlConnection conn, MEVBlock mb, bool doWriteSummary)
         {
             var mevJson = JsonSerializer.Serialize<MEVBlock>(mb, ZMSerializeOptions.Default);
             var mevJsonComp = Binary.Compress(Encoding.ASCII.GetBytes(mevJson));
@@ -466,14 +465,17 @@ namespace ZeroMev.SharedServer
                 }
             };
 
-            foreach (var m in mev)
+            if (doWriteSummary)
             {
-                var cmdMevBlockSummary = new NpgsqlBatchCommand(WriteMevBlockSummarySQL);
-                cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<long>("@block_number", mb.BlockNumber));
-                cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<int>("@mev_type", (int)m.MEVType));
-                cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<decimal>("@mev_amount_usd", m.AmountUsd));
-                cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<int>("@mev_count", m.Count));
-                batch.BatchCommands.Add(cmdMevBlockSummary);
+                foreach (var m in mev)
+                {
+                    var cmdMevBlockSummary = new NpgsqlBatchCommand(WriteMevBlockSummarySQL);
+                    cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<long>("@block_number", mb.BlockNumber));
+                    cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<int>("@mev_type", (int)m.MEVType));
+                    cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<decimal>("@mev_amount_usd", m.AmountUsd));
+                    cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<int>("@mev_count", m.Count));
+                    batch.BatchCommands.Add(cmdMevBlockSummary);
+                }
             }
 
             await batch.ExecuteNonQueryAsync();
@@ -520,7 +522,7 @@ namespace ZeroMev.SharedServer
 
             // mev
             byte[] mevComp = null;
-            var connMev = new NpgsqlConnection(Config.Settings.MevDB);
+            var connMev = new NpgsqlConnection(Config.Settings.MevWebDB);
             connMev.Open();
             var cmdMevBlock = new NpgsqlCommand(ReadMevBlockSQL, connMev);
             cmdMevBlock.Parameters.Add(new NpgsqlParameter<long>("@block_number", blockNumber));

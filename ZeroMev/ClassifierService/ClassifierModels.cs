@@ -373,6 +373,10 @@ namespace ZeroMev.ClassifierService
     // load mev-inspect data for a chosen block range to be passed to the zm classifier
     public class BlockProcess
     {
+        // manage write queues for the main mev database and a web client replica
+        static List<MEVBlock> MevDbQueue = new List<MEVBlock>();
+        static List<MEVBlock> MevWebDbQueue = new List<MEVBlock>();
+
         public List<Swap> Swaps { get; set; }
         public Dictionary<string, ArbSwap> ArbitrageSwaps { get; set; }
         public Dictionary<string, string> Sandwiches { get; set; }
@@ -786,11 +790,16 @@ namespace ZeroMev.ClassifierService
             }
         }
 
-        public async Task Save(long trimBefore = -1)
+        public async Task Save(bool doReplicateMevWeb, long trimBefore = -1)
         {
             var mevBlocks = _mevBlocks.Values.Where<MEVBlock>(x => (x.BlockNumber > trimBefore)).ToList<MEVBlock>();
             if (mevBlocks != null && mevBlocks.Count > 0)
-                await DB.QueueWriteMevBlocksAsync(mevBlocks);
+            {
+                var a = DB.QueueWriteMevBlocksAsync(mevBlocks, Config.Settings.MevDB, MevDbQueue, true);
+                if (doReplicateMevWeb)
+                    await DB.QueueWriteMevBlocksAsync(mevBlocks, Config.Settings.MevWebDB, MevWebDbQueue, false);
+                await a;
+            }
         }
 
         public void TestMev(MEVBlock mb)
