@@ -1002,6 +1002,8 @@ namespace ZeroMev.ClassifierService
     {
         public static ZMDecimal MaxRateMove = 1.5;
         public static ZMDecimal MaxUsdRate = 100000;
+        public static ZMDecimal MaxEthUsdRate = 10000; // sanity check- until the next bull run!
+        public static ZMDecimal MinEthUsdRate = 100;
 
         public static ZMDecimal? ETHBaseRate { get; set; }
         private static Dictionary<string, XRate> _usdBaseRate = new Dictionary<string, XRate>();
@@ -1328,7 +1330,7 @@ namespace ZeroMev.ClassifierService
                     */
                     if (BaseCurrencyA == BaseCurrency.ETH && BaseCurrencyB == BaseCurrency.USD)
                     {
-                        if (XRates.ETHBaseRate == null || XRates.ETHBaseRate == 0 || XRates.IsValidRateMove(newRate.Value, XRates.ETHBaseRate.Value))
+                        if (XRates.ETHBaseRate == null || XRates.ETHBaseRate == 0 || (newRate.Value > XRates.MinEthUsdRate && newRate.Value < XRates.MaxEthUsdRate))
                         {
                             XRates.ETHBaseRate = newRate;
                             XRates.SetUsdBaseRate(TokenA, newRate, zmSwap.IsSell, true);
