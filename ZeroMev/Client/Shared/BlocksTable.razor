@@ -65,6 +65,9 @@ else
                 <a href="http://info.zeromev.org/terms.html#toxic-mev" target="_blank" title="Toxic MEV is the loss incurred to users by miners frontrunning or censoring their transactions, eg: sandwich attacks. The hallmark of toxic MEV is miners reordering user transactions for their own profit"><span class="badge text-light @MEVWeb.CssClass(MEVClass.Toxic)">Toxic</span> frontrunning caused <span class="@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd==0?null:"fw-bold text-danger")">$@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00"))</span> in user losses <img class="imgbtn" src="/help.svg" width=24 height=24></a>
                 <br>
                 <a href="http://info.zeromev.org/terms.html#unclassified-mev" target="_blank" title="Unclassified MEV which may be toxic or neutral"><span class="badge text-light @MEVWeb.CssClass(MEVClass.Unclassified)">Other</span> mev totalled <b>$@(MEVLiteCache.Totals[(int)MEVFilter.Other].AmountUsd.ToString("0.00"))</b>. <img class="imgbtn" src="/help.svg" width=24 height=24></a>
+                <br>
+                <br>
+                watch our <a href="https://info.zeromev.org/explorer.html#walkthrough" target="_blank" title="let us show you around the zeromev ethereum frontrunning explorer with this walkthrough video"><u style="border-bottom: 1px dashed #999; text-decoration: none;">walkthrough</u></a> video
             </p>
         </div>
     </div>
