@@ -154,7 +154,7 @@ namespace ZeroMev.ClassifierService
                             try
                             {
                                 bp.Run();
-                                await bp.Save();
+                                await bp.Save(true);
                             }
                             catch (Exception ex)
                             {
@@ -262,7 +262,7 @@ namespace ZeroMev.ClassifierService
                     if (stoppingToken.IsCancellationRequested)
                         return false;
 
-                    await bp.Save(lastZmBlock);
+                    await bp.Save(false, lastZmBlock);
                     if (stoppingToken.IsCancellationRequested)
                         return false;
 

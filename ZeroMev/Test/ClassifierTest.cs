@@ -285,6 +285,7 @@ namespace ZeroMev.Test
             const long last = 14925700;
             const long chunk = 1000;
 
+            List<MEVBlock> queue = new List<MEVBlock>();
             for (long from = first; from <= last; from += chunk)
             {
                 long to = from + chunk;
@@ -292,7 +293,7 @@ namespace ZeroMev.Test
                     to = last;
 
                 var mevBlocks = await DB.ReadMevBlocks(from, to);
-                await DB.QueueWriteMevBlocksAsync(mevBlocks);
+                await DB.QueueWriteMevBlocksAsync(mevBlocks, Config.Settings.MevDB, queue, true);
             }
         }
 
@@ -343,7 +344,7 @@ namespace ZeroMev.Test
             var dexs = new DEXs();
             var bi = BlockProcess.Load(fromBlock, toBlock, dexs);
             bi.Run();
-            await bi.Save();
+            await bi.Save(false);
             Stopwatch sw = Stopwatch.StartNew();
             sw.Stop();
 

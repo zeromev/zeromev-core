@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   id="svg11300"
+   sodipodi:docname="shield.svg"
+   inkscape:export-filename="/home/jimmac/gfx/novell/pdes/branches/NLD10/network-manager/applet-icons/48x48/apps/nm-device-wireless-encrypted.png"
+   viewBox="0 0 48 48"
+   sodipodi:version="0.32"
+   inkscape:export-xdpi="90.000000"
+   inkscape:output_extension="org.inkscape.output.svg.inkscape"
+   inkscape:export-ydpi="90.000000"
+   inkscape:version="1.1.2 (b8e25be833, 2022-02-05)"
+   version="1.1"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <defs
+     id="defs3">
+    <radialGradient
+       id="radialGradient15685"
+       gradientUnits="userSpaceOnUse"
+       cy="40.938"
+       cx="23.312"
+       gradientTransform="matrix(1 0 0 .31636 0 27.986)"
+       r="17.188"
+       inkscape:collect="always">
+      <stop
+         id="stop15681"
+         style="stop-color:#000000"
+         offset="0" />
+      <stop
+         id="stop15683"
+         style="stop-color:#000000;stop-opacity:0"
+         offset="1" />
+    </radialGradient>
+    <radialGradient
+       id="radialGradient3207"
+       gradientUnits="userSpaceOnUse"
+       cy="10.25"
+       cx="22.75"
+       gradientTransform="matrix(1.6165,0,0,1.7081,-14.026,-8.0075)"
+       r="19.875"
+       inkscape:collect="always">
+      <stop
+         id="stop15655"
+         style="stop-color:#f0f1ee"
+         offset="0" />
+      <stop
+         id="stop15657"
+         style="stop-color:#d5d9d1"
+         offset="1" />
+    </radialGradient>
+    <radialGradient
+       id="radialGradient3209"
+       gradientUnits="userSpaceOnUse"
+       cy="21.611"
+       cx="17.62"
+       gradientTransform="matrix(4.073,0,0,2.8745,-48.885,-43.215)"
+       r="8"
+       inkscape:collect="always">
+      <stop
+         id="stop2662"
+         style="stop-color:#edeeec"
+         offset="0" />
+      <stop
+         id="stop2664"
+         style="stop-color:#babdb6"
+         offset="1" />
+    </radialGradient>
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     bordercolor="#666666"
+     inkscape:pageshadow="2"
+     inkscape:window-y="-8"
+     pagecolor="#ffffff"
+     inkscape:showpageshadow="false"
+     inkscape:grid-bbox="true"
+     inkscape:zoom="10.54135"
+     inkscape:cx="13.233599"
+     inkscape:window-height="985"
+     showgrid="true"
+     borderopacity="0.25490196"
+     inkscape:current-layer="layer1"
+     stroke="#888a85"
+     inkscape:cy="22.767482"
+     inkscape:window-x="-8"
+     inkscape:window-width="1862"
+     inkscape:pageopacity="0.0"
+     inkscape:document-units="px"
+     fill="#babdb6"
+     inkscape:pagecheckerboard="0"
+     inkscape:window-maximized="1">
+    <inkscape:grid
+       id="GridFromPre046Settings"
+       opacity=".2"
+       color="#0000ff"
+       originy="0"
+       originx="0"
+       empspacing="4"
+       spacingy="1"
+       spacingx="1"
+       empopacity="0.4"
+       type="xygrid"
+       empcolor="#0000ff" />
+  </sodipodi:namedview>
+  <g
+     id="layer1"
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer">
+    <path
+       id="path15677"
+       sodipodi:rx="17.1875"
+       sodipodi:ry="5.4375"
+       style="opacity:.36932;color:#000000;display:block;fill:url(#radialGradient15685)"
+       sodipodi:type="arc"
+       d="m40.5 40.938a17.188 5.4375 0 1 1 -34.375 0 17.188 5.4375 0 1 1 34.375 0z"
+       transform="translate(-0.125 0.625)"
+       sodipodi:cy="40.9375"
+       sodipodi:cx="23.3125" />
+    <g
+       id="g3152"
+       inkscape:r_cy="true"
+       inkscape:r_cx="true"
+       transform="matrix(1.0063,0,0,1,0.478,0.5)">
+      <path
+         id="path15651"
+         style="color:#000000;display:block;fill:url(#radialGradient3207);stroke:#888a85;stroke-width:0.99687;stroke-linecap:round;stroke-linejoin:round"
+         inkscape:r_cy="true"
+         inkscape:r_cx="true"
+         sodipodi:nodetypes="ccccc"
+         d="M 23,3 C 15.599,8.5766 4,12 4,12 7,37.75 23.375,44 23.375,44 23.375,44 39.5,37.5 42.75,11.625 42.75,11.625 28.75,6.5 23,3 Z" />
+      <path
+         id="path15665"
+         style="color:#000000;display:block;fill:none;stroke:#ffffff;stroke-width:0.99687;stroke-linecap:round;stroke-linejoin:round"
+         inkscape:r_cy="true"
+         d="M 23.024,4.2893 C 16.088,9.5152 5.219,12.723 5.219,12.723 c 2.8109,24.131 18.117,29.988 18.117,29.988 0,0 15.15,-6.091 18.195,-30.339 0,0 -13.119,-4.8028 -18.507,-8.0827 z"
+         sodipodi:nodetypes="ccccc"
+         inkscape:r_cx="true" />
+      <path
+         id="path15667"
+         style="color:#000000;display:block;fill:url(#radialGradient3209)"
+         inkscape:r_cy="true"
+         inkscape:r_cx="true"
+         sodipodi:nodetypes="cccc"
+         d="m 22.883,7 v 33 c 0,0 -12.318,-5.259 -16,-26 5.25,-0.875 16,-7 16,-7 z" />
+    </g>
+  </g>
+  <metadata
+     id="metadata30">
+    <rdf:RDF>
+      <cc:Work>
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <cc:license
+           rdf:resource="http://creativecommons.org/publicdomain/zero/1.0/" />
+        <dc:publisher>
+          <cc:Agent
+             rdf:about="http://openclipart.org/">
+            <dc:title>Openclipart</dc:title>
+          </cc:Agent>
+        </dc:publisher>
+        <dc:date>2010-04-03T15:33:02</dc:date>
+        <dc:description>An icon from Tango Project. Since version 0.8.90 Tango Project icons are Public Domain.</dc:description>
+        <dc:source>https://openclipart.org/detail/36715/tango-network-wireless-encrypted-by-warszawianka</dc:source>
+        <dc:creator>
+          <cc:Agent>
+            <dc:title>warszawianka</dc:title>
+          </cc:Agent>
+        </dc:creator>
+        <dc:subject>
+          <rdf:Bag>
+            <rdf:li>externalsource</rdf:li>
+            <rdf:li>icon</rdf:li>
+            <rdf:li>network</rdf:li>
+            <rdf:li>tango</rdf:li>
+            <rdf:li>wireless</rdf:li>
+          </rdf:Bag>
+        </dc:subject>
+      </cc:Work>
+      <cc:License
+         rdf:about="http://creativecommons.org/licenses/publicdomain/">
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Reproduction" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Distribution" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#DerivativeWorks" />
+      </cc:License>
+    </rdf:RDF>
+  </metadata>
+</svg>

@@ -45,6 +45,7 @@
         </div>
     </div>
 
+    <abbr title="time order heatmap showing earlier (light-yellow) to later (dark-black) arrival times for each transaction in the block">
     @if (ZV.HasZM)
     {
         if (ZV.TxCount >= 391)
@@ -58,25 +59,26 @@
             <canvas id="orderCanvas" width="@ZV.TxCount" height="8" style="@canvasStyle"></canvas><a href="http://info.zeromev.org/explorer.html#heatmap" target="_blank"><img class="imgbtn mx-2" src="/help.svg" width=24 height=24></a>
         }
     }
+    </abbr>
 }
 
 <div id='txtablediv' class="">
     <table id='txtable' name="txtable" class="table table-hover table-sm">
         <thead>
             <tr>
-                <th scope="col"><a href="http://info.zeromev.org/explorer.html#time" target="_blank">time</a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#time" target="_blank" title="the index of a transaction in the block when ordered by first seen arrival time">time</a></th>
                 <th scope="col" class="px-2"></th>
-                <th scope="col"><a href="http://info.zeromev.org/explorer.html#delay" target="_blank">delay</a></th>
-                <th scope="col"><a href="http://info.zeromev.org/explorer.html#mev" target="_blank">mev</a></th>
-                <th scope="col"><a href="http://info.zeromev.org/explorer.html#impact" target="_blank">impact</a></th>
-                <th scope="col"><a href="http://info.zeromev.org/explorer.html#action" target="_blank">action</a></th>
-                <th scope="col"><a href="http://info.zeromev.org/explorer.html#flashbots-bundle" target="_blank"><img src="FB.png"/></a></th>
-                <th scope="col"><a href="http://info.zeromev.org/explorer.html#transaction-hash" target="_blank">txn hash</a></th>
-                <th scope="col"><a href="http://info.zeromev.org/explorer.html#arrival-time" target="_blank">arrival time</a></th>
-                <th scope="col"><a href="http://info.zeromev.org/explorer.html#from" target="_blank">from</a></th>
-                <th scope="col"><a href="http://info.zeromev.org/explorer.html#to" target="_blank">to</a></th>
-                <th scope="col"><a href="http://info.zeromev.org/explorer.html#value" target="_blank">value (Eth)</a></th>
-                <th scope="col"><a href="http://info.zeromev.org/explorer.html#gas-price" target="_blank">gas price (Gwei)</a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#delay" target="_blank" title="the delay between when a transaction was first seen by any of the zeromev nodes and when it was executed and published in the block">delay</a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#mev" target="_blank" title="details of MEV and other information. Toxic MEV is in red. Unclassified MEV is in grey">mev</a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#impact" target="_blank" title="summarizes the loss to the user of a MEV instance, or in the case of liquidations, the negative of the transaction profit for consistency">impact</a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#action" target="_blank" title="gives information about the execution of the transaction, not just those related to an instance of MEV. Examples include swaps, liquidations and NFT trades">action</a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#flashbots-bundle" target="_blank" title="when populated, it shows that the transaction was inserted by the miner having been bribed for inclusion in a Flashbots Bundle. The first number is the Flashbots bundle number and the second is the index of the transaction within the bundle"><img src="FB.png"/></a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#transaction-hash" target="_blank" title="an abbreviated hash of the Ethereum transaction. Hover over for the full hash. Click to link to it on Etherscan">txn hash</a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#arrival-time" target="_blank" title="the time at which a pending transaction was first seen by any one of the globally distributed zeromev nodes">arrival time</a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#from" target="_blank" title="the abbreviated originating address of the Ethereum transaction. Hover over for the full address. Click to link to it on Etherscan">from</a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#to" target="_blank" title="the abbreviated destination address of the Ethereum transaction. Hover over for the full address. Click to link to it on Etherscan">to</a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#value" target="_blank" title="the value in Eth of the transaction">value (Eth)</a></th>
+                <th scope="col"><a href="http://info.zeromev.org/explorer.html#gas-price" target="_blank" title="the bribe to the miner to include the transaction in the chain">gas price (Gwei)</a></th>
             </tr>
         </thead>
         <tbody>
@@ -84,8 +86,8 @@
                 filtered = ZV.GetFiltered(Filter);
                 <Virtualize Items="@filtered" Context="tx" OverscanCount=@(!TxIndex.HasValue||TxIndex.Value<3?3:TxIndex.Value)>
                     <tr id="@tx.TrId(TxIndex)" class="@tx.TrClass(TxIndex)">
-                        <td>@(ZV.HasZM ? tx.TimeOrderIndex : "-")</td>
-                        <td style="@(ZV.HasZM ? "background-color:"+tx.HeatmapRGB: null)"></td>
+                        <td><abbr title="the index by arrival time">@(ZV.HasZM ? tx.TimeOrderIndex : "-")</abbr></td>
+                        <td style="@(ZV.HasZM ? "background-color:"+tx.HeatmapRGB: null)" title="light/yellow show the oldest and dark/black the most recent"></td>
                         <td style="width: 120px"><abbr title="@((MarkupString)tx.InclusionDelayDetail)">@(ZV.HasZM ? tx.InclusionDelayShort : "-")</abbr></td>
                         @if (MEVWeb.Get(tx.MEVClass).IsVisible)
                         {
@@ -97,11 +99,11 @@
                         }
                         @if (tx.MEV != null && tx.MEV.MEVType == MEVType.Backrun && ((MEVBackrun)tx.MEV).BackrunAmountUsd != null)
                         {
-                            <td><span class="text-secondary">(@((MarkupString)((MEVBackrun)tx.MEV).BackrunAmountStr))</span></td>
+                            <td><span class="text-secondary" title="the user loss">(@((MarkupString)((MEVBackrun)tx.MEV).BackrunAmountStr))</span></td>
                         }
                         else
                         {
-                            <td>@((MarkupString)tx.MEVAmountStr)</td>
+                            <td><abbr title="the user loss">@((MarkupString)tx.MEVAmountStr)</abbr></td>
                         }
                         @if (tx.MEVActionDetail == null)
                         {
@@ -111,13 +113,13 @@
                         {
                             <td><abbr title="@tx.MEVActionDetail">@((MarkupString)tx.MEVActionSummary)</abbr></td>
                         }
-                        <td>@tx.Bundle</td>
+                        <td><abbr title="flashbots [bundle number].[index]">@tx.Bundle</abbr></td>
                         <td>@((MarkupString)tx.TxnHashShort)</td>
                         <td><abbr title="@((MarkupString)tx.TimeOrderDetail)">@(ZV.HasZM ? tx.TimeOrder.ToString(Time.Format) : "-")</abbr></td>
                         <td>@((MarkupString)tx.FromShort)</td>
                         <td>@((MarkupString)tx.ToShort)</td>
-                        <td>@tx.Value</td>
-                        <td>@tx.GasPrice</td>
+                        <td><abbr title="Eth value of the transaction">@tx.Value</abbr></td>
+                        <td><abbr title="gas price of the transaction">@tx.GasPrice</abbr></td>
                     </tr>
                 </Virtualize>
             }

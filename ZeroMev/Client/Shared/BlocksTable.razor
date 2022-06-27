@@ -16,6 +16,7 @@
             <p class="card-text placeholder-glow">
                 <span class="placeholder col-3"></span><br>
                 <span class="placeholder col-5"></span><br>
+                <span class="placeholder col-4"></span><br><br>
                 <span class="placeholder col-4"></span><br>
             </p>
         </div>
@@ -49,7 +50,10 @@ else
 
     <div class="card text-dark bg-light mb-3">
         <div class="card-body">
-            <h4 class="lighter-text">ethereum frontrunning explorer <a href="http://info.zeromev.org/explorer.html" target="_blank"><img class="imgbtn" src="/help.svg" width=24 height=24></a></h4>
+            <a href="http://info.zeromev.org/explorer.html" target="_blank" ><h4 class="lighter-text" title="The zeromev frontrunning explorer shows details of Miner Extractable Value (MEV) and transaction reordering (frontrunning and censorship) on the Ethereum network">ethereum frontrunning explorer <img class="imgbtn" src="/help.svg" width=24 height=24></h4></a>
+            <p class="card-text">
+                get started or learn more on our <a href="http://info.zeromev.org/index.html" target="_blank" title="find out more about us and mev and take steps to protect yourself from toxic MEV"><u style="border-bottom: 1px dashed #999; text-decoration: none;">info pages</u></a>
+            </p>
         </div>
     </div>
 
@@ -58,20 +62,20 @@ else
             <h5 class="card-title">recent user losses</h5>
             <span class=""><img src="/time.svg" width=24 height=24> over the last hour</span>
             <p class="card-text">
-                <a href="http://info.zeromev.org/terms.html#toxic-mev" target="_blank"><span class="badge text-light @MEVWeb.CssClass(MEVClass.Toxic)">Toxic</span></a> frontrunning caused <span class="@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd==0?null:"fw-bold text-danger")">$@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00"))</span> in user losses <a href="http://info.zeromev.org/terms.html#toxic-mev" target="_blank"><img class="imgbtn" src="/help.svg" width=24 height=24></a>
+                <a href="http://info.zeromev.org/terms.html#toxic-mev" target="_blank" title="Toxic MEV is the loss incurred to users by miners frontrunning or censoring their transactions, eg: sandwich attacks. The hallmark of toxic MEV is miners reordering user transactions for their own profit"><span class="badge text-light @MEVWeb.CssClass(MEVClass.Toxic)">Toxic</span> frontrunning caused <span class="@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd==0?null:"fw-bold text-danger")">$@(MEVLiteCache.Totals[(int)MEVFilter.Toxic].AmountUsd.ToString("0.00"))</span> in user losses <img class="imgbtn" src="/help.svg" width=24 height=24></a>
                 <br>
-                <a href="http://info.zeromev.org/terms.html#unclassified-mev" target="_blank"><span class="badge text-light @MEVWeb.CssClass(MEVClass.Unclassified)">Other</span></a> mev totalled <b>$@(MEVLiteCache.Totals[(int)MEVFilter.Other].AmountUsd.ToString("0.00"))</b>. <a href="http://info.zeromev.org/terms.html#unclassified-mev" target="_blank"><img class="imgbtn" src="/help.svg" width=24 height=24></a>
+                <a href="http://info.zeromev.org/terms.html#unclassified-mev" target="_blank" title="Unclassified MEV which may be toxic or neutral"><span class="badge text-light @MEVWeb.CssClass(MEVClass.Unclassified)">Other</span> mev totalled <b>$@(MEVLiteCache.Totals[(int)MEVFilter.Other].AmountUsd.ToString("0.00"))</b>. <img class="imgbtn" src="/help.svg" width=24 height=24></a>
             </p>
         </div>
     </div>
 
     <div class="line">
         <p class="mt-2">
-            <button type="button" class="btn btn-outline-light active" @onclick=@RefreshPage disabled="@IsRefreshing"><img src="/refresh.svg" width="24" height="24" /> refresh</button>
+            <button type="button" title="click to get the latest mev data" class="btn btn-outline-light active" @onclick=@RefreshPage disabled="@IsRefreshing"><img src="/refresh.svg" width="24" height="24" /> refresh</button>
         </p>
         <Virtualize Items="@MEVLiteCache.Blocks" Context="mb">
             <p>
-                <a href="block?num=@mb.BlockNumber" class="link-primary">
+                <a href="block?num=@mb.BlockNumber" class="link-primary" title="click to view MEV and transaction ordering details for block number @mb.BlockNumber">
                     <img src="/block.svg" width=24 height=24> @mb.BlockNumber
                     <br /><img src="/time.svg" width=24 height=24> @(mb.BlockTime == null ? "?" : mb.BlockTime.Value.ToString(Time.FormatShort))
                 </a>
@@ -79,12 +83,12 @@ else
             @foreach (var m in mb.MEVLite)
         {
             <span style="display: inline-block; white-space: nowrap;">
-                <a href="block?num=@mb.BlockNumber">
+                <a href="block?num=@mb.BlockNumber" title="@(m.MEVClass==MEVClass.Toxic ? "Toxic MEV is the loss incurred to users by miners frontrunning or censoring their transactions" : "Unclassified MEV which may be toxic or neutral")">
                     <span class="badge text-light mx-2 @MEVWeb.CssClass(m.MEVClass)">@m.MEVType.ToString()</span>
                 </a>
                 @if (m.MEVAmountUsd.HasValue)
                 {
-                    @("$"+m.MEVAmountUsd.Value.ToString("0.00"))
+                    <abbr title="shows the loss to the user of this instance of MEV">@("$"+m.MEVAmountUsd.Value.ToString("0.00"))</abbr>
                 }
             </span>
         }
