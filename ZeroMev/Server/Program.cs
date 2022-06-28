@@ -11,27 +11,16 @@ using System.Collections;
 using ZeroMev.Shared;
 using ZeroMev.SharedServer;
 using ZeroMev.Server;
-using AspNetCoreRateLimit;
 
 ConfigBuilder.Build();
 
 var builder = WebApplication.CreateBuilder(args);
-
-// Rate limit
-builder.Services.AddOptions();
-builder.Services.AddMemoryCache();
-builder.Services.Configure<IpRateLimitOptions>(ConfigBuilder.GetSection("IpRateLimiting"));
-builder.Services.AddInMemoryRateLimiting();
-builder.Services.AddSingleton<IRateLimitConfiguration, RateLimitConfiguration>();
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 builder.Services.AddRazorPages();
 
 var app = builder.Build();
-
-// Rate limit
-app.UseIpRateLimiting();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -51,6 +40,7 @@ app.UseBlazorFrameworkFiles();
 app.UseStaticFiles();
 
 app.UseRouting();
+
 
 app.MapRazorPages();
 app.MapControllers();
