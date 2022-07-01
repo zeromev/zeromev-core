@@ -58,4 +58,9 @@ app.MapGet("/zmblock/{id}", async (long id) =>
     return Results.Text(await DB.GetZmBlockJson(id));
 });
 
+app.MapGet("/zmblockmev/{id}", async (long id) =>
+{
+    return Results.Text(await DB.GetZmBlockMevJson(id));
+});
+
 app.Run();
