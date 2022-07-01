@@ -581,6 +581,34 @@ namespace ZeroMev.SharedServer
             return json;
         }
 
+        public async static Task<string> GetZmBlockMevJson(long blockNumber)
+        {
+            string json = "";
+
+            // mev
+            byte[] mevComp = null;
+            var connMev = new NpgsqlConnection(Config.Settings.MevWebDB);
+            connMev.Open();
+            var cmdMevBlock = new NpgsqlCommand(ReadMevBlockSQL, connMev);
+            cmdMevBlock.Parameters.Add(new NpgsqlParameter<long>("@block_number", blockNumber));
+            var taskMev = cmdMevBlock.ExecuteReaderAsync();
+
+            // read mev
+            using var drmev = await taskMev;
+            while (drmev.Read())
+                mevComp = (byte[])drmev["mev_data"];
+            connMev.Close();
+
+            // inject mev data into the json
+            if (mevComp != null)
+            {
+                byte[] mev = Binary.Decompress(mevComp);
+                json = ASCIIEncoding.ASCII.GetString(mev);
+            }
+
+            return json;
+        }
+
         public static async Task<long?> ReadLatestMevBlock()
         {
             long? latestBlockNumber = null;
