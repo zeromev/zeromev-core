@@ -419,6 +419,7 @@ namespace ZeroMev.Shared
             if (AmountOutUsd > Num.OversizedAmount) AmountOutUsd = null;
         }
 
+        [JsonIgnore]
         public bool IsKnown
         {
             get
@@ -1015,6 +1016,7 @@ namespace ZeroMev.Shared
         [JsonIgnore]
         public string? ActionDetail => Swaps.ActionDetail;
 
+        [JsonIgnore]
         public string BackrunAmountStr
         {
             get
