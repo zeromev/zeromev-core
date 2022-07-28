@@ -572,6 +572,10 @@ namespace ZeroMev.ClassifierService
                 // detect new block number
                 if (mevBlock == null || s.BlockNumber != mevBlock.BlockNumber)
                 {
+#if (DEBUG)
+                    if (mevBlock.BlockNumber == 15051108) Console.WriteLine("");
+#endif
+
                     // process liquidations and nfts in parallel with swaps to ensure we get decent exchange rates
                     // note that liquidations and nfts xrates are set a block granularity, where as arbs/swaps/sandwiches are set a tx level granularity
                     var tempMevBlock = mevBlock;

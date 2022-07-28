@@ -43,7 +43,14 @@
 }
 else
 {
-    <p style="white-space: normal; word-break: break-word;"><img src="/addr.svg" width=32 height=32><span class="h4"> address </span><small>@Addr</small></p>
+    <p style="white-space: normal; word-break: break-word;">
+        <img src="/addr.svg" width=32 height=32>
+        <span class="h4"> address </span><small>@Addr</small>
+        @if (@Addr=="0x9008d19f58aabd9ed0d60971565aa8510560ab41")
+        {
+            <img src="/cow.png" width=32 height=32 alt="cowswap" title="cowswap mev protection address (see cow.fi)">
+        }
+    </p>
 
     <div class="table-res">
         <table class="table table-hover table-sm tableflx">

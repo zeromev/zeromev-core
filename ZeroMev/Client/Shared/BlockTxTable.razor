@@ -116,8 +116,20 @@
                         <td><abbr title="flashbots [bundle number].[index]">@tx.Bundle</abbr></td>
                         <td>@((MarkupString)tx.TxnHashShort)</td>
                         <td><abbr title="@((MarkupString)tx.TimeOrderDetail)">@(ZV.HasZM ? tx.TimeOrder.ToString(Time.Format) : "-")</abbr></td>
-                        <td>@((MarkupString)tx.FromShort)</td>
-                        <td>@((MarkupString)tx.ToShort)</td>
+                        <td>
+                        @((MarkupString)tx.FromShort)
+                        @if (tx.From=="0x9008d19f58aabd9ed0d60971565aa8510560ab41")
+                        {
+                            <img src="/cow.png" width=20 height=20 alt="cowswap" title="from the cowswap mev protection address (see cow.fi)">
+                        }                        
+                        </td>
+                        <td>
+                        @((MarkupString)tx.ToShort)
+                        @if (tx.To=="0x9008d19f58aabd9ed0d60971565aa8510560ab41")
+                        {
+                            <img src="/cow.png" width=20 height=20 alt="cowswap" title="to the cowswap mev protection address (see cow.fi)">
+                        }                        
+                        </td>
                         <td><abbr title="Eth value of the transaction">@tx.Value</abbr></td>
                         <td><abbr title="gas price of the transaction">@tx.GasPrice</abbr></td>
                     </tr>
