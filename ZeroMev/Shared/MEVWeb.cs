@@ -354,6 +354,15 @@ namespace ZeroMev.Shared
             if (symbolIndex == Symbol.EthSymbolIndex) return true;
             return Symbols[symbolIndex].Name == "WETH";
         }
+
+        public bool IsUsd(int symbolIndex)
+        {
+            if (Symbols[symbolIndex].Image == null || Symbols[symbolIndex].Image.Length == 0) return false; // probably a fake
+            if (Symbols[symbolIndex].Name == "USD Coin") return true;
+            if (Symbols[symbolIndex].Name == "Dai") return true;
+            if (Symbols[symbolIndex].Name == "Tether USD") return true;
+            return false;
+        }
     }
 
     public class MEVSwapsTx : IMEV
@@ -512,7 +521,7 @@ namespace ZeroMev.Shared
 
         public ZMDecimal? OutUsdRate(MEVBlock mb)
         {
-
+            if (mb.IsUsd(SymbolOutIndex)) return 1;
             if (mb.EthUsd.HasValue && mb.IsEth(SymbolOutIndex)) return mb.EthUsd;
             if (AmountOutUsd == null) return null;
             if (AmountOut == null || AmountOut < Num.EpsilonAmount) return null;
@@ -814,28 +823,32 @@ namespace ZeroMev.Shared
             }
 
             decimal sumFrontrunUserLossUsd = 0;
-            if (imbalanceSwitch || isLowLiquidity)
+            // sandwich profits are calculated in token a
+            // frontrun user loss is calculated in token b
+            // we want their usd rates to be accurate and comparable
+            // sandwich profits are easily converted to usd using the final (a) back out rate, as this is the latest most efficient market information after the sandwich
+            // the latest usd rate for frontrun losses (b) is in the middle of the sandwich, which would inflate the results and be inconsistent with sandwich profits
+            // to avoid this, we use a calculated usd rate for (b) based on final pool values after the sandwich instead
+            var br = MEVCalc.GetAFromB(y_, x_, c, a[backIndex]);
+            ZMDecimal? bFinalUsdRate = null;
+
+            if (mevBlock.IsUsd(back.Swap.SymbolOutIndex))
+                bFinalUsdRate = back.Swap.AmountOut / back.Swap.AmountIn;
+            else if (mevBlock.EthUsd.HasValue && mevBlock.IsEth(back.Swap.SymbolOutIndex))
+                bFinalUsdRate = (back.Swap.AmountOut * back.Swap.OutUsdRate(mevBlock)) / back.Swap.AmountIn;
+            else if (back.Swap.AmountOutUsd < Num.OversizedAmount)
             {
-                // we can't trust exchange rates on pool imbalance attacks, so use sandwich profits instead
+                if (!imbalanceSwitch && !isLowLiquidity) // we can't trust exchange rates on pool imbalance attacks, so use sandwich profits instead
+                    bFinalUsdRate = back.Swap.AmountOutUsd / br;
+            }
+
+            if (!bFinalUsdRate.HasValue)
+            {
                 sumFrontrunUserLossUsd = -sandwichProfitUsd ?? 0;
                 sandwiched[0].MEVAmountUsd = sumFrontrunUserLossUsd;
             }
             else
             {
-                // sandwich profits are calculated in token a
-                // frontrun user loss is calculated in token b
-                // we want their usd rates to be accurate and comparable
-                // sandwich profits are easily converted to usd using the final (a) back out rate, as this is the latest most efficient market information after the sandwich
-                // the latest usd rate for frontrun losses (b) is in the middle of the sandwich, which would inflate the results and be inconsistent with sandwich profits
-                // to avoid this, we use a calculated usd rate for (b) based on final pool values after the sandwich instead
-                var br = MEVCalc.GetAFromB(y_, x_, c, a[backIndex]);
-                ZMDecimal? bFinalUsdRate = null;
-
-                if (mevBlock.EthUsd.HasValue && mevBlock.IsEth(back.Swap.SymbolOutIndex))
-                    bFinalUsdRate = (back.Swap.AmountOut * back.Swap.OutUsdRate(mevBlock)) / back.Swap.AmountIn;
-                else if (back.Swap.AmountOutUsd < Num.OversizedAmount)
-                    bFinalUsdRate = back.Swap.AmountOutUsd / br;
-
                 // frontrun user loss
                 var bNoFrontrun = MEVCalc.FrontrunUserLoss(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_);
                 int prevTxIndex = -1;

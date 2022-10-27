@@ -48,16 +48,21 @@ namespace ZeroMev.SharedServer
                 {
                     foreach (var s in swaps.Swaps)
                     {
-                        var vi = (int)swapVolumeType.Value;
-                        if (r[vi] == null)
+                        // ignore unknown symbols as we can't estimate mev against them
+                        if (s.SymbolInIndex != Symbol.UnknownSymbolIndex &&
+                            s.SymbolOutIndex != Symbol.UnknownSymbolIndex)
                         {
-                            r[vi] = new MEVTypeSummary();
-                            r[vi].MEVType = swapVolumeType.Value;
-                            r[vi].Count = 0;
-                            r[vi].AmountUsd = 0;
+                            var vi = (int)swapVolumeType.Value;
+                            if (r[vi] == null)
+                            {
+                                r[vi] = new MEVTypeSummary();
+                                r[vi].MEVType = swapVolumeType.Value;
+                                r[vi].Count = 0;
+                                r[vi].AmountUsd = 0;
+                            }
+                            r[vi].Count++;
+                            r[vi].AmountUsd += s.AmountOutUsd ?? 0;
                         }
-                        r[vi].Count++;
-                        r[vi].AmountUsd += s.AmountOutUsd ?? 0;
                     }
                 }
             }
