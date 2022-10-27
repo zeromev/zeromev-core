@@ -20,7 +20,10 @@ namespace ZeroMev.Shared
         NFT,
         PunkBid,
         PunkAccept,
-        PunkSnipe
+        PunkSnipe,
+        UserSwapVolume,
+        UserSandwichedSwapVolume,
+        ExtractorSwapVolume
     }
 
     public enum MEVClass
@@ -345,6 +348,12 @@ namespace ZeroMev.Shared
             }
             return Symbols[symbolIndex].GetImageUrl();
         }
+
+        public bool IsEth(int symbolIndex)
+        {
+            if (symbolIndex == Symbol.EthSymbolIndex) return true;
+            return Symbols[symbolIndex].Name == "WETH";
+        }
     }
 
     public class MEVSwapsTx : IMEV
@@ -501,8 +510,10 @@ namespace ZeroMev.Shared
             return (ZMDecimal)AmountInUsd / AmountIn;
         }
 
-        public ZMDecimal? OutUsdRate()
+        public ZMDecimal? OutUsdRate(MEVBlock mb)
         {
+
+            if (mb.EthUsd.HasValue && mb.IsEth(SymbolOutIndex)) return mb.EthUsd;
             if (AmountOutUsd == null) return null;
             if (AmountOut == null || AmountOut < Num.EpsilonAmount) return null;
             if (AmountOutUsd > Num.OversizedAmount) return null;
@@ -792,13 +803,13 @@ namespace ZeroMev.Shared
             else
                 sandwichProfit = MEVCalc.SandwichProfitFrontHeavy(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_, out frontrunUserLoss, out af, out bf);
 
-            var sandwichProfitUsd = MEVCalc.SwapUsd(back.Swap.OutUsdRate(), sandwichProfit);
+            var sandwichProfitUsd = MEVCalc.SwapUsd(back.Swap.OutUsdRate(mevBlock), sandwichProfit);
             SandwichProfitUsd = sandwichProfitUsd;
 
             decimal? backrunUserLossUsd = null;
             if (backrunUserLoss != null)
             {
-                backrunUserLossUsd = MEVCalc.SwapUsd(back.Swap.OutUsdRate(), backrunUserLoss.Value);
+                backrunUserLossUsd = MEVCalc.SwapUsd(back.Swap.OutUsdRate(mevBlock), backrunUserLoss.Value);
                 back.BackrunAmountUsd = backrunUserLossUsd;
             }
 
@@ -819,7 +830,10 @@ namespace ZeroMev.Shared
                 // to avoid this, we use a calculated usd rate for (b) based on final pool values after the sandwich instead
                 var br = MEVCalc.GetAFromB(y_, x_, c, a[backIndex]);
                 ZMDecimal? bFinalUsdRate = null;
-                if (back.Swap.AmountOutUsd < Num.OversizedAmount)
+
+                if (mevBlock.EthUsd.HasValue && mevBlock.IsEth(back.Swap.SymbolOutIndex))
+                    bFinalUsdRate = (back.Swap.AmountOut * back.Swap.OutUsdRate(mevBlock)) / back.Swap.AmountIn;
+                else if (back.Swap.AmountOutUsd < Num.OversizedAmount)
                     bFinalUsdRate = back.Swap.AmountOutUsd / br;
 
                 // frontrun user loss

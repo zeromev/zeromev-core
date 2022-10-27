@@ -18,6 +18,13 @@ namespace ZeroMev.Test
     public class FlashbotsAPITest
     {
         [TestMethod]
+        public async Task GetFlashbotsRecent()
+        {
+            HttpClient http = new HttpClient();
+            var r = await FlashbotsAPI.GetFlashbotsRecent(http);
+        }
+
+        [TestMethod]
         public async Task GetFlashbotsBlockByNumber()
         {
             HttpClient http = new HttpClient();
@@ -157,7 +164,7 @@ namespace ZeroMev.Test
                     foreach (var tx in fb.transactions)
                     {
                         ZMDecimal searcherVolume = 0;
-                        var searcherId = tx.eoa_address;
+                        var searcherId = tx.eoa_address.ToLower().Trim();
                         if (searchers.TryGetValue(searcherId, out searcherVolume))
                             searchers.Remove(searcherId);
                         searcherVolume += ZMDecimal.Parse(tx.total_miner_reward);

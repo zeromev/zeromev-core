@@ -145,7 +145,7 @@ namespace ZeroMev.Test
         [TestMethod]
         public async Task TestCalculateSandwiches()
         {
-            const long testBlock = 15051108;
+            const long testBlock = 15825874;
 
             var mevBlocks = await DB.ReadMevBlocks(testBlock, testBlock + 1);
             if (mevBlocks != null)
@@ -282,7 +282,7 @@ namespace ZeroMev.Test
             //return;
 
             const long first = API.EarliestMevBlock;
-            const long last = 14925700;
+            const long last = 15683810;
             const long chunk = 1000;
 
             List<MEVBlock> queue = new List<MEVBlock>();

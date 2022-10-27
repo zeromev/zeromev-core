@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json;
 using ZeroMev.Shared;
 using ZeroMev.SharedServer;
+using Npgsql;
 
 namespace ZeroMev.Test
 {
@@ -140,6 +141,35 @@ namespace ZeroMev.Test
                     Console.WriteLine(Time.DurationStr(tx.ArrivalTime, b.BlockTime));
             }
             Console.WriteLine("");
+        }
+
+        public static async void ExtractorCentralizationReport()
+        {
+            const string sql = "SELECT sandwiches.block_number, blocks.block_timestamp, sandwicher_address AS address, 'S' as mev_type FROM sandwiches, blocks WHERE sandwiches.block_number = blocks.block_number "+
+            "UNION SELECT arbitrages.block_number, blocks.block_timestamp, account_address AS address, 'A' as mev_type FROM arbitrages, blocks WHERE arbitrages.block_number = blocks.block_number " +
+            "UNION SELECT liquidations.block_number, blocks.block_timestamp, liquidator_user AS address, 'L' as mev_type FROM liquidations, blocks WHERE liquidations.block_number = blocks.block_number " +
+            "ORDER BY block_number ASC;";
+
+            using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.MevDB))
+            {
+                conn.Open();
+                using (var cmd = new NpgsqlCommand(sql, conn))
+                {
+                    cmd.Prepare();
+                    var dr = await cmd.ExecuteReaderAsync();
+
+                    ZMDecimal? nextBlockNumber = null;
+                    while (dr.Read())
+                    {
+                        var block = (ZMDecimal)dr["block_number"];
+                        if (nextBlockNumber == null || block > nextBlockNumber)
+                        {
+                            nextBlockNumber = block + 7200;
+                        }
+                    }
+                }
+                conn.Close();
+            }
         }
     }
 }
