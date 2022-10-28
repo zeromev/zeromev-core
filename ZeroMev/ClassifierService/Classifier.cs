@@ -168,6 +168,7 @@ namespace ZeroMev.ClassifierService
                         // update tokens periodically (do within the cycle as Tokens are not threadsafe)
                         if (DateTime.Now > lastGotTokens.AddSeconds(GetNewTokensEverySecs))
                         {
+                            _logger.LogInformation($"try get new tokens");
                             if (!await UpdateNewTokens(_http))
                                 _logger.LogInformation($"get new tokens failed");
                             else
