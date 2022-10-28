@@ -315,7 +315,7 @@ namespace ZeroMev.ClassifierService
                     arbsUsd += arb.MEVAmountUsd ?? 00;
 
                 AltSandwichProfit(mev, mb, mevIndex, out var profitNaive, out var profitFrontrun, out var profitBackrun, out var profitRateDiff2Way, out var profitFbOnePercent);
-                sw.WriteLine($"{mb.BlockNumber}\t{mev.TxIndex}\t{arbsUsd}\t{sumUserLoss}\t{br.MEVAmountUsd}\t{fr.SandwichProfitUsd}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(mb), profitNaive)}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(mb), profitFrontrun)}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(mb), profitBackrun)}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(mb), profitRateDiff2Way)}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(mb), profitFbOnePercent)}");
+                sw.WriteLine($"{mb.BlockNumber}\t{mev.TxIndex}\t{arbsUsd}\t{sumUserLoss}\t{br.MEVAmountUsd}\t{fr.SandwichProfitUsd}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(), profitNaive)}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(), profitFrontrun)}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(), profitBackrun)}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(), profitRateDiff2Way)}\t{MEVCalc.SwapUsd(br.Swap.OutUsdRate(), profitFbOnePercent)}");
             }
         }
 

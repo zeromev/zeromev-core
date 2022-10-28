@@ -145,7 +145,7 @@ namespace ZeroMev.Test
         [TestMethod]
         public async Task TestCalculateSandwiches()
         {
-            const long testBlock = 15841523;
+            const long testBlock = 15051108;
 
             var mevBlocks = await DB.ReadMevBlocks(testBlock, testBlock + 1);
             if (mevBlocks != null)
