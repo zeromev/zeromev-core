@@ -24,11 +24,11 @@ namespace ZeroMev.SharedServer
             for (int i = 0; i < mb.Arbs.Count; i++) SetMev(r, mb.Arbs[i], mb.Arbs[i].Swaps, MEVType.ExtractorSwapVolume, mb, i);
             for (int i = 0; i < mb.Liquidations.Count; i++) SetMev(r, mb.Liquidations[i], null, null, mb, i);
             for (int i = 0; i < mb.NFTrades.Count; i++) SetMev(r, mb.NFTrades[i], null, null, mb, i);
-            for (int i = 0; i < mb.Frontruns.Count; i++) SetMev(r, mb.Frontruns[i], mb.Frontruns[i].Swaps, MEVType.ExtractorSwapVolume, mb, i);
+            for (int i = 0; i < mb.Backruns.Count; i++) SetMev(r, mb.Backruns[i], mb.Backruns[i].Swaps, MEVType.ExtractorSwapVolume, mb, i);
             for (int i = 0; i < mb.Sandwiched.Count; i++)
                 foreach (var s in mb.Sandwiched[i])
                     SetMev(r, s, s.Swaps, MEVType.UserSandwichedSwapVolume, mb, i);
-            for (int i = 0; i < mb.Backruns.Count; i++) SetMev(r, mb.Backruns[i], mb.Backruns[i].Swaps, MEVType.ExtractorSwapVolume, mb, i);
+            for (int i = 0; i < mb.Frontruns.Count; i++) SetMev(r, mb.Frontruns[i], mb.Frontruns[i].Swaps, MEVType.ExtractorSwapVolume, mb, i);
 
             return r.Where(x => x != null).ToList();
         }

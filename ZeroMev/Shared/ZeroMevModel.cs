@@ -501,12 +501,11 @@ namespace ZeroMev.Shared
             for (int i = 0; i < mb.Arbs.Count; i++) SetMev(mb.Arbs[i], mb, i);
             for (int i = 0; i < mb.Liquidations.Count; i++) SetMev(mb.Liquidations[i], mb, i);
             for (int i = 0; i < mb.NFTrades.Count; i++) SetMev(mb.NFTrades[i], mb, i);
-            for (int i = 0; i < mb.Frontruns.Count; i++) SetMev(mb.Frontruns[i], mb, i);
+            for (int i = 0; i < mb.Backruns.Count; i++) SetMev(mb.Backruns[i], mb, i); // TODO TRIED MOVING THIS BEFORE SANDWICHED AS BACKRUNS HAVE NOT BEEN USD RECALCULATED BEFORE SANDWICH CALCS BUT IT DIDNT WORK
             for (int i = 0; i < mb.Sandwiched.Count; i++)
                 foreach (var s in mb.Sandwiched[i])
                     SetMev(s, mb, i);
-            for (int i = 0; i < mb.Backruns.Count; i++) SetMev(mb.Backruns[i], mb, i);
-
+            for (int i = 0; i < mb.Frontruns.Count; i++) SetMev(mb.Frontruns[i], mb, i);
 
             EthUsd = mb.EthUsd;
             HasMEV = true;
