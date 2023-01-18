@@ -399,7 +399,7 @@ namespace ZeroMev.Shared
                 double pow = 0;
                 foreach (PoP pop in PoPs)
                 {
-                    if (pop.ExtractorIndex != (int)ExtractorPoP.Inf)
+                    if (pop.ExtractorIndex != (int)ExtractorPoP.Inf || PoPs.Count == 1)
                     {
                         long diff = pop.BlockTime.Ticks - avg;
                         TimeSpan ts = new TimeSpan(diff);

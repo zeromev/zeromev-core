@@ -120,24 +120,17 @@ namespace ZeroMev.ClassifierService
                         }
 
                         // if we don’t have enough zm blocks to process by now, wait up until the longer PollTimeoutSecs (it will likely mean the zeromevdb is down or something)
-                        if (zb == null || zv == null || zb.UniquePoPCount() < 2)
+                        if (zb == null || zv == null)
                         {
-                            string reason;
-                            if (zb == null)
-                                reason = "no zm block";
-                            else
-                                reason = zb.UniquePoPCount() + " pops";
-
-                            // a successful attempt is at least 2 PoPs (extractors) providing data
-                            // pause between polling if this criteria is not met
+                            // pause between polling if no block can be retrieved
                             // or after a longer timeout period, move on anyway so we don't get stuck
                             if (DateTime.Now < lastProcessedBlockAt.AddSeconds(PollTimeoutSecs))
                             {
-                                _logger.LogInformation($"polling {reason} {delaySecs} secs {nextBlockNumber}");
+                                _logger.LogInformation($"null zm block - polling {delaySecs} secs {nextBlockNumber}");
                                 continue;
                             }
 
-                            _logger.LogInformation($"timeout {reason} {delaySecs} secs {nextBlockNumber}");
+                            _logger.LogInformation($"null zm block - timeout {delaySecs} secs {nextBlockNumber}");
                         }
 
                         // classify mev 
