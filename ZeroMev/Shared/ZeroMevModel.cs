@@ -501,7 +501,7 @@ namespace ZeroMev.Shared
             for (int i = 0; i < mb.Arbs.Count; i++) SetMev(mb.Arbs[i], mb, i);
             for (int i = 0; i < mb.Liquidations.Count; i++) SetMev(mb.Liquidations[i], mb, i);
             for (int i = 0; i < mb.NFTrades.Count; i++) SetMev(mb.NFTrades[i], mb, i);
-            for (int i = 0; i < mb.Backruns.Count; i++) SetMev(mb.Backruns[i], mb, i); // TODO TRIED MOVING THIS BEFORE SANDWICHED AS BACKRUNS HAVE NOT BEEN USD RECALCULATED BEFORE SANDWICH CALCS BUT IT DIDNT WORK
+            for (int i = 0; i < mb.Backruns.Count; i++) SetMev(mb.Backruns[i], mb, i); // the calculation order of backruns / sandwiched / frontruns is important here
             for (int i = 0; i < mb.Sandwiched.Count; i++)
                 foreach (var s in mb.Sandwiched[i])
                     SetMev(s, mb, i);
@@ -580,6 +580,12 @@ namespace ZeroMev.Shared
                     f.Add(tx);
             }
             return f;
+        }
+
+        public int GetPopIndex(ExtractorPoP pop)
+        {
+            if (PoPs == null || PoPs.Count == 0) return -1;
+            return PoPs.FindIndex(a => a.ExtractorIndex == (short)pop);
         }
     }
 
@@ -691,6 +697,14 @@ namespace ZeroMev.Shared
                 if (MEV == null) return MEVFilter.All;
                 return MEVWeb.GetMEVFilter(MEV.MEVClass);
             }
+        }
+
+        public DateTime? GetArrivalTime(int popIndex)
+        {
+            if (popIndex == -1 || Arrivals == null) return null;
+            if (popIndex >= Arrivals.Length) return null;
+            if (Arrivals[popIndex] == null) return null;
+            return Arrivals[popIndex].ArrivalTime;
         }
 
         public void SetFromInfuraTx(Transaction infTx)

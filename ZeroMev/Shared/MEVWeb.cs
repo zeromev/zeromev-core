@@ -60,7 +60,8 @@ namespace ZeroMev.Shared
         Curve,
         ZeroX,
         Balancer1,
-        Bancor
+        Bancor,
+        Multiple
     }
 
     public enum ProtocolLiquidation
@@ -421,7 +422,7 @@ namespace ZeroMev.Shared
         {
         }
 
-        public MEVSwap(TraceAddress traceAddress, ProtocolSwap protocol, int symbolInIndex, int symbolOutIndex, ZMDecimal? amountIn, ZMDecimal? amountOut, ZMDecimal? inUsdRate, ZMDecimal? outUsdRate)
+        public MEVSwap(TraceAddress traceAddress, ProtocolSwap protocol, int symbolInIndex, int symbolOutIndex, ZMDecimal? amountIn, ZMDecimal? amountOut, ZMDecimal? inUsdRate, ZMDecimal? outUsdRate, string addressFrom, string addressTo)
         {
             TraceAddress = traceAddress;
             Protocol = protocol;
@@ -429,6 +430,8 @@ namespace ZeroMev.Shared
             SymbolOutIndex = symbolOutIndex;
             AmountIn = amountIn;
             AmountOut = amountOut;
+            AddressFrom = addressFrom;
+            AddressTo = addressTo;
 
             // store the output usd because it's smaller than the BigDecimal rate and generally more useful
             if (inUsdRate.HasValue && amountIn.HasValue) AmountInUsd = (amountIn.Value * inUsdRate.Value).ToUsd();
@@ -501,6 +504,12 @@ namespace ZeroMev.Shared
 
         [JsonIgnore]
         public bool IsBaseUsdRateOut { get; set; }
+        
+        [JsonIgnore]
+        public string AddressFrom { get; set; }
+
+        [JsonIgnore]
+        public string AddressTo { get; set; }
 
         public void Cache(MEVBlock mevBlock, int mevIndex)
         {
@@ -771,6 +780,9 @@ namespace ZeroMev.Shared
         [JsonIgnore]
         public decimal? SandwichProfitUsd { get; set; }
 
+        [JsonIgnore]
+        public float? FrontrunImbalance { get; set; }
+
         public void Cache(MEVBlock mevBlock, int mevIndex)
         {
             Swaps.Cache(mevBlock, mevIndex);
@@ -843,15 +855,19 @@ namespace ZeroMev.Shared
             ZMDecimal sandwichProfit;
             ZMDecimal? backrunUserLoss = null;
             ZMDecimal? frontrunUserLoss = null;
+            ZMDecimal? backrunImbalance = null;
+            ZMDecimal? frontrunImbalance = null;
             int backIndex = a.Length - 1;
             ZMDecimal[] af, bf;
             if (b[backIndex] >= b[0])
-                sandwichProfit = MEVCalc.SandwichProfitBackHeavy(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_, out backrunUserLoss, out af, out bf);
+                sandwichProfit = MEVCalc.SandwichProfitBackHeavy(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_, out backrunUserLoss, out af, out bf, out backrunImbalance);
             else
-                sandwichProfit = MEVCalc.SandwichProfitFrontHeavy(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_, out frontrunUserLoss, out af, out bf);
+                sandwichProfit = MEVCalc.SandwichProfitFrontHeavy(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_, out frontrunUserLoss, out af, out bf, out frontrunImbalance);
 
             var sandwichProfitUsd = MEVCalc.SwapUsd(back.Swap.OutUsdRate(), sandwichProfit);
-            SandwichProfitUsd = sandwichProfitUsd;
+            this.SandwichProfitUsd = sandwichProfitUsd;
+            this.FrontrunImbalance = (float?)frontrunImbalance;
+            back.BackrunImbalance = (float?)backrunImbalance;
 
             decimal? backrunUserLossUsd = null;
             if (backrunUserLoss != null)
@@ -1090,6 +1106,9 @@ namespace ZeroMev.Shared
                 return Num.ToUsdStr(BackrunAmountUsd);
             }
         }
+
+        [JsonIgnore]
+        public float? BackrunImbalance { get; set; }
 
         public void Cache(MEVBlock mevBlock, int mevIndex)
         {
@@ -1679,23 +1698,6 @@ namespace ZeroMev.Shared
             return true;
         }
 
-        public static decimal? ConsistentAmountUsd(MEVBlock mevBlock, int symbolIndex, ZMDecimal amount, decimal? amountUsd)
-        {
-            if (symbolIndex == Symbol.UnknownSymbolIndex) 
-                return null;
-
-            decimal? r;
-            var symbol = mevBlock.GetSymbolName(symbolIndex);
-            if (symbol == MEVCalc.EthSymbolName && mevBlock.EthUsd.HasValue)
-                r = (decimal)amount * mevBlock.EthUsd.Value;
-            else if (MEVCalc.UsdSymbolNames.Contains(symbol))
-                r = (decimal)amount;
-            else
-                r = amountUsd;
-
-            return r;
-        }
-
         private static bool AmountCoalescing(ProtocolSwap? protocol, MEVSwap swap, List<MEVSwap> swaps, out ZMDecimal sumIn, out ZMDecimal sumOut)
         {
             sumIn = 0;
@@ -1834,7 +1836,7 @@ namespace ZeroMev.Shared
             return bf;
         }
 
-        public static ZMDecimal SandwichProfitBackHeavy(ZMDecimal x, ZMDecimal y, ZMDecimal c, ZMDecimal[] a, ZMDecimal[] b, bool[] isBA, int sandwichedFrom, int sandwichedTo, ZMDecimal[] a_, ZMDecimal[] b_, out ZMDecimal? backrunUserLoss, out ZMDecimal[] af, out ZMDecimal[] bf)
+        public static ZMDecimal SandwichProfitBackHeavy(ZMDecimal x, ZMDecimal y, ZMDecimal c, ZMDecimal[] a, ZMDecimal[] b, bool[] isBA, int sandwichedFrom, int sandwichedTo, ZMDecimal[] a_, ZMDecimal[] b_, out ZMDecimal? backrunUserLoss, out ZMDecimal[] af, out ZMDecimal[] bf, out ZMDecimal? backImbalance)
         {
             MEVCalc.CopySwaps(a, b, out var an, out var bn);
 
@@ -1845,14 +1847,15 @@ namespace ZeroMev.Shared
             MEVCalc.CalculateSwaps(x, y, c, an, bn, isBA, out var xv, out var yv, out var av, out var bv, out var imbalanceSwitch);
             MEVCalc.FinalizeSwapCalculations(a, b, a_, b_, av, bv, out af, out bf);
 
-            // backrun user loss = calculated back out - original back out
+            // backrun user loss = calculated optimal back out - original back out
             backrunUserLoss = af[backIndex] - a[backIndex];
+            backImbalance = -backrunUserLoss / af[backIndex]; // expressed as the amount we are overweight on the backrun normalized by the optimal amount needed to balance
 
             // sandwich profit = calculated back out - calculated front in
             return af[backIndex] - af[0];
         }
 
-        public static ZMDecimal SandwichProfitFrontHeavy(ZMDecimal x, ZMDecimal y, ZMDecimal c, ZMDecimal[] a, ZMDecimal[] b, bool[] isBA, int sandwichedFrom, int sandwichedTo, ZMDecimal[] a_, ZMDecimal[] b_, out ZMDecimal? frontrunUserLoss, out ZMDecimal[] af, out ZMDecimal[] bf)
+        public static ZMDecimal SandwichProfitFrontHeavy(ZMDecimal x, ZMDecimal y, ZMDecimal c, ZMDecimal[] a, ZMDecimal[] b, bool[] isBA, int sandwichedFrom, int sandwichedTo, ZMDecimal[] a_, ZMDecimal[] b_, out ZMDecimal? frontrunUserLoss, out ZMDecimal[] af, out ZMDecimal[] bf, out ZMDecimal? frontImbalance)
         {
             MEVCalc.CopySwaps(a, b, out var an, out var bn);
 
@@ -1866,6 +1869,7 @@ namespace ZeroMev.Shared
 
             // frontrun user loss = calculated optimal front in - original front in
             frontrunUserLoss = an[0] - a[0];
+            frontImbalance = frontrunUserLoss / an[0]; // expressed as the amount we are overweight on the frontrun normalized by the amount needed to balance
 
             // sandwich profit = calculated back out - calculated front in
             return af[backIndex] - af[0];

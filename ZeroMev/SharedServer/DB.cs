@@ -74,6 +74,12 @@ namespace ZeroMev.SharedServer
         "WHERE block_number >= @from_block_number AND block_number < @to_block_number " +
         "ORDER BY block_number DESC;";
 
+        const string WriteApiMevTxSQL = @"INSERT INTO public.zm_mev_transaction(" +
+        "block_number, tx_index, mev_type, protocol, user_loss_usd, extractor_profit_usd, swap_volume_usd, swap_count, extractor_swap_volume_usd, extractor_swap_count, imbalance, address_from, address_to, arrival_time_us, arrival_time_eu, arrival_time_as) " +
+        "VALUES (@block_number, @tx_index, @mev_type, @protocol, @user_loss_usd, @extractor_profit_usd, @swap_volume_usd, @swap_count, @extractor_swap_volume_usd, @extractor_swap_count, @imbalance, @address_from, @address_to, @arrival_time_us, @arrival_time_eu, @arrival_time_as) " +
+        "ON CONFLICT (block_number, tx_index, mev_type) DO UPDATE SET " +
+        "protocol = EXCLUDED.protocol, user_loss_usd = EXCLUDED.user_loss_usd, extractor_profit_usd = EXCLUDED.extractor_profit_usd, swap_volume_usd = EXCLUDED.swap_volume_usd, swap_count = EXCLUDED.swap_count, extractor_swap_volume_usd = EXCLUDED.swap_volume_usd, extractor_swap_count = EXCLUDED.swap_count, imbalance = EXCLUDED.imbalance, address_from = EXCLUDED.address_from, address_to = EXCLUDED.address_to, arrival_time_us = EXCLUDED.arrival_time_us, arrival_time_eu = EXCLUDED.arrival_time_eu, arrival_time_as = EXCLUDED.arrival_time_as;";
+
         // write cache
         static List<ExtractorBlock> _extractorBlocks = new List<ExtractorBlock>();
         static List<FBBlock> _fbBlocks = new List<FBBlock>();
@@ -403,6 +409,67 @@ namespace ZeroMev.SharedServer
             return bundle;
         }
 
+        public static async Task QueueWriteApiTxsAsync(List<ApiMevTx> addApiTxs, string connectionStr, List<ApiMevTx> staticQueue)
+        {
+            if (addApiTxs == null || addApiTxs.Count == 0)
+                return;
+
+            try
+            {
+                // employ a simple retry queue for writes so data is not lost even if the DB goes down for long periods
+                staticQueue.AddRange(addApiTxs);
+
+                Stopwatch sw = new Stopwatch();
+                sw.Start();
+
+                using (NpgsqlConnection conn = new NpgsqlConnection(connectionStr))
+                {
+                    conn.Open();
+
+                    using (var batch = new NpgsqlBatch(conn))
+                    {
+                        foreach (var a in addApiTxs)
+                        {
+                            var cmdApiMevTx = new NpgsqlBatchCommand(WriteApiMevTxSQL);
+                            cmdApiMevTx.Parameters.Add(new NpgsqlParameter<long>("@block_number", a.block_number));
+                            cmdApiMevTx.Parameters.Add(new NpgsqlParameter<int>("@tx_index", a.tx_index));
+                            cmdApiMevTx.Parameters.Add(new NpgsqlParameter<int>("@mev_type", (int)a.mev_type));
+                            cmdApiMevTx.Parameters.Add(AddParam("@protocol", a.protocol));
+                            cmdApiMevTx.Parameters.Add(AddParam("@user_loss_usd", a.user_loss_usd));
+                            cmdApiMevTx.Parameters.Add(AddParam("@extractor_profit_usd", a.extractor_profit_usd));
+                            cmdApiMevTx.Parameters.Add(AddParam("@swap_volume_usd", a.swap_volume_usd));
+                            cmdApiMevTx.Parameters.Add(AddParam("@swap_count", a.swap_count));
+                            cmdApiMevTx.Parameters.Add(AddParam("@extractor_swap_volume_usd", a.extractor_swap_volume_usd));
+                            cmdApiMevTx.Parameters.Add(AddParam("@extractor_swap_count", a.extractor_swap_count));
+                            cmdApiMevTx.Parameters.Add(AddParam("@imbalance", a.imbalance));
+                            cmdApiMevTx.Parameters.Add(AddParam("@address_from", a.address_from));
+                            cmdApiMevTx.Parameters.Add(AddParam("@address_to", a.address_to));
+                            cmdApiMevTx.Parameters.Add(AddParam("arrival_time_us", a.arrival_time_us));
+                            cmdApiMevTx.Parameters.Add(AddParam("arrival_time_eu", a.arrival_time_eu));
+                            cmdApiMevTx.Parameters.Add(AddParam("arrival_time_as", a.arrival_time_as));
+                            batch.BatchCommands.Add(cmdApiMevTx);
+                        }
+                        await batch.ExecuteNonQueryAsync();
+                    }
+
+                    sw.Stop();
+                    Console.WriteLine($"api mev txs update in {sw.ElapsedMilliseconds} ms");
+                }
+            }
+            catch (Exception e)
+            {
+                // try catch is vital in this thread to avoid crashing the app
+                Console.WriteLine($"error QueueWriteApiTxsAsync {e.Message}, with {staticQueue.Count} remaining, db {connectionStr}");
+            }
+        }
+
+        public static NpgsqlParameter AddParam(string columnName, object value)
+        {
+            if (value == null)
+                return new NpgsqlParameter(columnName, DBNull.Value);
+            return new NpgsqlParameter(columnName, value);
+        }
+
         public static async Task QueueWriteMevBlocksAsync(List<MEVBlock> addMevBlocks, string connectionStr, List<MEVBlock> staticQueue, bool doWriteSummary)
         {
             if (addMevBlocks == null || addMevBlocks.Count == 0)
@@ -410,7 +477,7 @@ namespace ZeroMev.SharedServer
 
             try
             {
-                // employ a simple retry queue for writes so data is not lost even if the DB goes down for long periods (as long as the extractor keeps running)
+                // employ a simple retry queue for writes so data is not lost even if the DB goes down for long periods
                 staticQueue.AddRange(addMevBlocks);
 
                 Stopwatch sw = new Stopwatch();

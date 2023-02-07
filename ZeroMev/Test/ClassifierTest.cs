@@ -27,7 +27,7 @@ namespace ZeroMev.Test
             MEVLiquidation l = new MEVLiquidation("hash", ProtocolLiquidation.Aave, 10, 10, 0, 10, 10, 2, false);
             Debug.WriteLine(JsonSerializer.Serialize(l, ZMSerializeOptions.Default));
 
-            MEVSwap s = new MEVSwap(new TraceAddress(new int[] { }), ProtocolSwap.Uniswap2, 10, 11, 0, 1, 0, 1);
+            MEVSwap s = new MEVSwap(new TraceAddress(new int[] { }), ProtocolSwap.Uniswap2, 10, 11, 0, 1, 0, 1, null, null);
             Debug.WriteLine(JsonSerializer.Serialize(s, ZMSerializeOptions.Default));
 
             Debug.WriteLine("BigInteger");
@@ -183,9 +183,10 @@ namespace ZeroMev.Test
                 // sandwich profit / backrun user loss
                 ZMDecimal sandwichProfit;
                 ZMDecimal? backrunUserLoss = null;
+                ZMDecimal? backrunImbalance = null;
                 int backIndex = a.Length - 1;
                 ZMDecimal[] af, bf;
-                sandwichProfit = MEVCalc.SandwichProfitBackHeavy(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_, out backrunUserLoss, out af, out bf);
+                sandwichProfit = MEVCalc.SandwichProfitBackHeavy(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_, out backrunUserLoss, out af, out bf, out backrunImbalance);
                 var profitPercent = (af[backIndex] / af[0]) - 1;
 
                 // frontrun user loss

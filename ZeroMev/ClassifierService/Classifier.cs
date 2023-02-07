@@ -147,11 +147,28 @@ namespace ZeroMev.ClassifierService
                             try
                             {
                                 bp.Run();
-                                await bp.Save(true);
                             }
                             catch (Exception ex)
                             {
                                 _logger.LogInformation($"error processing {nextBlockNumber} {ex}");
+                            }
+
+                            try
+                            {
+                                await bp.Save(true);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogInformation($"error saving {nextBlockNumber} {ex}");
+                            }
+
+                            try
+                            {
+                                await bp.SaveApi();
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogInformation($"error saving api {nextBlockNumber} {ex}");
                             }
 
                             await db.SetLastProcessedBlock(nextBlockNumber);
@@ -257,6 +274,7 @@ namespace ZeroMev.ClassifierService
                         return false;
 
                     await bp.Save(false, lastZmBlock);
+                    await bp.SaveApi(lastZmBlock);
                     if (stoppingToken.IsCancellationRequested)
                         return false;
 

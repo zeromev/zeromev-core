@@ -49,8 +49,7 @@ namespace ZeroMev.SharedServer
                     foreach (var s in swaps.Swaps)
                     {
                         // ignore unknown symbols as we can't estimate mev against them
-                        if (s.SymbolInIndex != Symbol.UnknownSymbolIndex &&
-                            s.SymbolOutIndex != Symbol.UnknownSymbolIndex)
+                        if (s.IsKnown)
                         {
                             var vi = (int)swapVolumeType.Value;
                             if (r[vi] == null)
