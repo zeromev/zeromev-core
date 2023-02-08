@@ -1,5 +1,6 @@
 ﻿using C5;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections;
 using System.Diagnostics;
 using System.Numerics;
@@ -827,15 +828,18 @@ namespace ZeroMev.ClassifierService
                 {
                     ExtractorBlocks.TryGetValue(mb.BlockNumber, out var eb);
                     ZMBlock? zb = DB.BuildZMBlock(eb);
-                    zb.MevBlock = mb;
                     ZMView zv = new ZMView(mb.BlockNumber);
                     bool refreshed = false;
                     if (zb != null)
+                    {
+                        zb.MevBlock = mb;
                         refreshed = zv.RefreshOffline(zb);
+                    }
                     if (!refreshed)
                     {
                         // handle not having arrival times for early or missing data
                         zb = new ZMBlock(mb.BlockNumber, null);
+                        zb.MevBlock = mb;
                         zv.RefreshOffline(zb, 2000);
                     }
 
@@ -1482,9 +1486,13 @@ namespace ZeroMev.ClassifierService
             string symbolIn = Tokens.GetSymbol(swap.TokenInAddress, out inDivisor);
             string symbolOut = Tokens.GetSymbol(swap.TokenOutAddress, out outDivisor);
 
+            // record amounts even for unknown symbols
+            if (inDivisor == null) inDivisor = Tokens.Pow18;
+            if (outDivisor == null) outDivisor = Tokens.Pow18;
+
             // apply the decimal divisor
-            ZMDecimal? tokenIn = (inDivisor != null) ? swap.TokenInAmount / inDivisor : null;
-            ZMDecimal? tokenOut = (outDivisor != null) ? swap.TokenOutAmount / outDivisor : null;
+            ZMDecimal? tokenIn = swap.TokenInAmount / inDivisor;
+            ZMDecimal? tokenOut = swap.TokenOutAmount / outDivisor;
 
             // create a smaller footprint zeromev swap which includes our timing data
             ZMSwap zmSwap = new ZMSwap(blockOrder, arrivalTime, isSell, tokenIn, tokenOut, symbolIn, symbolOut);

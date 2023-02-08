@@ -273,7 +273,11 @@ namespace ZeroMev.ClassifierService
                     if (stoppingToken.IsCancellationRequested)
                         return false;
 
+#if (DEBUG)
+                    await bp.Save(true, lastZmBlock);
+#else
                     await bp.Save(false, lastZmBlock);
+#endif
                     await bp.SaveApi(lastZmBlock);
                     if (stoppingToken.IsCancellationRequested)
                         return false;

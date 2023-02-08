@@ -352,6 +352,7 @@ namespace ZeroMev.Shared
 
         public bool IsEth(int symbolIndex)
         {
+            if (symbolIndex == Symbol.UnknownSymbolIndex) return false;
             if (symbolIndex == Symbol.EthSymbolIndex) return true;
             if (Symbols[symbolIndex].Image == null || Symbols[symbolIndex].Image.Length == 0) return false; // probably a fake
             return Symbols[symbolIndex].Name == "WETH";
@@ -359,6 +360,7 @@ namespace ZeroMev.Shared
 
         public bool IsUsd(int symbolIndex)
         {
+            if (symbolIndex == Symbol.UnknownSymbolIndex) return false;
             if (Symbols[symbolIndex].Image == null || Symbols[symbolIndex].Image.Length == 0) return false; // probably a fake
             if (Symbols[symbolIndex].Name == "USD Coin") return true;
             if (Symbols[symbolIndex].Name == "Dai") return true;
@@ -1648,6 +1650,10 @@ namespace ZeroMev.Shared
             back = mb.Backruns[index];
             sandwiched = mb.Sandwiched[index];
 
+#if (DEBUG)
+            if (!front.Swap.IsKnown || !back.Swap.IsKnown) 
+                Console.WriteLine($"swaps unknown skipping sandwich block {mb.BlockNumber}");
+#endif
             if (!front.Swap.IsKnown) return false;
             if (!back.Swap.IsKnown) return false;
 
