@@ -1672,6 +1672,7 @@ namespace ZeroMev.Shared
             sandwiched = mb.Sandwiched[index];
 
             if (!front.Swap.InIsKnown || !back.Swap.OutIsKnown) return false;
+            if (front.Swap.AmountOut == null || back.Swap.AmountIn == null) return false; // for backward compatibility with old versions of mev data nulled these fields for unknown tokens
 
             var a = new List<ZMDecimal>();
             var b = new List<ZMDecimal>();
