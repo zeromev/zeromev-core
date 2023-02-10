@@ -435,11 +435,6 @@ namespace ZeroMev.Shared
             AddressFrom = addressFrom;
             AddressTo = addressTo;
 
-#if (DEBUG)
-            if (amountIn == null || amountOut == null)
-                Console.Write("");
-#endif
-
             // store the output usd because it's smaller than the BigDecimal rate and generally more useful
             if (inUsdRate.HasValue && amountIn.HasValue) AmountInUsd = (amountIn.Value * inUsdRate.Value).ToUsd();
             if (outUsdRate.HasValue && amountOut.HasValue) AmountOutUsd = (amountOut.Value * outUsdRate.Value).ToUsd();
@@ -1676,10 +1671,6 @@ namespace ZeroMev.Shared
             back = mb.Backruns[index];
             sandwiched = mb.Sandwiched[index];
 
-#if (DEBUG)
-            if (!front.Swap.InIsKnown || !back.Swap.OutIsKnown)
-                Console.WriteLine($"swaps in/out unknown skipping sandwich block {mb.BlockNumber}");
-#endif
             if (!front.Swap.InIsKnown || !back.Swap.OutIsKnown) return false;
 
             var a = new List<ZMDecimal>();
