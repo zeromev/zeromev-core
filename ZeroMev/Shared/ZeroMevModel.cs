@@ -507,6 +507,12 @@ namespace ZeroMev.Shared
                     SetMev(s, mb, i);
             for (int i = 0; i < mb.Frontruns.Count; i++) SetMev(mb.Frontruns[i], mb, i);
 
+            // require a second pass after the frontrun calculation
+            for (int i = 0; i < mb.Backruns.Count; i++) SetMev(mb.Backruns[i], mb, i);
+            for (int i = 0; i < mb.Sandwiched.Count; i++)
+                foreach (var s in mb.Sandwiched[i])
+                    SetMev(s, mb, i);
+
             EthUsd = mb.EthUsd;
             HasMEV = true;
         }

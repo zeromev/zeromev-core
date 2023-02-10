@@ -435,6 +435,11 @@ namespace ZeroMev.Shared
             AddressFrom = addressFrom;
             AddressTo = addressTo;
 
+#if (DEBUG)
+            if (amountIn == null || amountOut == null)
+                Console.Write("");
+#endif
+
             // store the output usd because it's smaller than the BigDecimal rate and generally more useful
             if (inUsdRate.HasValue && amountIn.HasValue) AmountInUsd = (amountIn.Value * inUsdRate.Value).ToUsd();
             if (outUsdRate.HasValue && amountOut.HasValue) AmountOutUsd = (amountOut.Value * outUsdRate.Value).ToUsd();
@@ -444,11 +449,20 @@ namespace ZeroMev.Shared
         }
 
         [JsonIgnore]
-        public bool IsKnown
+        public bool InIsKnown
         {
             get
             {
-                return SymbolInIndex != Symbol.UnknownSymbolIndex && SymbolOutIndex != Symbol.UnknownSymbolIndex;
+                return SymbolInIndex != Symbol.UnknownSymbolIndex;
+            }
+        }
+
+        [JsonIgnore]
+        public bool OutIsKnown
+        {
+            get
+            {
+                return SymbolOutIndex != Symbol.UnknownSymbolIndex;
             }
         }
 
@@ -580,6 +594,18 @@ namespace ZeroMev.Shared
             if (AmountOut == null || AmountOut < Num.EpsilonAmount) return null;
             if (AmountOutUsd > Num.OversizedAmount) return null;
             return (ZMDecimal)AmountOutUsd / AmountOut;
+        }
+
+        public decimal? VolumeUsd
+        {
+            get
+            {
+                // preferably take the volume as the output of the swap as this will be most accurate
+                if (AmountOutUsd != null) return AmountOutUsd;
+
+                // if that is not available because the output token is unknown, fall back to the input of the swap if available
+                return AmountInUsd;
+            }
         }
 
         public void BuildActionSummary(MEVBlock mevBlock, StringBuilder sb)
@@ -1651,11 +1677,10 @@ namespace ZeroMev.Shared
             sandwiched = mb.Sandwiched[index];
 
 #if (DEBUG)
-            if (!front.Swap.IsKnown || !back.Swap.IsKnown) 
-                Console.WriteLine($"swaps unknown skipping sandwich block {mb.BlockNumber}");
+            if (!front.Swap.InIsKnown || !back.Swap.OutIsKnown)
+                Console.WriteLine($"swaps in/out unknown skipping sandwich block {mb.BlockNumber}");
 #endif
-            if (!front.Swap.IsKnown) return false;
-            if (!back.Swap.IsKnown) return false;
+            if (!front.Swap.InIsKnown || !back.Swap.OutIsKnown) return false;
 
             var a = new List<ZMDecimal>();
             var b = new List<ZMDecimal>();
@@ -1668,7 +1693,6 @@ namespace ZeroMev.Shared
                 for (int j = 0; j < ms.SandwichedSwapIndex.Count; j++)
                 {
                     var swap = ms.Swaps.Swaps[ms.SandwichedSwapIndex[j].Value];
-                    if (!swap.IsKnown) return false;
                     if (protocol != null && swap.Protocol != protocol) return false;
                     protocol = swap.Protocol;
                 }

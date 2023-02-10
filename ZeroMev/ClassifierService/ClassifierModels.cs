@@ -889,9 +889,9 @@ namespace ZeroMev.ClassifierService
                                     extractorSwapVolume = 0;
                                     extractorSwapCount = 0;
                                     foreach (var s in arbSwaps)
-                                        if (s.IsKnown && s.AmountOutUsd != null) // skip unknown symbols as we can't estimate mev against them
+                                        if (s.VolumeUsd != null) // skip unknown symbols as we can't estimate mev against them
                                         {
-                                            extractorSwapVolume += s.AmountOutUsd;
+                                            extractorSwapVolume += s.VolumeUsd;
                                             extractorSwapCount++;
                                         }
                                     break;
@@ -905,9 +905,9 @@ namespace ZeroMev.ClassifierService
                                     a.user_loss_usd = null; // present in sandwiched
                                     extractorSwapVolume = 0;
                                     extractorSwapCount = 0;
-                                    if (frontrun.Swap.IsKnown)
+                                    if (frontrun.Swap.VolumeUsd != null)
                                     {
-                                        extractorSwapVolume = frontrun.Swap.AmountOutUsd;
+                                        extractorSwapVolume = frontrun.Swap.VolumeUsd;
                                         extractorSwapCount = 1;
                                     }
                                     break;
@@ -921,9 +921,9 @@ namespace ZeroMev.ClassifierService
                                     a.extractor_profit_usd = -((MEVBackrun)m).BackrunAmountUsd;
                                     extractorSwapVolume = 0;
                                     extractorSwapCount = 0;
-                                    if (backrun.Swap.IsKnown)
+                                    if (backrun.Swap.VolumeUsd != null)
                                     {
-                                        extractorSwapVolume = backrun.Swap.AmountOutUsd;
+                                        extractorSwapVolume = backrun.Swap.VolumeUsd;
                                         extractorSwapCount = 1;
                                     }
                                     break;
@@ -945,7 +945,7 @@ namespace ZeroMev.ClassifierService
                                     break;
                             }
 
-                            // set members
+                            // set columns
                             a.block_number = mb.BlockNumber;
                             a.tx_index = i;
                             a.mev_type = m.MEVType;
@@ -961,9 +961,9 @@ namespace ZeroMev.ClassifierService
                             int? swapCount = null;
                             if (volSwaps != null)
                                 foreach (var s in volSwaps.Swaps)
-                                    if (s.IsKnown && s.AmountOutUsd != null) // skip unknown symbols as we can't estimate mev against them
+                                    if (s.VolumeUsd != null) // skip unknown symbols with indeterminate outputs as we can't estimate mev against them
                                     {
-                                        swapVolume = swapVolume + s.AmountOutUsd ?? s.AmountOutUsd;
+                                        swapVolume = swapVolume + s.VolumeUsd ?? s.VolumeUsd;
                                         swapCount = swapCount + 1 ?? 1;
                                     }
                             a.swap_volume_usd = swapVolume;
