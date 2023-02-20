@@ -265,13 +265,6 @@ namespace ZeroMev.Shared
             return true;
         }
 
-        // an offline version of Refresh that does not require http
-        public bool RefreshOffline(ZMBlock zmBlock, GetBlockByNumber block)
-        {
-            if (!SetBlock(block)) return false;
-            return SetZMBlock(zmBlock);
-        }
-
         // an offline version of Refresh that does not require http and accepts a zmblock with tx time data
         public bool RefreshOffline(ZMBlock zmBlock)
         {

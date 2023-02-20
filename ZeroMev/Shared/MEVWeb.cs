@@ -1261,8 +1261,9 @@ namespace ZeroMev.Shared
         {
         }
 
-        public MEVLiquidation(string txHash, ProtocolLiquidation protocol, ZMDecimal? debtPurchaseAmount, decimal? debtPurchaseAmountUsd, int debtSymbolIndex, ZMDecimal? receivedAmount, decimal? receivedAmountUsd, int receivedSymbolIndex, bool? isReverted)
+        public MEVLiquidation(int? txIndex, string txHash, ProtocolLiquidation protocol, ZMDecimal? debtPurchaseAmount, decimal? debtPurchaseAmountUsd, int debtSymbolIndex, ZMDecimal? receivedAmount, decimal? receivedAmountUsd, int receivedSymbolIndex, bool? isReverted, string liquidatedUser, string liquidatorUser)
         {
+            TxIndex = txIndex;
             TxHash = txHash;
             Protocol = protocol;
             DebtPurchaseAmount = debtPurchaseAmount;
@@ -1272,6 +1273,8 @@ namespace ZeroMev.Shared
             DebtSymbolIndex = debtSymbolIndex;
             ReceivedSymbolIndex = receivedSymbolIndex;
             IsReverted = isReverted;
+            LiquidatedUser = liquidatedUser;
+            LiquidatorUser = liquidatorUser;
         }
 
         decimal? _receivedAmountUsd = null;
@@ -1326,8 +1329,8 @@ namespace ZeroMev.Shared
         [JsonPropertyName("h")]
         public string TxHash { get; set; }
 
-        [JsonIgnore]
-        public int? TxIndex => null;
+        [JsonPropertyName("i")]
+        public int? TxIndex { get; set; } = null;
 
         [JsonIgnore]
         public MEVType MEVType => MEVType.Liquid;
@@ -1343,6 +1346,12 @@ namespace ZeroMev.Shared
 
         [JsonIgnore]
         public string? ActionDetail { get; set; }
+
+        [JsonIgnore]
+        public string LiquidatedUser { get; set; }
+
+        [JsonIgnore]
+        public string LiquidatorUser { get; set; }
 
         [JsonIgnore]
         public decimal? MEVAmountUsd
@@ -1426,7 +1435,7 @@ namespace ZeroMev.Shared
 
     public class MEVNFT : IMEV
     {
-        public MEVNFT(int? txIndex, ProtocolNFT protocol, int paymentSymbolIndex, string collectionAddress, string tokenId, ZMDecimal? paymentAmount, ZMDecimal? paymentAmountUsd, MEVError? error)
+        public MEVNFT(int? txIndex, ProtocolNFT protocol, int paymentSymbolIndex, string collectionAddress, string tokenId, ZMDecimal? paymentAmount, ZMDecimal? paymentAmountUsd, MEVError? error, string sellerAddress, string buyerAddress)
         {
             TxIndex = txIndex;
             Protocol = protocol;
@@ -1436,6 +1445,8 @@ namespace ZeroMev.Shared
             CollectionAddress = collectionAddress;
             TokenId = tokenId;
             Error = error;
+            SellerAddress = sellerAddress;
+            BuyerAddress = buyerAddress;
         }
 
         [JsonPropertyName("p")]
@@ -1482,6 +1493,12 @@ namespace ZeroMev.Shared
 
         [JsonIgnore]
         public string? ActionDetail { get; set; }
+
+        [JsonIgnore]
+        public string SellerAddress { get; set; }
+
+        [JsonIgnore]
+        public string BuyerAddress { get; set; }
 
         public void Cache(MEVBlock mevBlock, int mevIndex)
         {
@@ -1672,7 +1689,7 @@ namespace ZeroMev.Shared
             sandwiched = mb.Sandwiched[index];
 
             if (!front.Swap.InIsKnown || !back.Swap.OutIsKnown) return false;
-            if (front.Swap.AmountOut == null || back.Swap.AmountIn == null) return false; // for backward compatibility with old versions of mev data nulled these fields for unknown tokens
+            if (front.Swap.AmountOut == null || back.Swap.AmountIn == null) return false; // for backward compatibility with old versions of mev data with nulled fields for unknown tokens
 
             var a = new List<ZMDecimal>();
             var b = new List<ZMDecimal>();

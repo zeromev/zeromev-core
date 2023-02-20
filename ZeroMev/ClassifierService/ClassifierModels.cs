@@ -9,6 +9,7 @@ using System.Text.Json;
 using ZeroMev.MevEFC;
 using ZeroMev.Shared;
 using ZeroMev.SharedServer;
+using static System.Net.WebRequestMethods;
 
 namespace ZeroMev.ClassifierService
 {
@@ -379,7 +380,9 @@ namespace ZeroMev.ClassifierService
         public List<PunkBidAcceptance> PunkBidAcceptances { get; set; }
         public List<PunkSnipe> PunkSnipes { get; set; }
         public List<ZmBlock> ZmBlocks { get; set; }
+        
         public Dictionary<long, List<ExtractorBlock>> ExtractorBlocks = new Dictionary<long, List<ExtractorBlock>>();
+        public Dictionary<long, GetBlockByNumber?> RPCBlock = new Dictionary<long, GetBlockByNumber?>();
 
         DEXs _dexs = null;
         Dictionary<long, MEVBlock> _mevBlocks = new Dictionary<long, MEVBlock>();
@@ -583,7 +586,7 @@ namespace ZeroMev.ClassifierService
                     sandwiched.Clear();
 
                     mevBlock = tempMevBlock;
-                    if (!GetMEVBlock(s.BlockNumber, ref mevBlock, ref arrivals, ref txStatus))
+                    if (!GetMEVBlock(s.BlockNumber, ref mevBlock, ref arrivals, ref txStatus, true))
                         continue;
                 }
 
@@ -759,7 +762,18 @@ namespace ZeroMev.ClassifierService
                 var receivedAmountUsd = l.ReceivedTokenAddress != null && FlashbotsSummaryTokens.Contains(l.ReceivedTokenAddress) ? XRates.ConvertToUsd(l.ReceivedTokenAddress, l.ReceivedAmount) : null;
                 bool? isReverted = l.Error == "Reverted" ? true : null;
 
-                var mevLiquidation = new MEVLiquidation(l.TransactionHash, protocol, (ZMDecimal)l.DebtPurchaseAmount, debtPurchaseAmountUsd, debtSymbolIndex, (ZMDecimal)l.ReceivedAmount, receivedAmountUsd, receivedSymbolIndex, isReverted);
+                // get or reuse a full block call to determine tx index
+                GetBlockByNumber? b = null;
+                if (!RPCBlock.TryGetValue(l.BlockNumber, out b))
+                {
+                    b = API.GetBlockByNumber(_http, l.BlockNumber).Result;
+                    RPCBlock.Add(l.BlockNumber, b);
+                }
+                int? ti = null;
+                var t = b.Result.Transactions.Find(x => x.Hash == l.TransactionHash);
+                if (t != null && t.TransactionIndex != null) ti = Num.HexToInt(t.TransactionIndex);
+
+                var mevLiquidation = new MEVLiquidation(ti, l.TransactionHash, protocol, (ZMDecimal)l.DebtPurchaseAmount, debtPurchaseAmountUsd, debtSymbolIndex, (ZMDecimal)l.ReceivedAmount, receivedAmountUsd, receivedSymbolIndex, isReverted, l.LiquidatedUser, l.LiquidatorUser);
                 mevBlock.Liquidations.Add(mevLiquidation);
             }
         }
@@ -790,7 +804,7 @@ namespace ZeroMev.ClassifierService
                     paymentAmountUsd = MEVHelper.GetUsdAmount(n.PaymentTokenAddress, n.PaymentAmount, out paymentAmount);
                 }
                 MEVError error = MEVHelper.GetErrorFrom(n.Error);
-                var mevNft = new MEVNFT(n.TransactionPosition, protocol, paymentSymbolIndex, n.CollectionAddress, n.TokenId.ToString(), paymentAmount, paymentAmountUsd, error);
+                var mevNft = new MEVNFT(n.TransactionPosition, protocol, paymentSymbolIndex, n.CollectionAddress, n.TokenId.ToString(), paymentAmount, paymentAmountUsd, error, n.SellerAddress, n.BuyerAddress);
                 if (MEVHelper.DoAddMEV(mevBlock, mevNft))
                     mevBlock.NFTrades.Add(mevNft);
             }
@@ -886,6 +900,8 @@ namespace ZeroMev.ClassifierService
                                     volSwaps = ((MEVArb)m).Swaps;
                                     a.protocol = ProtocolSwap.Multiple.ToString();
                                     var arbSwaps = ((MEVArb)m).ArbSwaps();
+                                    a.address_from = arbSwaps[0].AddressFrom;
+                                    a.address_to = arbSwaps[arbSwaps.Count - 1].AddressTo;
                                     extractorSwapVolume = 0;
                                     extractorSwapCount = 0;
                                     foreach (var s in arbSwaps)
@@ -937,12 +953,17 @@ namespace ZeroMev.ClassifierService
                                     break;
 
                                 case MEVType.Liquid:
-                                    a.protocol = ((MEVLiquidation)m).Protocol.ToString();
+                                    var l = ((MEVLiquidation)m);
+                                    a.protocol = l.Protocol.ToString();
+                                    a.user_loss_usd = l.MEVAmountUsd;
+                                    a.extractor_profit_usd = -l.MEVAmountUsd;
+                                    a.address_from = l.LiquidatedUser;
+                                    a.address_to = l.LiquidatorUser;
                                     break;
 
                                 case MEVType.NFT:
-                                    a.protocol = ((MEVNFT)m).Protocol.ToString();
-                                    break;
+                                    // not really MEV
+                                    continue;
                             }
 
                             // set columns
@@ -1067,7 +1088,7 @@ namespace ZeroMev.ClassifierService
             }
         }
 
-        private bool GetMEVBlock(long blockNumber, ref MEVBlock? mevBlock, ref List<DateTime>? arrivals, ref BitArray? txStatus, bool doSetEthUsd = true)
+        private bool GetMEVBlock(long blockNumber, ref MEVBlock? mevBlock, ref List<DateTime>? arrivals, ref BitArray? txStatus, bool doSetEthUsd)
         {
             // only get new references if we have changed block number (iterate sorted by block number to minimize this)
             if (mevBlock == null || blockNumber != mevBlock.BlockNumber)

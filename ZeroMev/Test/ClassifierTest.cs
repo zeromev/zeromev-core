@@ -24,7 +24,7 @@ namespace ZeroMev.Test
         [TestMethod]
         public void JsonBigInt()
         {
-            MEVLiquidation l = new MEVLiquidation("hash", ProtocolLiquidation.Aave, 10, 10, 0, 10, 10, 2, false);
+            MEVLiquidation l = new MEVLiquidation(1, "hash", ProtocolLiquidation.Aave, 10, 10, 0, 10, 10, 2, false, null, null);
             Debug.WriteLine(JsonSerializer.Serialize(l, ZMSerializeOptions.Default));
 
             MEVSwap s = new MEVSwap(new TraceAddress(new int[] { }), ProtocolSwap.Uniswap2, 10, 11, 0, 1, 0, 1, null, null);
