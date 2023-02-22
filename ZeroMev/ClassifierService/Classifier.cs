@@ -228,9 +228,17 @@ namespace ZeroMev.ClassifierService
             // only save rows we haven't written before (ie: after the last zeromev block)
 
             long lastZmBlock;
-            using (var db = new zeromevContext())
+            long? importFromBlock = Config.Settings.ImportZmBlocksFrom;
+            if (importFromBlock == null)
             {
-                lastZmBlock = db.GetLastZmProcessedBlock();
+                using (var db = new zeromevContext())
+                {
+                    lastZmBlock = db.GetLastZmProcessedBlock();
+                }
+            }
+            else
+            {
+                lastZmBlock = importFromBlock.Value;
             }
 
             long lastMiBlock;
@@ -244,10 +252,11 @@ namespace ZeroMev.ClassifierService
             long? importToBlock = Config.Settings.ImportZmBlocksTo;
             if (importToBlock != null && last > importToBlock.Value)
                 last = importToBlock.Value;
+            bool isBatchJob = (importFromBlock != null || importToBlock != null);
 
             try
             {
-                for (long from = first; from <= lastMiBlock; from += ProcessChunkSize)
+                for (long from = first; from <= last; from += ProcessChunkSize)
                 {
                     long to = from + ProcessChunkSize;
                     if (to > last)
@@ -257,11 +266,11 @@ namespace ZeroMev.ClassifierService
                     double totalProgress = (double)(from - first) / (last - first);
                     if (from < lastZmBlock)
                     {
-                        _logger.LogInformation($"{from} to {to} (warmup to {lastZmBlock} {warmupProgress.ToString("P")}, backfill to {lastMiBlock} {totalProgress.ToString("P")})");
+                        _logger.LogInformation($"{from} to {to} (warmup to {lastZmBlock} {warmupProgress.ToString("P")}, backfill to {last} {totalProgress.ToString("P")})");
                     }
                     else
                     {
-                        _logger.LogInformation($"{from} to {to} (backfill to {lastMiBlock} {totalProgress.ToString("P")})");
+                        _logger.LogInformation($"{from} to {to} (backfill to {last} {totalProgress.ToString("P")})");
                     }
 
 
@@ -282,10 +291,13 @@ namespace ZeroMev.ClassifierService
                     if (stoppingToken.IsCancellationRequested)
                         return false;
 
-                    // set the last processed block
-                    using (var db = new zeromevContext())
+                    // set the last processed block (if not a batch job)
+                    if (!isBatchJob)
                     {
-                        await db.SetLastProcessedBlock(to - 1);
+                        using (var db = new zeromevContext())
+                        {
+                            await db.SetLastProcessedBlock(to - 1);
+                        }
                     }
                 }
             }
@@ -293,6 +305,13 @@ namespace ZeroMev.ClassifierService
             {
                 // important as network errors may make the RPC node or DB unavailable and we don't want gaps in the data
                 _logger.LogError("startup aborted due to an unexpected error: " + ex.ToString());
+                return false;
+            }
+
+            // if this is a batch job, signal to exit
+            if (isBatchJob)
+            {
+                _logger.LogError($"exiting - import completed from {importFromBlock} to {importToBlock}");
                 return false;
             }
 

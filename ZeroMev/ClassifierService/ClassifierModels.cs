@@ -892,13 +892,13 @@ namespace ZeroMev.ClassifierService
                                         if (volSwaps.Swaps.Count == 1)
                                             protocolSwap = volSwaps.Swaps[0];
                                         else
-                                            a.protocol = ProtocolSwap.Multiple.ToString();
+                                            a.protocol = ProtocolSwap.Multiple.ToString().ToLower();
                                     }
                                     break;
 
                                 case MEVType.Arb:
                                     volSwaps = ((MEVArb)m).Swaps;
-                                    a.protocol = ProtocolSwap.Multiple.ToString();
+                                    a.protocol = ProtocolSwap.Multiple.ToString().ToLower();
                                     var arbSwaps = ((MEVArb)m).ArbSwaps();
                                     a.address_from = arbSwaps[0].AddressFrom;
                                     a.address_to = arbSwaps[arbSwaps.Count - 1].AddressTo;
@@ -954,7 +954,7 @@ namespace ZeroMev.ClassifierService
 
                                 case MEVType.Liquid:
                                     var l = ((MEVLiquidation)m);
-                                    a.protocol = l.Protocol.ToString();
+                                    a.protocol = l.Protocol.ToString().ToLower();
                                     a.user_loss_usd = l.MEVAmountUsd;
                                     a.extractor_profit_usd = -l.MEVAmountUsd;
                                     a.address_from = l.LiquidatedUser;
@@ -972,7 +972,7 @@ namespace ZeroMev.ClassifierService
                             a.mev_type = m.MEVType;
                             if (protocolSwap != null)
                             {
-                                a.protocol = protocolSwap.Protocol.ToString();
+                                a.protocol = protocolSwap.Protocol.ToString().ToLower();
                                 a.address_from = protocolSwap.AddressFrom;
                                 a.address_to = protocolSwap.AddressTo;
                             }
