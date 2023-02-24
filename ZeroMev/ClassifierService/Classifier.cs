@@ -274,13 +274,21 @@ namespace ZeroMev.ClassifierService
                     }
 
 
+                    Stopwatch sw = new Stopwatch();
+                    sw.Restart();
                     var bp = BlockProcess.Load(from, to, _dexs);
+                    sw.Stop();
+                    Console.WriteLine($"loaded in {sw.ElapsedMilliseconds} ms");
+
                     if (stoppingToken.IsCancellationRequested)
                         return false;
 
+                    sw.Restart();
                     bp.Run();
                     if (stoppingToken.IsCancellationRequested)
                         return false;
+                    sw.Stop();
+                    Console.WriteLine($"run in {sw.ElapsedMilliseconds} ms");
 
 #if (DEBUG)
                     await bp.Save(true, lastZmBlock);

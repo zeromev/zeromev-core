@@ -568,10 +568,6 @@ namespace ZeroMev.ClassifierService
                 // detect new block number
                 if (mevBlock == null || s.BlockNumber != mevBlock.BlockNumber)
                 {
-#if (DEBUG)
-                    // if (mevBlock != null && mevBlock.BlockNumber == 15051108) Console.WriteLine("");
-#endif
-
                     // process liquidations and nfts in parallel with swaps to ensure we get decent exchange rates
                     // note that liquidations and nfts xrates are set a block granularity, where as arbs/swaps/sandwiches are set a tx level granularity
                     var tempMevBlock = mevBlock;
@@ -1112,14 +1108,17 @@ namespace ZeroMev.ClassifierService
                     {
                         // filter out invalid tx length extractor rows and calculate arrival times
                         
-                        // get pre-cached extractor blocks if possible
+                        // get pre-cached extractor blocks if possible (and we are not earlier than the beginning of the dataset)
                         ZMBlock zb = null;
-                        if (ExtractorBlocks != null && ExtractorBlocks.TryGetValue(blockNumber, out var ebs))
-                            zb = DB.BuildZMBlock(ebs);
+                        if (blockNumber >= API.EarliestZMBlock)
+                        {
+                            if (ExtractorBlocks != null && ExtractorBlocks.TryGetValue(blockNumber, out var ebs))
+                                zb = DB.BuildZMBlock(ebs);
 
-                        // or go to the db if not
-                        if (zb == null)
-                            zb = DB.GetZMBlock(blockNumber);
+                            // or go to the db if not
+                            if (zb == null)
+                                zb = DB.GetZMBlock(blockNumber);
+                        }
 
                         ZMView? zv = null;
                         if (zb != null)

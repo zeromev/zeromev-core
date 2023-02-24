@@ -522,6 +522,19 @@ namespace ZeroMev.Shared
         [JsonIgnore]
         public string AddressTo { get; set; }
 
+        [JsonIgnore]
+        public decimal? VolumeUsd
+        {
+            get
+            {
+                // preferably take the volume as the output of the swap as this will be most accurate
+                if (AmountOutUsd != null) return AmountOutUsd;
+
+                // if that is not available because the output token is unknown, fall back to the input of the swap if available
+                return AmountInUsd;
+            }
+        }
+
         public void Cache(MEVBlock mevBlock, int mevIndex)
         {
             RecalculateUsd(mevBlock);
@@ -589,18 +602,6 @@ namespace ZeroMev.Shared
             if (AmountOut == null || AmountOut < Num.EpsilonAmount) return null;
             if (AmountOutUsd > Num.OversizedAmount) return null;
             return (ZMDecimal)AmountOutUsd / AmountOut;
-        }
-
-        public decimal? VolumeUsd
-        {
-            get
-            {
-                // preferably take the volume as the output of the swap as this will be most accurate
-                if (AmountOutUsd != null) return AmountOutUsd;
-
-                // if that is not available because the output token is unknown, fall back to the input of the swap if available
-                return AmountInUsd;
-            }
         }
 
         public void BuildActionSummary(MEVBlock mevBlock, StringBuilder sb)
@@ -835,7 +836,7 @@ namespace ZeroMev.Shared
             // as such, when we detect a wrapped sandwich, use the [wrapped token output] - [wrapped token input] as profit and the neg of this as user loss
             if (MEVCalc.DetectWrappedSandwich(front, back, out var frontWrap, out var backWrap))
             {
-                // these sandwiches tend to be well balanced as the attacker is trying to get their money out not take a position
+                // these sandwiches tend to be well balanced as the attacker is trying to get their money out not take a position (the detection above checks for this)
                 decimal? wrapProfitUsd = null;
                 if (backWrap.AmountOutUsd != null && frontWrap.AmountInUsd != null && backWrap.AmountOut != null && frontWrap.AmountIn != null)
                 {
@@ -844,6 +845,15 @@ namespace ZeroMev.Shared
                     sandwiched[0].MEVAmountUsd = -wrapProfitUsd;
                 }
                 SetMevDetail(false, false, true, mevBlock, front, back, sandwiched, (wrapProfitUsd != null) ? -wrapProfitUsd : null, wrapProfitUsd);
+                return;
+            }
+
+            // handle unknown tokens
+            if ((!front.Swap.InIsKnown || !back.Swap.OutIsKnown) || // still calculate where possible
+                (front.Swap.AmountOut == null || back.Swap.AmountIn == null)) // for backward compatibility with old versions of mev data with nulled fields for unknown tokens
+            {
+                MEVDetail = ErrorParameters;
+                back.MEVDetail = ErrorParameters;
                 return;
             }
 
@@ -1688,9 +1698,6 @@ namespace ZeroMev.Shared
             back = mb.Backruns[index];
             sandwiched = mb.Sandwiched[index];
 
-            if (!front.Swap.InIsKnown || !back.Swap.OutIsKnown) return false;
-            if (front.Swap.AmountOut == null || back.Swap.AmountIn == null) return false; // for backward compatibility with old versions of mev data with nulled fields for unknown tokens
-
             var a = new List<ZMDecimal>();
             var b = new List<ZMDecimal>();
 
@@ -1790,6 +1797,10 @@ namespace ZeroMev.Shared
                 fi--;
                 bi++;
             }
+
+            // if the original swap is in a base currency and the wrap is not, use the original
+            if (front.Swap.IsBaseUsdRateIn && back.Swap.IsBaseUsdRateOut && (!frontWrap.IsBaseUsdRateIn || !backWrap.IsBaseUsdRateOut))
+                return false;
 
             return isWrapDetected;
         }
@@ -1916,32 +1927,41 @@ namespace ZeroMev.Shared
 
         public static bool PoolFromSwapsABAB(ZMDecimal[] a, ZMDecimal[] b, ZMDecimal c, out ZMDecimal x, out ZMDecimal y)
         {
+            x = -1;
+            y = -1;
+
             // this happens when we don't detect reverts and the user retries the same tx
             if (a[0] == a[1] && b[0] == b[1])
-            {
-                x = -1;
-                y = -1;
                 return false;
-            }
 
-            x = ((a[0] * a[1] * b[1] * c) + (a[0].Pow(2) * b[1])) / ((a[1] * b[0]) - (a[0] * b[1]));
-            y = ((((b[0] * ((a[1] * b[1]) - (a[0] * b[1]))) + (a[1] * b[0].Pow(2))) * c) + (a[0] * b[0] * b[1])) / ((a[1] * b[0] * c) - (a[0] * b[1] * c));
+            var divx = ((a[1] * b[0]) - (a[0] * b[1]));
+            if (divx == 0) return false;
+            x = ((a[0] * a[1] * b[1] * c) + (a[0].Pow(2) * b[1])) / divx;
+
+            var divy = ((a[1] * b[0] * c) - (a[0] * b[1] * c));
+            if (divy == 0) return false;
+            y = ((((b[0] * ((a[1] * b[1]) - (a[0] * b[1]))) + (a[1] * b[0].Pow(2))) * c) + (a[0] * b[0] * b[1])) / divy;
+
             return true;
         }
 
         public static bool PoolFromSwapsABBA(ZMDecimal[] a, ZMDecimal[] b, ZMDecimal c, out ZMDecimal x, out ZMDecimal y)
         {
+            x = -1;
+            y = -1;
+
             // this happens when we don't detect reverts and the user retries the same tx
             if (a[0] == a[1] && b[0] == b[1])
-            {
-                x = -1;
-                y = -1;
                 return false;
-            }
 
             var cPow2 = c.Pow(2);
-            x = -(((a[0].Pow(2) * b[1]) - (a[0] * a[1] * b[1])) * cPow2) / ((a[0] * b[1] * cPow2) - (a[1] * b[0]));
-            y = ((a[0] * b[0] * b[1] * cPow2) + (b[0] * a[1] * b[1] * c) - (b[0] * a[0] * b[1] * c) - (a[1] * b[0].Pow(2))) / ((a[0] * b[1] * cPow2) - (a[1] * b[0]));
+            var divx = ((a[0] * b[1] * cPow2) - (a[1] * b[0]));
+            if (divx == 0) return false;
+            x = -(((a[0].Pow(2) * b[1]) - (a[0] * a[1] * b[1])) * cPow2) / divx;
+
+            var divy = ((a[0] * b[1] * cPow2) - (a[1] * b[0]));
+            if (divy == 0) return false;
+            y = ((a[0] * b[0] * b[1] * cPow2) + (b[0] * a[1] * b[1] * c) - (b[0] * a[0] * b[1] * c) - (a[1] * b[0].Pow(2))) / divy;
             return true;
         }
 
