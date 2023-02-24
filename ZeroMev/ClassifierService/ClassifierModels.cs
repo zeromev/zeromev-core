@@ -1,5 +1,6 @@
 ﻿using C5;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections;
 using System.Diagnostics;
 using System.Numerics;
@@ -8,6 +9,7 @@ using System.Text.Json;
 using ZeroMev.MevEFC;
 using ZeroMev.Shared;
 using ZeroMev.SharedServer;
+using static System.Net.WebRequestMethods;
 
 namespace ZeroMev.ClassifierService
 {
@@ -190,7 +192,7 @@ namespace ZeroMev.ClassifierService
             int symbolOut = GetSymbolIndex(mb, swap.TokenOutAddress);
             var protocol = GetProtocolSwap(swap.Protocol, swap.AbiName);
 
-            var mevSwap = new MEVSwap(new TraceAddress(swap.TraceAddress), protocol, symbolIn, symbolOut, zmSwap.InAmount, zmSwap.OutAmount, zmSwap.InRateUsd, zmSwap.OutRateUsd);
+            var mevSwap = new MEVSwap(new TraceAddress(swap.TraceAddress), protocol, symbolIn, symbolOut, zmSwap.InAmount, zmSwap.OutAmount, zmSwap.InRateUsd, zmSwap.OutRateUsd, swap.FromAddress, swap.ToAddress);
             return mevSwap;
         }
 
@@ -346,18 +348,6 @@ namespace ZeroMev.ClassifierService
         }
     }
 
-    public class SwapRecord
-    {
-        public SwapRecord(Swap swap, ZMSwap zMSwap)
-        {
-            Swap = swap;
-            ZMSwap = zMSwap;
-        }
-
-        public Swap Swap { get; private set; }
-        public ZMSwap ZMSwap { get; private set; }
-    }
-
     public class ArbSwap
     {
         public ArbSwap(Arbitrage arb, ArbitrageSwap swap)
@@ -376,6 +366,7 @@ namespace ZeroMev.ClassifierService
         // manage write queues for the main mev database and a web client replica
         static List<MEVBlock> MevDbQueue = new List<MEVBlock>();
         static List<MEVBlock> MevWebDbQueue = new List<MEVBlock>();
+        static List<ApiMevTx> MevApiDbQueue = new List<ApiMevTx>();
 
         public List<Swap> Swaps { get; set; }
         public Dictionary<string, ArbSwap> ArbitrageSwaps { get; set; }
@@ -389,6 +380,9 @@ namespace ZeroMev.ClassifierService
         public List<PunkBidAcceptance> PunkBidAcceptances { get; set; }
         public List<PunkSnipe> PunkSnipes { get; set; }
         public List<ZmBlock> ZmBlocks { get; set; }
+        
+        public Dictionary<long, List<ExtractorBlock>> ExtractorBlocks = new Dictionary<long, List<ExtractorBlock>>();
+        public Dictionary<long, GetBlockByNumber?> RPCBlock = new Dictionary<long, GetBlockByNumber?>();
 
         DEXs _dexs = null;
         Dictionary<long, MEVBlock> _mevBlocks = new Dictionary<long, MEVBlock>();
@@ -457,6 +451,8 @@ namespace ZeroMev.ClassifierService
                                orderby z.BlockNumber
                                select z).ToList();
             }
+
+            bi.ExtractorBlocks = DB.ReadExtractorBlocks(fromBlockNumber, toBlockNumber);
 
             bi.CalculateSandwiches();
             return bi;
@@ -572,10 +568,6 @@ namespace ZeroMev.ClassifierService
                 // detect new block number
                 if (mevBlock == null || s.BlockNumber != mevBlock.BlockNumber)
                 {
-#if (DEBUG)
-                    if (mevBlock.BlockNumber == 15051108) Console.WriteLine("");
-#endif
-
                     // process liquidations and nfts in parallel with swaps to ensure we get decent exchange rates
                     // note that liquidations and nfts xrates are set a block granularity, where as arbs/swaps/sandwiches are set a tx level granularity
                     var tempMevBlock = mevBlock;
@@ -590,7 +582,7 @@ namespace ZeroMev.ClassifierService
                     sandwiched.Clear();
 
                     mevBlock = tempMevBlock;
-                    if (!GetMEVBlock(s.BlockNumber, ref mevBlock, ref arrivals, ref txStatus))
+                    if (!GetMEVBlock(s.BlockNumber, ref mevBlock, ref arrivals, ref txStatus, true))
                         continue;
                 }
 
@@ -726,6 +718,13 @@ namespace ZeroMev.ClassifierService
                 if (zmSwap != null && s.TransactionPosition != null)
                 {
                     int txIndex = s.TransactionPosition.Value;
+                    if (txIndex>= mevBlock.ExistingMEV.Length)
+                    {
+                        // condition can arise due to reorgs
+                        IMEV[] resize = new IMEV[txIndex + 1];
+                        Array.Copy(mevBlock.ExistingMEV, resize, mevBlock.ExistingMEV.Length);
+                        mevBlock.ExistingMEV = resize;
+                    }
                     if (mevBlock.ExistingMEV[txIndex] == null)
                     {
                         var swapsTx = new MEVSwapsTx(txIndex);
@@ -736,8 +735,10 @@ namespace ZeroMev.ClassifierService
                 }
             }
 
+#if (DEBUG)
             foreach (var mb in _mevBlocks.Values)
                 TestMev(mb);
+#endif
         }
 
         private void ProcessLiquidations(long? fromBlockNumber, long toBlockNumber, ref MEVBlock mevBlock, ref List<DateTime>? arrivals, ref BitArray? txStatus)
@@ -757,7 +758,18 @@ namespace ZeroMev.ClassifierService
                 var receivedAmountUsd = l.ReceivedTokenAddress != null && FlashbotsSummaryTokens.Contains(l.ReceivedTokenAddress) ? XRates.ConvertToUsd(l.ReceivedTokenAddress, l.ReceivedAmount) : null;
                 bool? isReverted = l.Error == "Reverted" ? true : null;
 
-                var mevLiquidation = new MEVLiquidation(l.TransactionHash, protocol, (ZMDecimal)l.DebtPurchaseAmount, debtPurchaseAmountUsd, debtSymbolIndex, (ZMDecimal)l.ReceivedAmount, receivedAmountUsd, receivedSymbolIndex, isReverted);
+                // get or reuse a full block call to determine tx index
+                GetBlockByNumber? b = null;
+                if (!RPCBlock.TryGetValue(l.BlockNumber, out b))
+                {
+                    b = API.GetBlockByNumber(_http, l.BlockNumber).Result;
+                    RPCBlock.Add(l.BlockNumber, b);
+                }
+                int? ti = null;
+                var t = b.Result.Transactions.Find(x => x.Hash == l.TransactionHash);
+                if (t != null && t.TransactionIndex != null) ti = Num.HexToInt(t.TransactionIndex);
+
+                var mevLiquidation = new MEVLiquidation(ti, l.TransactionHash, protocol, (ZMDecimal)l.DebtPurchaseAmount, debtPurchaseAmountUsd, debtSymbolIndex, (ZMDecimal)l.ReceivedAmount, receivedAmountUsd, receivedSymbolIndex, isReverted, l.LiquidatedUser, l.LiquidatorUser);
                 mevBlock.Liquidations.Add(mevLiquidation);
             }
         }
@@ -788,7 +800,7 @@ namespace ZeroMev.ClassifierService
                     paymentAmountUsd = MEVHelper.GetUsdAmount(n.PaymentTokenAddress, n.PaymentAmount, out paymentAmount);
                 }
                 MEVError error = MEVHelper.GetErrorFrom(n.Error);
-                var mevNft = new MEVNFT(n.TransactionPosition, protocol, paymentSymbolIndex, n.CollectionAddress, n.TokenId.ToString(), paymentAmount, paymentAmountUsd, error);
+                var mevNft = new MEVNFT(n.TransactionPosition, protocol, paymentSymbolIndex, n.CollectionAddress, n.TokenId.ToString(), paymentAmount, paymentAmountUsd, error, n.SellerAddress, n.BuyerAddress);
                 if (MEVHelper.DoAddMEV(mevBlock, mevNft))
                     mevBlock.NFTrades.Add(mevNft);
             }
@@ -804,6 +816,188 @@ namespace ZeroMev.ClassifierService
                     await DB.QueueWriteMevBlocksAsync(mevBlocks, Config.Settings.MevWebDB, MevWebDbQueue, false);
                 await a;
             }
+        }
+
+        public async Task SaveApi(long trimBefore = -1)
+        {
+            var apiTxs = BuildApiTxRows(trimBefore);
+            if (apiTxs != null && apiTxs.Count > 0)
+            {
+                var a = DB.QueueWriteApiTxsAsync(apiTxs, Config.Settings.MevApiDB, MevApiDbQueue);
+                await a;
+            }
+        }
+
+        public List<ApiMevTx> BuildApiTxRows(long trimBefore = -1)
+        {
+            List<ApiMevTx> apiMevTxs = new List<ApiMevTx>();
+            var mevBlocks = _mevBlocks.Values.Where<MEVBlock>(x => (x.BlockNumber > trimBefore)).ToList<MEVBlock>();
+            if (mevBlocks != null && mevBlocks.Count > 0)
+            {
+                foreach (MEVBlock mb in mevBlocks)
+                {
+                    ExtractorBlocks.TryGetValue(mb.BlockNumber, out var eb);
+                    ZMBlock? zb = DB.BuildZMBlock(eb);
+                    ZMView zv = new ZMView(mb.BlockNumber);
+                    bool refreshed = false;
+                    if (zb != null)
+                    {
+                        zb.MevBlock = mb;
+                        refreshed = zv.RefreshOffline(zb);
+                    }
+                    if (!refreshed)
+                    {
+                        // handle not having arrival times for early or missing data
+                        zb = new ZMBlock(mb.BlockNumber, null);
+                        zb.MevBlock = mb;
+                        zv.RefreshOffline(zb, 2000);
+                    }
+
+                    int i_us = zv.GetPopIndex(ExtractorPoP.US);
+                    int i_eu = zv.GetPopIndex(ExtractorPoP.EU);
+                    int i_as = zv.GetPopIndex(ExtractorPoP.AS);
+
+                    // iterate txs building api data
+                    for (int i = 0; i < zv.Txs.Length; i++)
+                    {
+                        if (zv.Txs[i] != null && zv.Txs[i].MEV != null)
+                        {
+                            // determine swaps (and protocol for some types)
+                            var t = zv.Txs[i];
+                            var m = t.MEV;
+                            ApiMevTx a = new ApiMevTx();
+
+                            // set for DEX related MEV
+                            MEVSwap protocolSwap = null;
+                            MEVSwaps volSwaps = null;
+
+                            // default profit and loss
+                            a.user_loss_usd = m.MEVAmountUsd;
+                            a.extractor_profit_usd = -m.MEVAmountUsd;
+
+                            decimal? extractorSwapVolume = null;
+                            int? extractorSwapCount = null;
+
+                            switch (m.MEVType)
+                            {
+                                case MEVType.Swap:
+                                    volSwaps = ((MEVSwapsTx)m).Swaps;
+                                    if (volSwaps != null && volSwaps.Swaps.Count != 0)
+                                    {
+                                        // TODO check whether a single protocol is known
+                                        if (volSwaps.Swaps.Count == 1)
+                                            protocolSwap = volSwaps.Swaps[0];
+                                        else
+                                            a.protocol = ProtocolSwap.Multiple.ToString().ToLower();
+                                    }
+                                    break;
+
+                                case MEVType.Arb:
+                                    volSwaps = ((MEVArb)m).Swaps;
+                                    a.protocol = ProtocolSwap.Multiple.ToString().ToLower();
+                                    var arbSwaps = ((MEVArb)m).ArbSwaps();
+                                    a.address_from = arbSwaps[0].AddressFrom;
+                                    a.address_to = arbSwaps[arbSwaps.Count - 1].AddressTo;
+                                    extractorSwapVolume = 0;
+                                    extractorSwapCount = 0;
+                                    foreach (var s in arbSwaps)
+                                        if (s.VolumeUsd != null) // skip unknown symbols as we can't estimate mev against them
+                                        {
+                                            extractorSwapVolume += s.VolumeUsd;
+                                            extractorSwapCount++;
+                                        }
+                                    break;
+
+                                case MEVType.Frontrun:
+                                    var frontrun = ((MEVFrontrun)m);
+                                    volSwaps = frontrun.Swaps;
+                                    protocolSwap = frontrun.Swap;
+                                    a.imbalance = frontrun.FrontrunImbalance;
+                                    a.extractor_profit_usd = ((MEVFrontrun)m).SandwichProfitUsd;
+                                    a.user_loss_usd = null; // present in sandwiched
+                                    extractorSwapVolume = 0;
+                                    extractorSwapCount = 0;
+                                    if (frontrun.Swap.VolumeUsd != null)
+                                    {
+                                        extractorSwapVolume = frontrun.Swap.VolumeUsd;
+                                        extractorSwapCount = 1;
+                                    }
+                                    break;
+
+                                case MEVType.Backrun:
+                                    var backrun = ((MEVBackrun)m);
+                                    volSwaps = backrun.Swaps;
+                                    protocolSwap = backrun.Swap;
+                                    a.imbalance = backrun.BackrunImbalance;
+                                    a.user_loss_usd = ((MEVBackrun)m).BackrunAmountUsd;
+                                    a.extractor_profit_usd = -((MEVBackrun)m).BackrunAmountUsd;
+                                    extractorSwapVolume = 0;
+                                    extractorSwapCount = 0;
+                                    if (backrun.Swap.VolumeUsd != null)
+                                    {
+                                        extractorSwapVolume = backrun.Swap.VolumeUsd;
+                                        extractorSwapCount = 1;
+                                    }
+                                    break;
+
+                                case MEVType.Sandwich:
+                                    volSwaps = ((MEVSandwiched)m).Swaps;
+                                    var ss = ((MEVSandwiched)m).SandwichedSwaps();
+                                    if (ss != null && ss.Count != 0)
+                                        protocolSwap = ss[0];
+                                    a.extractor_profit_usd = null; // present in frontrun
+                                    break;
+
+                                case MEVType.Liquid:
+                                    var l = ((MEVLiquidation)m);
+                                    a.protocol = l.Protocol.ToString().ToLower();
+                                    a.user_loss_usd = l.MEVAmountUsd;
+                                    a.extractor_profit_usd = -l.MEVAmountUsd;
+                                    a.address_from = l.LiquidatedUser;
+                                    a.address_to = l.LiquidatorUser;
+                                    break;
+
+                                case MEVType.NFT:
+                                    // not really MEV
+                                    continue;
+                            }
+
+                            // set columns
+                            a.block_number = mb.BlockNumber;
+                            a.tx_index = i;
+                            a.mev_type = m.MEVType;
+                            if (protocolSwap != null)
+                            {
+                                a.protocol = protocolSwap.Protocol.ToString().ToLower();
+                                a.address_from = protocolSwap.AddressFrom;
+                                a.address_to = protocolSwap.AddressTo;
+                            }
+
+                            // calculate swap volume and count
+                            decimal? swapVolume = null;
+                            int? swapCount = null;
+                            if (volSwaps != null)
+                                foreach (var s in volSwaps.Swaps)
+                                    if (s.VolumeUsd != null) // skip unknown symbols with indeterminate outputs as we can't estimate mev against them
+                                    {
+                                        swapVolume = swapVolume + s.VolumeUsd ?? s.VolumeUsd;
+                                        swapCount = swapCount + 1 ?? 1;
+                                    }
+                            a.swap_volume_usd = swapVolume;
+                            a.swap_count = swapCount;
+                            a.extractor_swap_volume_usd = extractorSwapVolume;
+                            a.extractor_swap_count = extractorSwapCount;
+
+                            a.arrival_time_us = t.GetArrivalTime(i_us);
+                            a.arrival_time_eu = t.GetArrivalTime(i_eu);
+                            a.arrival_time_as = t.GetArrivalTime(i_as);
+
+                            apiMevTxs.Add(a);
+                        }
+                    }
+                }
+            }
+            return apiMevTxs;
         }
 
         public void TestMev(MEVBlock mb)
@@ -890,7 +1084,7 @@ namespace ZeroMev.ClassifierService
             }
         }
 
-        private bool GetMEVBlock(long blockNumber, ref MEVBlock? mevBlock, ref List<DateTime>? arrivals, ref BitArray? txStatus, bool doSetEthUsd = true)
+        private bool GetMEVBlock(long blockNumber, ref MEVBlock? mevBlock, ref List<DateTime>? arrivals, ref BitArray? txStatus, bool doSetEthUsd)
         {
             // only get new references if we have changed block number (iterate sorted by block number to minimize this)
             if (mevBlock == null || blockNumber != mevBlock.BlockNumber)
@@ -913,7 +1107,19 @@ namespace ZeroMev.ClassifierService
                     if (txStatus != null)
                     {
                         // filter out invalid tx length extractor rows and calculate arrival times
-                        var zb = DB.GetZMBlock(blockNumber);
+                        
+                        // get pre-cached extractor blocks if possible (and we are not earlier than the beginning of the dataset)
+                        ZMBlock zb = null;
+                        if (blockNumber >= API.EarliestZMBlock)
+                        {
+                            if (ExtractorBlocks != null && ExtractorBlocks.TryGetValue(blockNumber, out var ebs))
+                                zb = DB.BuildZMBlock(ebs);
+
+                            // or go to the db if not
+                            if (zb == null)
+                                zb = DB.GetZMBlock(blockNumber);
+                        }
+
                         ZMView? zv = null;
                         if (zb != null)
                         {
@@ -1300,9 +1506,13 @@ namespace ZeroMev.ClassifierService
             string symbolIn = Tokens.GetSymbol(swap.TokenInAddress, out inDivisor);
             string symbolOut = Tokens.GetSymbol(swap.TokenOutAddress, out outDivisor);
 
+            // record amounts even for unknown symbols
+            if (inDivisor == null) inDivisor = Tokens.Pow18;
+            if (outDivisor == null) outDivisor = Tokens.Pow18;
+
             // apply the decimal divisor
-            ZMDecimal? tokenIn = (inDivisor != null) ? swap.TokenInAmount / inDivisor : null;
-            ZMDecimal? tokenOut = (outDivisor != null) ? swap.TokenOutAmount / outDivisor : null;
+            ZMDecimal? tokenIn = swap.TokenInAmount / inDivisor;
+            ZMDecimal? tokenOut = swap.TokenOutAmount / outDivisor;
 
             // create a smaller footprint zeromev swap which includes our timing data
             ZMSwap zmSwap = new ZMSwap(blockOrder, arrivalTime, isSell, tokenIn, tokenOut, symbolIn, symbolOut);
@@ -1324,14 +1534,6 @@ namespace ZeroMev.ClassifierService
                 var newRate = zmSwap.ExchangeRate();
                 if (newRate != null && newRate != 0)
                 {
-                    /*
-#if (DEBUG)
-                    if (TokenA == "0xc18360217d8f7ab5e7c516566761ea12ce7f9d72")
-                    {
-                        Console.Write("");
-                    }
-#endif
-                    */
                     if (BaseCurrencyA == BaseCurrency.ETH && BaseCurrencyB == BaseCurrency.USD)
                     {
                         if (XRates.ETHBaseRate == null || XRates.ETHBaseRate == 0 || (newRate.Value > XRates.MinEthUsdRate && newRate.Value < XRates.MaxEthUsdRate))

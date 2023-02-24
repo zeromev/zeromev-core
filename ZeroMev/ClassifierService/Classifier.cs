@@ -120,24 +120,17 @@ namespace ZeroMev.ClassifierService
                         }
 
                         // if we don’t have enough zm blocks to process by now, wait up until the longer PollTimeoutSecs (it will likely mean the zeromevdb is down or something)
-                        if (zb == null || zv == null || zb.UniquePoPCount() < 2)
+                        if (zb == null || zv == null)
                         {
-                            string reason;
-                            if (zb == null)
-                                reason = "no zm block";
-                            else
-                                reason = zb.UniquePoPCount() + " pops";
-
-                            // a successful attempt is at least 2 PoPs (extractors) providing data
-                            // pause between polling if this criteria is not met
+                            // pause between polling if no block can be retrieved
                             // or after a longer timeout period, move on anyway so we don't get stuck
                             if (DateTime.Now < lastProcessedBlockAt.AddSeconds(PollTimeoutSecs))
                             {
-                                _logger.LogInformation($"polling {reason} {delaySecs} secs {nextBlockNumber}");
+                                _logger.LogInformation($"null zm block - polling {delaySecs} secs {nextBlockNumber}");
                                 continue;
                             }
 
-                            _logger.LogInformation($"timeout {reason} {delaySecs} secs {nextBlockNumber}");
+                            _logger.LogInformation($"null zm block - timeout {delaySecs} secs {nextBlockNumber}");
                         }
 
                         // classify mev 
@@ -154,11 +147,28 @@ namespace ZeroMev.ClassifierService
                             try
                             {
                                 bp.Run();
-                                await bp.Save(true);
                             }
                             catch (Exception ex)
                             {
                                 _logger.LogInformation($"error processing {nextBlockNumber} {ex}");
+                            }
+
+                            try
+                            {
+                                await bp.Save(true);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogInformation($"error saving {nextBlockNumber} {ex}");
+                            }
+
+                            try
+                            {
+                                await bp.SaveApi();
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogInformation($"error saving api {nextBlockNumber} {ex}");
                             }
 
                             await db.SetLastProcessedBlock(nextBlockNumber);
@@ -168,6 +178,7 @@ namespace ZeroMev.ClassifierService
                         // update tokens periodically (do within the cycle as Tokens are not threadsafe)
                         if (DateTime.Now > lastGotTokens.AddSeconds(GetNewTokensEverySecs))
                         {
+                            _logger.LogInformation($"try get new tokens");
                             if (!await UpdateNewTokens(_http))
                                 _logger.LogInformation($"get new tokens failed");
                             else
@@ -217,9 +228,17 @@ namespace ZeroMev.ClassifierService
             // only save rows we haven't written before (ie: after the last zeromev block)
 
             long lastZmBlock;
-            using (var db = new zeromevContext())
+            long? importFromBlock = Config.Settings.ImportZmBlocksFrom;
+            if (importFromBlock == null)
             {
-                lastZmBlock = db.GetLastZmProcessedBlock();
+                using (var db = new zeromevContext())
+                {
+                    lastZmBlock = db.GetLastZmProcessedBlock();
+                }
+            }
+            else
+            {
+                lastZmBlock = importFromBlock.Value;
             }
 
             long lastMiBlock;
@@ -233,10 +252,11 @@ namespace ZeroMev.ClassifierService
             long? importToBlock = Config.Settings.ImportZmBlocksTo;
             if (importToBlock != null && last > importToBlock.Value)
                 last = importToBlock.Value;
+            bool isBatchJob = (importFromBlock != null || importToBlock != null);
 
             try
             {
-                for (long from = first; from <= lastMiBlock; from += ProcessChunkSize)
+                for (long from = first; from <= last; from += ProcessChunkSize)
                 {
                     long to = from + ProcessChunkSize;
                     if (to > last)
@@ -246,30 +266,46 @@ namespace ZeroMev.ClassifierService
                     double totalProgress = (double)(from - first) / (last - first);
                     if (from < lastZmBlock)
                     {
-                        _logger.LogInformation($"{from} to {to} (warmup to {lastZmBlock} {warmupProgress.ToString("P")}, backfill to {lastMiBlock} {totalProgress.ToString("P")})");
+                        _logger.LogInformation($"{from} to {to} (warmup to {lastZmBlock} {warmupProgress.ToString("P")}, backfill to {last} {totalProgress.ToString("P")})");
                     }
                     else
                     {
-                        _logger.LogInformation($"{from} to {to} (backfill to {lastMiBlock} {totalProgress.ToString("P")})");
+                        _logger.LogInformation($"{from} to {to} (backfill to {last} {totalProgress.ToString("P")})");
                     }
 
 
+                    Stopwatch sw = new Stopwatch();
+                    sw.Restart();
                     var bp = BlockProcess.Load(from, to, _dexs);
+                    sw.Stop();
+                    Console.WriteLine($"loaded in {sw.ElapsedMilliseconds} ms");
+
                     if (stoppingToken.IsCancellationRequested)
                         return false;
 
+                    sw.Restart();
                     bp.Run();
                     if (stoppingToken.IsCancellationRequested)
                         return false;
+                    sw.Stop();
+                    Console.WriteLine($"run in {sw.ElapsedMilliseconds} ms");
 
+#if (DEBUG)
+                    await bp.Save(true, lastZmBlock);
+#else
                     await bp.Save(false, lastZmBlock);
+#endif
+                    await bp.SaveApi(lastZmBlock);
                     if (stoppingToken.IsCancellationRequested)
                         return false;
 
-                    // set the last processed block
-                    using (var db = new zeromevContext())
+                    // set the last processed block (if not a batch job)
+                    if (!isBatchJob)
                     {
-                        await db.SetLastProcessedBlock(to - 1);
+                        using (var db = new zeromevContext())
+                        {
+                            await db.SetLastProcessedBlock(to - 1);
+                        }
                     }
                 }
             }
@@ -277,6 +313,13 @@ namespace ZeroMev.ClassifierService
             {
                 // important as network errors may make the RPC node or DB unavailable and we don't want gaps in the data
                 _logger.LogError("startup aborted due to an unexpected error: " + ex.ToString());
+                return false;
+            }
+
+            // if this is a batch job, signal to exit
+            if (isBatchJob)
+            {
+                _logger.LogError($"exiting - import completed from {importFromBlock} to {importToBlock}");
                 return false;
             }
 

@@ -265,13 +265,6 @@ namespace ZeroMev.Shared
             return true;
         }
 
-        // an offline version of Refresh that does not require http
-        public bool RefreshOffline(ZMBlock zmBlock, GetBlockByNumber block)
-        {
-            if (!SetBlock(block)) return false;
-            return SetZMBlock(zmBlock);
-        }
-
         // an offline version of Refresh that does not require http and accepts a zmblock with tx time data
         public bool RefreshOffline(ZMBlock zmBlock)
         {
@@ -399,7 +392,7 @@ namespace ZeroMev.Shared
                 double pow = 0;
                 foreach (PoP pop in PoPs)
                 {
-                    if (pop.ExtractorIndex != (int)ExtractorPoP.Inf)
+                    if (pop.ExtractorIndex != (int)ExtractorPoP.Inf || PoPs.Count == 1)
                     {
                         long diff = pop.BlockTime.Ticks - avg;
                         TimeSpan ts = new TimeSpan(diff);
@@ -501,11 +494,17 @@ namespace ZeroMev.Shared
             for (int i = 0; i < mb.Arbs.Count; i++) SetMev(mb.Arbs[i], mb, i);
             for (int i = 0; i < mb.Liquidations.Count; i++) SetMev(mb.Liquidations[i], mb, i);
             for (int i = 0; i < mb.NFTrades.Count; i++) SetMev(mb.NFTrades[i], mb, i);
-            for (int i = 0; i < mb.Frontruns.Count; i++) SetMev(mb.Frontruns[i], mb, i);
+            for (int i = 0; i < mb.Backruns.Count; i++) SetMev(mb.Backruns[i], mb, i); // the calculation order of backruns / sandwiched / frontruns is important here
             for (int i = 0; i < mb.Sandwiched.Count; i++)
                 foreach (var s in mb.Sandwiched[i])
                     SetMev(s, mb, i);
+            for (int i = 0; i < mb.Frontruns.Count; i++) SetMev(mb.Frontruns[i], mb, i);
+
+            // require a second pass after the frontrun calculation
             for (int i = 0; i < mb.Backruns.Count; i++) SetMev(mb.Backruns[i], mb, i);
+            for (int i = 0; i < mb.Sandwiched.Count; i++)
+                foreach (var s in mb.Sandwiched[i])
+                    SetMev(s, mb, i);
 
             EthUsd = mb.EthUsd;
             HasMEV = true;
@@ -580,6 +579,12 @@ namespace ZeroMev.Shared
                     f.Add(tx);
             }
             return f;
+        }
+
+        public int GetPopIndex(ExtractorPoP pop)
+        {
+            if (PoPs == null || PoPs.Count == 0) return -1;
+            return PoPs.FindIndex(a => a.ExtractorIndex == (short)pop);
         }
     }
 
@@ -691,6 +696,14 @@ namespace ZeroMev.Shared
                 if (MEV == null) return MEVFilter.All;
                 return MEVWeb.GetMEVFilter(MEV.MEVClass);
             }
+        }
+
+        public DateTime? GetArrivalTime(int popIndex)
+        {
+            if (popIndex == -1 || Arrivals == null) return null;
+            if (popIndex >= Arrivals.Length) return null;
+            if (Arrivals[popIndex] == null) return null;
+            return Arrivals[popIndex].ArrivalTime;
         }
 
         public void SetFromInfuraTx(Transaction infTx)

@@ -39,27 +39,9 @@ namespace ZeroMev.SharedServer
         "AND block_number < @to_block_number " +
         "ORDER BY block_number asc, extractor_index asc, block_time desc;";
 
-        const string WriteFlashbotsBlockSQL = @"INSERT INTO public.fb_block(" +
-        "block_number, bundle_data) " +
-        "VALUES (@block_number, @bundle_data) " +
-        "ON CONFLICT (block_number) DO UPDATE SET " +
-        "bundle_data = EXCLUDED.bundle_data;";
-
         const string ReadFlashbotsBundleSQL = @"SELECT bundle_data " +
         "FROM public.fb_block " +
         "WHERE block_number = @block_number;";
-
-        const string WriteMevBlockSQL = @"INSERT INTO public.mev_block(" +
-        "block_number, mev_data) " +
-        "VALUES (@block_number, @mev_data) " +
-        "ON CONFLICT (block_number) DO UPDATE SET " +
-        "mev_data = EXCLUDED.mev_data;";
-
-        const string WriteMevBlockSummarySQL = @"INSERT INTO public.zm_mev_summary(" +
-        "block_number, mev_type, mev_amount_usd, mev_count) " +
-        "VALUES (@block_number, @mev_type, @mev_amount_usd, @mev_count) " +
-        "ON CONFLICT (block_number, mev_type) DO UPDATE SET " +
-        "mev_amount_usd = EXCLUDED.mev_amount_usd, mev_count = EXCLUDED.mev_count;";
 
         const string ReadLatestMevBlockSQL = @"SELECT block_number FROM public.latest_mev_block LIMIT 1;";
 
@@ -73,6 +55,34 @@ namespace ZeroMev.SharedServer
         "FROM public.mev_block " +
         "WHERE block_number >= @from_block_number AND block_number < @to_block_number " +
         "ORDER BY block_number DESC;";
+
+        const string WriteFlashbotsBlockSQL = @"INSERT INTO public.fb_block(" +
+        "block_number, bundle_data) " +
+        "VALUES (@block_number, @bundle_data) ";
+
+        const string WriteFlashbotsBlockSQLOnConflict = WriteFlashbotsBlockSQL + @"ON CONFLICT (block_number) DO UPDATE SET " +
+        "bundle_data = EXCLUDED.bundle_data;";
+
+        const string WriteMevBlockSQL = @"INSERT INTO public.mev_block(" +
+        "block_number, mev_data) " +
+        "VALUES (@block_number, @mev_data) ";
+
+        const string WriteMevBlockSQLOnConflict = WriteMevBlockSQL + "ON CONFLICT (block_number) DO UPDATE SET " +
+        "mev_data = EXCLUDED.mev_data;";
+
+        const string WriteMevBlockSummarySQL = @"INSERT INTO public.zm_mev_summary(" +
+        "block_number, mev_type, mev_amount_usd, mev_count) " +
+        "VALUES (@block_number, @mev_type, @mev_amount_usd, @mev_count) ";
+
+        const string WriteMevBlockSummarySQLOnConflict = WriteMevBlockSummarySQL + @"ON CONFLICT (block_number, mev_type) DO UPDATE SET " +
+        "mev_amount_usd = EXCLUDED.mev_amount_usd, mev_count = EXCLUDED.mev_count;";
+
+        const string WriteApiMevTxSQL = @"INSERT INTO public.zm_mev_transaction(" +
+        "block_number, tx_index, mev_type, protocol, user_loss_usd, extractor_profit_usd, swap_volume_usd, swap_count, extractor_swap_volume_usd, extractor_swap_count, imbalance, address_from, address_to, arrival_time_us, arrival_time_eu, arrival_time_as) " +
+        "VALUES (@block_number, @tx_index, @mev_type, @protocol, @user_loss_usd, @extractor_profit_usd, @swap_volume_usd, @swap_count, @extractor_swap_volume_usd, @extractor_swap_count, @imbalance, @address_from, @address_to, @arrival_time_us, @arrival_time_eu, @arrival_time_as) ";
+
+        const string WriteApiMevTxSQLOnConflict = WriteApiMevTxSQL + "ON CONFLICT (block_number, tx_index, mev_type) DO UPDATE SET " +
+        "protocol = EXCLUDED.protocol, user_loss_usd = EXCLUDED.user_loss_usd, extractor_profit_usd = EXCLUDED.extractor_profit_usd, swap_volume_usd = EXCLUDED.swap_volume_usd, swap_count = EXCLUDED.swap_count, extractor_swap_volume_usd = EXCLUDED.swap_volume_usd, extractor_swap_count = EXCLUDED.swap_count, imbalance = EXCLUDED.imbalance, address_from = EXCLUDED.address_from, address_to = EXCLUDED.address_to, arrival_time_us = EXCLUDED.arrival_time_us, arrival_time_eu = EXCLUDED.arrival_time_eu, arrival_time_as = EXCLUDED.arrival_time_as;";
 
         // write cache
         static List<ExtractorBlock> _extractorBlocks = new List<ExtractorBlock>();
@@ -367,7 +377,8 @@ namespace ZeroMev.SharedServer
             using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.DB))
             {
                 conn.Open();
-                using (var cmd = new NpgsqlCommand(WriteFlashbotsBlockSQL, conn))
+                string sql = Config.Settings.FastImport ? WriteFlashbotsBlockSQL + ";" : WriteFlashbotsBlockSQLOnConflict;
+                using (var cmd = new NpgsqlCommand(sql, conn))
                 {
                     cmd.Parameters.Add(new NpgsqlParameter<long>("@block_number", fb.block_number));
                     cmd.Parameters.Add(new NpgsqlParameter<BitArray>("@bundle_data", bundles));
@@ -403,6 +414,68 @@ namespace ZeroMev.SharedServer
             return bundle;
         }
 
+        public static async Task QueueWriteApiTxsAsync(List<ApiMevTx> addApiTxs, string connectionStr, List<ApiMevTx> staticQueue)
+        {
+            if (addApiTxs == null || addApiTxs.Count == 0)
+                return;
+
+            try
+            {
+                // employ a simple retry queue for writes so data is not lost even if the DB goes down for long periods
+                staticQueue.AddRange(addApiTxs);
+
+                Stopwatch sw = new Stopwatch();
+                sw.Start();
+
+                using (NpgsqlConnection conn = new NpgsqlConnection(connectionStr))
+                {
+                    conn.Open();
+
+                    using (var batch = new NpgsqlBatch(conn))
+                    {
+                        foreach (var a in addApiTxs)
+                        {
+                            string sql = Config.Settings.FastImport ? WriteApiMevTxSQL + ";" : WriteApiMevTxSQLOnConflict;
+                            var cmdApiMevTx = new NpgsqlBatchCommand(sql);
+                            cmdApiMevTx.Parameters.Add(new NpgsqlParameter<long>("@block_number", a.block_number));
+                            cmdApiMevTx.Parameters.Add(new NpgsqlParameter<int>("@tx_index", a.tx_index));
+                            cmdApiMevTx.Parameters.Add(new NpgsqlParameter<int>("@mev_type", (int)a.mev_type));
+                            cmdApiMevTx.Parameters.Add(AddParam("@protocol", a.protocol));
+                            cmdApiMevTx.Parameters.Add(AddParam("@user_loss_usd", a.user_loss_usd));
+                            cmdApiMevTx.Parameters.Add(AddParam("@extractor_profit_usd", a.extractor_profit_usd));
+                            cmdApiMevTx.Parameters.Add(AddParam("@swap_volume_usd", a.swap_volume_usd));
+                            cmdApiMevTx.Parameters.Add(AddParam("@swap_count", a.swap_count));
+                            cmdApiMevTx.Parameters.Add(AddParam("@extractor_swap_volume_usd", a.extractor_swap_volume_usd));
+                            cmdApiMevTx.Parameters.Add(AddParam("@extractor_swap_count", a.extractor_swap_count));
+                            cmdApiMevTx.Parameters.Add(AddParam("@imbalance", a.imbalance));
+                            cmdApiMevTx.Parameters.Add(AddParam("@address_from", a.address_from));
+                            cmdApiMevTx.Parameters.Add(AddParam("@address_to", a.address_to));
+                            cmdApiMevTx.Parameters.Add(AddParam("arrival_time_us", a.arrival_time_us));
+                            cmdApiMevTx.Parameters.Add(AddParam("arrival_time_eu", a.arrival_time_eu));
+                            cmdApiMevTx.Parameters.Add(AddParam("arrival_time_as", a.arrival_time_as));
+                            batch.BatchCommands.Add(cmdApiMevTx);
+                        }
+                        await batch.ExecuteNonQueryAsync();
+                    }
+
+                    sw.Stop();
+                    Console.WriteLine($"api mev txs update in {sw.ElapsedMilliseconds} ms");
+                }
+            }
+            catch (Exception e)
+            {
+                // try catch is vital in this thread to avoid crashing the app
+                Console.WriteLine($"error QueueWriteApiTxsAsync {e.Message}, with {staticQueue.Count} remaining, db {connectionStr}");
+            }
+        }
+
+        public static NpgsqlParameter AddParam(string columnName, object value)
+        {
+            if (value == null)
+                return new NpgsqlParameter(columnName, DBNull.Value);
+            return new NpgsqlParameter(columnName, value);
+        }
+
         public static async Task QueueWriteMevBlocksAsync(List<MEVBlock> addMevBlocks, string connectionStr, List<MEVBlock> staticQueue, bool doWriteSummary)
         {
             if (addMevBlocks == null || addMevBlocks.Count == 0)
@@ -410,7 +483,7 @@ namespace ZeroMev.SharedServer
 
             try
             {
-                // employ a simple retry queue for writes so data is not lost even if the DB goes down for long periods (as long as the extractor keeps running)
+                // employ a simple retry queue for writes so data is not lost even if the DB goes down for long periods
                 staticQueue.AddRange(addMevBlocks);
 
                 Stopwatch sw = new Stopwatch();
@@ -420,11 +493,12 @@ namespace ZeroMev.SharedServer
                 {
                     conn.Open();
 
-                    while (staticQueue.Count > 0)
+                    if (staticQueue.Count > 0)
                     {
-                        MEVBlock nextMevBlock = staticQueue[0];
-                        await WriteMevBlock(conn, nextMevBlock, doWriteSummary);
-                        staticQueue.RemoveAt(0);
+                        var saveBlocks = new List<MEVBlock>(staticQueue);
+                        await WriteMevBlock(conn, saveBlocks, doWriteSummary);
+                        foreach (var mb in saveBlocks)
+                            staticQueue.Remove(mb);
                     }
                 }
 
@@ -438,47 +512,53 @@ namespace ZeroMev.SharedServer
             }
         }
 
-        public async static Task WriteMevBlock(NpgsqlConnection conn, MEVBlock mb, bool doWriteSummary)
+        public async static Task WriteMevBlock(NpgsqlConnection conn, List<MEVBlock> mbs, bool doWriteSummary)
         {
-            var mevJson = JsonSerializer.Serialize<MEVBlock>(mb, ZMSerializeOptions.Default);
-            var mevJsonComp = Binary.Compress(Encoding.ASCII.GetBytes(mevJson));
-
-            // mev block
-            var cmdMevBlock = new NpgsqlBatchCommand(WriteMevBlockSQL);
-            cmdMevBlock.Parameters.Add(new NpgsqlParameter<long>("@block_number", mb.BlockNumber));
-            cmdMevBlock.Parameters.Add(new NpgsqlParameter<byte[]>("@mev_data", mevJsonComp));
-
-            // latest mev block
-            var cmdLatestMevBlock = new NpgsqlBatchCommand(WriteLatestMevBlockSQL);
-            cmdLatestMevBlock.Parameters.Add(new NpgsqlParameter<long>("@block_number", mb.BlockNumber));
-
-            // mev totals
-            var mev = MEVTypeSummaries.FromMevBlock(mb);
-
-            // write them all in a single roundtrip
-            using var batch = new NpgsqlBatch(conn)
+            long maxBlockNumber = 0;
+            using (var batch = new NpgsqlBatch(conn))
             {
-                BatchCommands =
+                foreach (MEVBlock mb in mbs)
                 {
-                    cmdMevBlock,
-                    cmdLatestMevBlock
-                }
-            };
+                    var mevJson = JsonSerializer.Serialize<MEVBlock>(mb, ZMSerializeOptions.Default);
+                    var mevJsonComp = Binary.Compress(Encoding.ASCII.GetBytes(mevJson));
 
-            if (doWriteSummary)
-            {
-                foreach (var m in mev)
-                {
-                    var cmdMevBlockSummary = new NpgsqlBatchCommand(WriteMevBlockSummarySQL);
-                    cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<long>("@block_number", mb.BlockNumber));
-                    cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<int>("@mev_type", (int)m.MEVType));
-                    cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<decimal>("@mev_amount_usd", m.AmountUsd));
-                    cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<int>("@mev_count", m.Count));
-                    batch.BatchCommands.Add(cmdMevBlockSummary);
+                    // mev block
+                    string sql = Config.Settings.FastImport ? WriteMevBlockSQL + ";" : WriteMevBlockSQLOnConflict;
+                    var cmdMevBlock = new NpgsqlBatchCommand(sql);
+                    cmdMevBlock.Parameters.Add(new NpgsqlParameter<long>("@block_number", mb.BlockNumber));
+                    cmdMevBlock.Parameters.Add(new NpgsqlParameter<byte[]>("@mev_data", mevJsonComp));
+                    batch.BatchCommands.Add(cmdMevBlock);
+
+                    if (mb.BlockNumber > maxBlockNumber) maxBlockNumber = mb.BlockNumber;
                 }
+
+                foreach (MEVBlock mb in mbs)
+                {
+                    // mev totals
+                    var mev = MEVTypeSummaries.FromMevBlock(mb);
+
+                    if (doWriteSummary)
+                    {
+                        foreach (var m in mev)
+                        {
+                            string sqlb = Config.Settings.FastImport ? WriteMevBlockSummarySQL + ";" : WriteMevBlockSummarySQLOnConflict;
+                            var cmdMevBlockSummary = new NpgsqlBatchCommand(sqlb);
+                            cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<long>("@block_number", mb.BlockNumber));
+                            cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<int>("@mev_type", (int)m.MEVType));
+                            cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<decimal>("@mev_amount_usd", m.AmountUsd));
+                            cmdMevBlockSummary.Parameters.Add(new NpgsqlParameter<int>("@mev_count", m.Count));
+                            batch.BatchCommands.Add(cmdMevBlockSummary);
+                        }
+                    }
+                }
+
+                // latest mev block
+                var cmdLatestMevBlock = new NpgsqlBatchCommand(WriteLatestMevBlockSQL);
+                cmdLatestMevBlock.Parameters.Add(new NpgsqlParameter<long>("@block_number", maxBlockNumber));
+                batch.BatchCommands.Add(cmdLatestMevBlock);
+
+                await batch.ExecuteNonQueryAsync();
             }
-
-            await batch.ExecuteNonQueryAsync();
         }
 
         public static ZMBlock BuildZMBlock(List<ExtractorBlock> ebs)

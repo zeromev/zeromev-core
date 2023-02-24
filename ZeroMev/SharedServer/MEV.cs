@@ -20,25 +20,53 @@ namespace ZeroMev.SharedServer
         {
             MEVTypeSummary[] r = new MEVTypeSummary[Enum.GetValues(typeof(MEVType)).Length];
 
-            for (int i = 0; i < mb.SwapsTx.Count; i++) SetMev(r, mb.SwapsTx[i], mb, i);
-            for (int i = 0; i < mb.Arbs.Count; i++) SetMev(r, mb.Arbs[i], mb, i);
-            for (int i = 0; i < mb.Liquidations.Count; i++) SetMev(r, mb.Liquidations[i], mb, i);
-            for (int i = 0; i < mb.NFTrades.Count; i++) SetMev(r, mb.NFTrades[i], mb, i);
-            for (int i = 0; i < mb.Frontruns.Count; i++) SetMev(r, mb.Frontruns[i], mb, i);
+            for (int i = 0; i < mb.SwapsTx.Count; i++) SetMev(r, mb.SwapsTx[i], mb.SwapsTx[i].Swaps, MEVType.UserSwapVolume, mb, i);
+            for (int i = 0; i < mb.Arbs.Count; i++) SetMev(r, mb.Arbs[i], mb.Arbs[i].Swaps, MEVType.ExtractorSwapVolume, mb, i);
+            for (int i = 0; i < mb.Liquidations.Count; i++) SetMev(r, mb.Liquidations[i], null, null, mb, i);
+            for (int i = 0; i < mb.NFTrades.Count; i++) SetMev(r, mb.NFTrades[i], null, null, mb, i);
+            for (int i = 0; i < mb.Backruns.Count; i++) SetMev(r, mb.Backruns[i], mb.Backruns[i].Swaps, MEVType.ExtractorSwapVolume, mb, i);
             for (int i = 0; i < mb.Sandwiched.Count; i++)
                 foreach (var s in mb.Sandwiched[i])
-                    SetMev(r, s, mb, i);
-            for (int i = 0; i < mb.Backruns.Count; i++) SetMev(r, mb.Backruns[i], mb, i);
+                    SetMev(r, s, s.Swaps, MEVType.UserSandwichedSwapVolume, mb, i);
+            for (int i = 0; i < mb.Frontruns.Count; i++) SetMev(r, mb.Frontruns[i], mb.Frontruns[i].Swaps, MEVType.ExtractorSwapVolume, mb, i);
 
             return r.Where(x => x != null).ToList();
         }
 
-        private static void SetMev(MEVTypeSummary[] r, IMEV mev, MEVBlock mb, int mevIndex)
+        private static void SetMev(MEVTypeSummary[] r, IMEV mev, MEVSwaps swaps, MEVType? swapVolumeType, MEVBlock mb, int mevIndex)
         {
-            if (mev == null || mev.MEVClass == MEVClass.Info) return;
+            if (mev == null) return;
 
             // calculate members
             mev.Cache(mb, mevIndex);
+
+            // calculate swap volumes
+            if (swaps != null && swapVolumeType != null)
+            {
+                // if we can't calculate the sandwich loss, don't count the volume
+                if (swapVolumeType.Value != MEVType.UserSandwichedSwapVolume || mev.MEVAmountUsd.HasValue)
+                {
+                    foreach (var s in swaps.Swaps)
+                    {
+                        // ignore unknown symbols as we can't estimate mev against them
+                        if (s.OutIsKnown)
+                        {
+                            var vi = (int)swapVolumeType.Value;
+                            if (r[vi] == null)
+                            {
+                                r[vi] = new MEVTypeSummary();
+                                r[vi].MEVType = swapVolumeType.Value;
+                                r[vi].Count = 0;
+                                r[vi].AmountUsd = 0;
+                            }
+                            r[vi].Count++;
+                            r[vi].AmountUsd += s.AmountOutUsd ?? 0;
+                        }
+                    }
+                }
+            }
+
+            if (mev.MEVClass == MEVClass.Info) return;
 
             int i = (int)mev.MEVType;
             if (r[i] == null)
