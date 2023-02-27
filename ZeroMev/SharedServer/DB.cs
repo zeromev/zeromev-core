@@ -416,13 +416,14 @@ namespace ZeroMev.SharedServer
 
         public static async Task QueueWriteApiTxsAsync(List<ApiMevTx> addApiTxs, string connectionStr, List<ApiMevTx> staticQueue)
         {
-            if (addApiTxs == null || addApiTxs.Count == 0)
-                return;
-
             try
             {
                 // employ a simple retry queue for writes so data is not lost even if the DB goes down for long periods
-                staticQueue.AddRange(addApiTxs);
+                if (addApiTxs != null)
+                    staticQueue.AddRange(addApiTxs);
+
+                if (staticQueue.Count == 0)
+                    return;
 
                 Stopwatch sw = new Stopwatch();
                 sw.Start();
@@ -433,7 +434,7 @@ namespace ZeroMev.SharedServer
 
                     using (var batch = new NpgsqlBatch(conn))
                     {
-                        foreach (var a in addApiTxs)
+                        foreach (var a in staticQueue)
                         {
                             string sql = Config.Settings.FastImport ? WriteApiMevTxSQL + ";" : WriteApiMevTxSQLOnConflict;
                             var cmdApiMevTx = new NpgsqlBatchCommand(sql);
@@ -456,6 +457,7 @@ namespace ZeroMev.SharedServer
                             batch.BatchCommands.Add(cmdApiMevTx);
                         }
                         await batch.ExecuteNonQueryAsync();
+                        staticQueue.Clear();
                     }
 
                     sw.Stop();

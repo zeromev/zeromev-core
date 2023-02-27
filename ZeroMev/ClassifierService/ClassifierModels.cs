@@ -808,7 +808,7 @@ namespace ZeroMev.ClassifierService
 
         public async Task Save(bool doReplicateMevWeb, long trimBefore = -1)
         {
-            var mevBlocks = _mevBlocks.Values.Where<MEVBlock>(x => (x.BlockNumber > trimBefore)).ToList<MEVBlock>();
+            var mevBlocks = _mevBlocks.Values.Where<MEVBlock>(x => (x.BlockNumber >= trimBefore)).ToList<MEVBlock>();
             if (mevBlocks != null && mevBlocks.Count > 0)
             {
                 var a = DB.QueueWriteMevBlocksAsync(mevBlocks, Config.Settings.MevDB, MevDbQueue, true);
@@ -831,7 +831,7 @@ namespace ZeroMev.ClassifierService
         public List<ApiMevTx> BuildApiTxRows(long trimBefore = -1)
         {
             List<ApiMevTx> apiMevTxs = new List<ApiMevTx>();
-            var mevBlocks = _mevBlocks.Values.Where<MEVBlock>(x => (x.BlockNumber > trimBefore)).ToList<MEVBlock>();
+            var mevBlocks = _mevBlocks.Values.Where<MEVBlock>(x => (x.BlockNumber >= trimBefore)).ToList<MEVBlock>();
             if (mevBlocks != null && mevBlocks.Count > 0)
             {
                 foreach (MEVBlock mb in mevBlocks)

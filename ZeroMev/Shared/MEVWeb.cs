@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace ZeroMev.Shared
 {
@@ -918,18 +919,19 @@ namespace ZeroMev.Shared
             // to avoid this, we use a calculated usd rate for (b) based on final pool values after the sandwich instead
             var br = MEVCalc.GetAFromB(y_, x_, c, a[backIndex]);
             ZMDecimal? bFinalUsdRate = null;
+            bool isConfidentRate = back.Swap.AmountOutUsd < Num.OversizedAmount && !imbalanceSwitch && !isLowLiquidity && br != 0;
 
             if (back.Swap.IsBaseUsdRateOut)
             {
                 // keep it simple if we are using base rates
                 bFinalUsdRate = (ZMDecimal?)back.Swap.AmountOutUsd / back.Swap.AmountIn;
             }
-            else if (back.Swap.AmountOutUsd < Num.OversizedAmount && !imbalanceSwitch && !isLowLiquidity && br != 0)
+            else if (isConfidentRate)
             {
                 bFinalUsdRate = back.Swap.AmountOutUsd / br;
             }
 
-            if (!bFinalUsdRate.HasValue)
+            if (!bFinalUsdRate.HasValue || !isConfidentRate)
             {
                 // if we can't trust exchange rates (eg: on pool imbalance attacks) then use sandwich profits instead
                 sumFrontrunUserLossUsd = -sandwichProfitUsd ?? 0;
@@ -1974,9 +1976,15 @@ namespace ZeroMev.Shared
 
         public static bool IsPoolLiquidityLow(ZMDecimal[] a, ZMDecimal[] b, ZMDecimal x, ZMDecimal y)
         {
+            ZMDecimal suma = 0, sumb = 0;
             for (int i = 0; i < a.Length; i++)
-                if (a[i] >= x || b[i] >= y) return true;
-            return false;
+            {
+                suma += a[i];
+                sumb += b[i];
+            }
+
+            // low liquidity if swap amounts exceed pool amounts
+            return (suma >= x || sumb >= y);
         }
 
         public static ZMDecimal SwapOutputAmount(ref ZMDecimal reserveIn, ref ZMDecimal reserveOut, ZMDecimal c, ZMDecimal amountIn)
