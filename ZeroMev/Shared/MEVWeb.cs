@@ -528,6 +528,10 @@ namespace ZeroMev.Shared
         {
             get
             {
+                // if only one side is a base rate, take that (lessens negative impact of low liquidity pools)
+                if (IsBaseUsdRateOut && !IsBaseUsdRateIn) return AmountOutUsd;
+                if (!IsBaseUsdRateOut && IsBaseUsdRateIn) return AmountInUsd;
+
                 // preferably take the volume as the output of the swap as this will be most accurate
                 if (AmountOutUsd != null) return AmountOutUsd;
 
