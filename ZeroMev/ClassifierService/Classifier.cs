@@ -21,7 +21,7 @@ namespace ZeroMev.ClassifierService
         const int LogEvery = 100;
         const int GetNewTokensEverySecs = 240;
         const int ProcessChunkSize = 2000;
-        const int ZmBlocksImportThreadCount = 12;
+        const int ZmBlocksImportThreadCount = 24;
         const int ZmBlocksImportChunkSize = 256;
 
         readonly ILogger<Classifier> _logger;
