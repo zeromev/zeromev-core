@@ -528,6 +528,10 @@ namespace ZeroMev.Shared
         {
             get
             {
+                // if only one side is a base rate, take that (lessens negative impact of low liquidity pools)
+                if (IsBaseUsdRateOut && !IsBaseUsdRateIn) return AmountOutUsd;
+                if (!IsBaseUsdRateOut && IsBaseUsdRateIn) return AmountInUsd;
+
                 // preferably take the volume as the output of the swap as this will be most accurate
                 if (AmountOutUsd != null) return AmountOutUsd;
 
@@ -931,18 +935,40 @@ namespace ZeroMev.Shared
                 bFinalUsdRate = back.Swap.AmountOutUsd / br;
             }
 
+            // calculate sandwich allocation percentages based on proportion of overall volume
+            decimal[] volpct = new decimal[sandwiched.Length];
+            decimal sumVol = 0;
+            for (int i = 0; i < sandwiched.Length; i++)
+            {
+                var sandwichedSwaps = sandwiched[i].SandwichedSwaps();
+                foreach (MEVSwap s in sandwichedSwaps)
+                    sumVol += s.VolumeUsd ?? 0;
+            }
+            if (sumVol > 0)
+            {
+                for (int i = 0; i < sandwiched.Length; i++)
+                {
+                    decimal vol = 0;
+                    var sandwichedSwaps = sandwiched[i].SandwichedSwaps();
+                    foreach (MEVSwap s in sandwichedSwaps)
+                        vol += s.VolumeUsd ?? 0;
+                    volpct[i] = vol / sumVol;
+                }
+            }
+
             if (!bFinalUsdRate.HasValue || !isConfidentRate)
             {
                 // if we can't trust exchange rates (eg: on pool imbalance attacks) then use sandwich profits instead
                 sumFrontrunUserLossUsd = -sandwichProfitUsd ?? 0;
-                sandwiched[0].MEVAmountUsd = sumFrontrunUserLossUsd;
+                for (int i = 0; i < sandwiched.Length; i++)
+                    sandwiched[i].MEVAmountUsd = Math.Round(sumFrontrunUserLossUsd * volpct[i], 2);
             }
             else
             {
                 // frontrun user loss
                 var bNoFrontrun = MEVCalc.FrontrunUserLoss(x, y, c, a, b, isBA, 1, a.Length - 1, a_, b_);
                 int prevTxIndex = -1;
-                decimal txUsd = 0;
+                decimal txUsd = 0, txUsdSum = 0;
                 for (int i = 0; i < sandwiched.Length; i++)
                 {
                     int index = i + 1;
@@ -958,8 +984,18 @@ namespace ZeroMev.Shared
                         txUsd += usd.Value;
                         sumFrontrunUserLossUsd += usd.Value;
                     }
-                    sandwiched[i].MEVAmountUsd = txUsd;
+
+                    // ensure the user does not lose more than their input amount, which can otherwise happen with low lquidity pool calculations
+                    var sandwichedSwaps = sandwiched[i].SandwichedSwaps();
+                    decimal volInUsd = 0;
+                    foreach (MEVSwap s in sandwichedSwaps)
+                        volInUsd = -s.AmountInUsd ?? 0;
+                    if (txUsd < volInUsd)
+                        txUsd = volInUsd;
+                    txUsdSum += txUsd;
+                    sandwiched[i].MEVAmountUsd = Math.Round(txUsd, 2);
                 }
+                sumFrontrunUserLossUsd = txUsdSum;
             }
 
             SetMevDetail(imbalanceSwitch, isLowLiquidity, false, mevBlock, front, back, sandwiched, sumFrontrunUserLossUsd, sandwichProfitUsd);

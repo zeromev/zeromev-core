@@ -374,12 +374,12 @@ namespace ZeroMev.Test
         {
             using (var db = new zeromevContext())
             {
-                await db.AddZmBlock(1, 0, new DateTime(2015, 7, 30), new byte[] { }, new BitArray(0));
+                await db.AddZmBlock(1, 0, new DateTime(2015, 7, 30), new byte[] { }, new BitArray(0), new byte[] { });
             }
 
             using (var db = new zeromevContext())
             {
-                await db.AddZmBlock(1, 0, new DateTime(2015, 7, 30), new byte[] { }, new BitArray(0));
+                await db.AddZmBlock(1, 0, new DateTime(2015, 7, 30), new byte[] { }, new BitArray(0), new byte[] { });
             }
         }
     }
