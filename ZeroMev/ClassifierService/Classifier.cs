@@ -103,8 +103,8 @@ namespace ZeroMev.ClassifierService
                         }
 
                         // once we have those, get the block transaction count (by now considered trustworthy)
-                        var txStatus = await APIEnhanced.GetBlockTransactionStatus(_http, nextBlockNumber.ToString());
-                        if (txStatus == null)
+                        var r = await APIEnhanced.GetBlockWithTransactionStatus(_http, nextBlockNumber.ToString());
+                        if (r == null || r.TxStatus == null)
                         {
                             _logger.LogInformation($"waiting {delaySecs} secs for rpc txStatus {nextBlockNumber}");
                             continue;
@@ -116,7 +116,7 @@ namespace ZeroMev.ClassifierService
                         if (zb != null)
                         {
                             zv = new ZMView(nextBlockNumber);
-                            zv.RefreshOffline(zb, txStatus.Count);
+                            zv.RefreshOffline(zb, r.TxStatus.Count);
                         }
 
                         // if we don’t have enough zm blocks to process by now, wait up until the longer PollTimeoutSecs (it will likely mean the zeromevdb is down or something)
@@ -140,7 +140,7 @@ namespace ZeroMev.ClassifierService
                             {
                                 // write the count to the db (useful for later bulk reprocessing/restarts)
                                 var txDataComp = Binary.Compress(Binary.WriteFirstSeenTxData(zv));
-                                await db.AddZmBlock(nextBlockNumber, txStatus.Count, zv.BlockTimeAvg, txDataComp, txStatus);
+                                await db.AddZmBlock(nextBlockNumber, r.TxStatus.Count, zv.BlockTimeAvg, txDataComp, r.TxStatus, APIEnhanced.AddressesToBytes(r.Addresses));
                             }
 
                             var bp = BlockProcess.Load(nextBlockNumber, nextBlockNumber + 1, _dexs);
@@ -373,10 +373,10 @@ namespace ZeroMev.ClassifierService
                             bLast = to;
 
                         // parallelize rpc calls
-                        Task<System.Collections.BitArray?>[] tasks = new Task<System.Collections.BitArray?>[ZmBlocksImportThreadCount];
+                        var tasks = new Task<GetBlockWithTransactionStatusResult?>[ZmBlocksImportThreadCount];
                         int i = 0;
                         for (long b = bFirst; b < bLast; b++)
-                            tasks[i++] = APIEnhanced.GetBlockTransactionStatus(_http, b.ToString());
+                            tasks[i++] = APIEnhanced.GetBlockWithTransactionStatus(_http, b.ToString());
 
                         // combine results with extractor blocks
                         i = 0;
@@ -384,8 +384,8 @@ namespace ZeroMev.ClassifierService
                         {
                             if (_isStopped) break;
 
-                            var txStatus = await tasks[i++];
-                            if (txStatus == null)
+                            var r = await tasks[i++];
+                            if (r == null || r.TxStatus == null)
                                 continue;
 
                             ZMBlock? zb = null;
@@ -396,7 +396,7 @@ namespace ZeroMev.ClassifierService
                                 if (zb != null)
                                 {
                                     zv = new ZMView(ebs[0].BlockNumber);
-                                    zv.RefreshOffline(zb, txStatus.Count);
+                                    zv.RefreshOffline(zb, r.TxStatus.Count);
                                 }
                             }
 
@@ -411,7 +411,7 @@ namespace ZeroMev.ClassifierService
                                         {
                                             // write the count to the db (useful for later bulk reprocessing/restarts)
                                             var txDataComp = Binary.Compress(Binary.WriteFirstSeenTxData(zv));
-                                            writeZmBlocks.Add(new ZmBlock() { BlockNumber = b, BlockTime = zv.BlockTimeAvg, TransactionCount = txStatus.Count, TxData = txDataComp, TxStatus = txStatus });
+                                            writeZmBlocks.Add(new ZmBlock() { BlockNumber = b, BlockTime = zv.BlockTimeAvg, TransactionCount = r.TxStatus.Count, TxData = txDataComp, TxStatus = r.TxStatus, TxAddresses = APIEnhanced.AddressesToBytes(r.Addresses) });
                                         }
                                     }
                                 }
@@ -419,7 +419,7 @@ namespace ZeroMev.ClassifierService
                             else
                             {
                                 // if this block is before the earliest zm block, write txStatus data without arrival times
-                                writeZmBlocks.Add(new ZmBlock() { BlockNumber = b, BlockTime = null, TransactionCount = txStatus.Count, TxData = null, TxStatus = txStatus });
+                                writeZmBlocks.Add(new ZmBlock() { BlockNumber = b, BlockTime = null, TransactionCount = r.TxStatus.Count, TxData = null, TxStatus = r.TxStatus, TxAddresses = APIEnhanced.AddressesToBytes(r.Addresses) });
                             }
                         }
                     }
@@ -430,7 +430,7 @@ namespace ZeroMev.ClassifierService
                         {
                             foreach (var block in writeZmBlocks)
                             {
-                                await db.AddZmBlock(block.BlockNumber, block.TransactionCount, block.BlockTime, block.TxData, block.TxStatus);
+                                await db.AddZmBlock(block.BlockNumber, block.TransactionCount, block.BlockTime, block.TxData, block.TxStatus, block.TxAddresses);
                             }
                         }
                     }
