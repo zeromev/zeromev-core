@@ -960,9 +960,8 @@ namespace ZeroMev.Shared
             {
                 // if we can't trust exchange rates (eg: on pool imbalance attacks) then use sandwich profits instead
                 sumFrontrunUserLossUsd = -sandwichProfitUsd ?? 0;
-                sandwiched[0].MEVAmountUsd = sumFrontrunUserLossUsd;
                 for (int i = 0; i < sandwiched.Length; i++)
-                    sandwiched[i].MEVAmountUsd = sumFrontrunUserLossUsd * volpct[i];
+                    sandwiched[i].MEVAmountUsd = Math.Round(sumFrontrunUserLossUsd * volpct[i], 2);
             }
             else
             {
@@ -992,9 +991,9 @@ namespace ZeroMev.Shared
                     foreach (MEVSwap s in sandwichedSwaps)
                         volInUsd = -s.AmountInUsd ?? 0;
                     if (txUsd < volInUsd)
-                            txUsd = volInUsd;
+                        txUsd = volInUsd;
                     txUsdSum += txUsd;
-                    sandwiched[i].MEVAmountUsd = txUsd;
+                    sandwiched[i].MEVAmountUsd = Math.Round(txUsd, 2);
                 }
                 sumFrontrunUserLossUsd = txUsdSum;
             }
