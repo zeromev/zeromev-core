@@ -54,7 +54,7 @@ namespace ZeroMev.Test
         {
             long blockNumber = 13850536;
             HttpClient http = new HttpClient();
-            var r = await APIEnhanced.GetBlockTransactionStatus(http, blockNumber.ToString());
+            var r = await APIEnhanced.GetBlockTransactionStatus(http, Num.LongToHex(blockNumber));
             Assert.AreEqual(r.Count, 282);
         }
     }

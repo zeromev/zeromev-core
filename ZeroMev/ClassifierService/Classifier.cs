@@ -103,7 +103,7 @@ namespace ZeroMev.ClassifierService
                         }
 
                         // once we have those, get the block transaction count (by now considered trustworthy)
-                        var r = await APIEnhanced.GetBlockWithTransactionStatus(_http, nextBlockNumber.ToString());
+                        var r = await APIEnhanced.GetBlockWithTransactionStatus(_http, Num.LongToHex(nextBlockNumber));
                         if (r == null || r.TxStatus == null)
                         {
                             _logger.LogInformation($"waiting {delaySecs} secs for rpc txStatus {nextBlockNumber}");
