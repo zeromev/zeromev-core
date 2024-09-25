@@ -1,24 +1,17 @@
 ﻿@page "/"
+@inject HttpClient Http
+@inject ZMCache Cache
+@inject NavigationManager NavigationManager
 
-<div class="card text-dark bg-light mb-3">
-    <div class="card-body">
-        <a href="http://info.zeromev.org/explorer.html" target="_blank"><h4 class="lighter-text" title="The zeromev frontrunning explorer shows details of Miner Extractable Value (MEV) and transaction reordering (frontrunning and censorship) on the Ethereum network">ethereum frontrunning explorer <img class="imgbtn" src="/help.svg" width=24 height=24></h4></a>
-        <p class="card-text">
-            get started or learn more on our <a href="http://info.zeromev.org/index.html" target="_blank" title="find out more about us and mev and take steps to protect yourself from toxic MEV"><u style="border-bottom: 1px dashed #999; text-decoration: none;">info pages</u></a>
-        </p>
-        <p class="card-text">
-            watch our <a href="https://info.zeromev.org/explorer.html#walkthrough" target="_blank" title="let us show you around the zeromev ethereum frontrunning explorer with this walkthrough video"><u style="border-bottom: 1px dashed #999; text-decoration: none;">walkthrough</u></a> video
-        </p>
-    </div>
-</div>
+<BlocksTable MEVLiteCache=MEVLiteCache/>
 
-<div class="card text-dark bg-light mb-3">
-    <div class="card-body">
-        <p class="card-text">
-            realtime MEV extraction and the zeromev API have been halted due to lack of funding
-        </p>
-        <p class="card-text">
-            historical data up to 22 September 2024 remains available through this site
-        </p>
-    </div>
-</div>
+@code {
+    MEVLiteCache? MEVLiteCache = null;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var cache = await API.GetMEVLiteCache(Http, MEVLiteCache != null ? MEVLiteCache.LastBlockNumber : -1);
+        if (cache != null)
+            MEVLiteCache = cache;
+    }
+}
