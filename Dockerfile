@@ -11,7 +11,7 @@ RUN dotnet restore ZeroMevApi.sln
 RUN dotnet publish ZeroMevApi.sln -c Release -o /build
 
 # Build runtime image
-FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 
 WORKDIR /app
 
