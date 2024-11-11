@@ -1,24 +1,24 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Worker">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>dotnet-ZeroMev.ClassifierService-3FD13AF9-1438-42B9-A82B-784A197CB09C</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="C5" Version="2.5.3" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="6.0.5" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Abstractions" Version="6.0.5" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.5">
+    <PackageReference Include="C5" Version="3.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Abstractions" Version="8.0.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.10">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="6.0.5" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="8.0.10" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational.Design" Version="1.1.6" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.1" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="6.0.4" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.10" />
   </ItemGroup>
 
   <ItemGroup>
