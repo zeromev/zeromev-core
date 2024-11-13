@@ -1562,14 +1562,6 @@ namespace ZeroMev.ClassifierService
                             XRates.SetUsdBaseRate(TokenA, usd, zmSwap.IsSell, zmSwap.IsSell);
                         }
                     }
-                    /*
-#if (DEBUG)
-                    if (TokenA == "0xc18360217d8f7ab5e7c516566761ea12ce7f9d72")
-                    {
-                        Console.Write($"{newRate} {XRates.GetUsdRate(TokenA).Value}");
-                    }
-#endif
-                    */
                 }
             }
 
