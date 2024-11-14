@@ -1,3 +1,7 @@
+CREATE DATABASE extractor;
+
+\c extractor
+
 CREATE TABLE public.extractor (
     extractor_index smallint NOT NULL,
     code character varying(5),
@@ -43,7 +47,7 @@ ALTER TABLE ONLY public.latest_mev_block
 ALTER TABLE ONLY public.mev_block
     ADD CONSTRAINT mev_block_new_pkey PRIMARY KEY (block_number);
 
-COPY public.extractor (extractor_index, code, description) FROM stdin;
+COPY extractor (extractor_index, code, description) FROM stdin;
 0	Inf	Infura
 1	Qn	QuickNodes
 2	US	US (Central)

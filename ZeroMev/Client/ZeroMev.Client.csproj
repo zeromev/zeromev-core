@@ -5,7 +5,6 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
 	<BlazorCacheBootResources>false</BlazorCacheBootResources>
-	<RunAOTCompilation>true</RunAOTCompilation>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(RunConfiguration)' == 'ZeroMev' " />
