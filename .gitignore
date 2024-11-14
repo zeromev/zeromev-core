@@ -361,3 +361,8 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/ZeroMev/ClassifierService/appsettings.json
+/ZeroMev/ExtractorService/appsettings.json
+/ZeroMev/Shared/Config.cs
+/ZeroMev/Test/appsettings.json
+/ZeroMev/Server/appsettings.json
