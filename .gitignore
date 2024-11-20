@@ -366,3 +366,5 @@ FodyWeavers.xsd
 /ZeroMev/Shared/Config.cs
 /ZeroMev/Test/appsettings.json
 /ZeroMev/Server/appsettings.json
+/ZeroMev/Datafix/ZeroMev.Datafix.csproj
+/ZeroMev/ClassifierService/appsettings.json
