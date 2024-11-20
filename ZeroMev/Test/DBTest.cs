@@ -29,9 +29,9 @@ namespace ZeroMev.Test
             const long toBlockNumber = 13359463 + 10;
 
             var mbs = await DB.ReadMevBlocks(fromBlockNumber, toBlockNumber);
-            long i = fromBlockNumber;
+            long i = toBlockNumber - 1;
             foreach (var b in mbs)
-                Assert.AreEqual(b.BlockNumber, i++);
+                Assert.AreEqual(b.BlockNumber, i--);
         }
 
         [TestMethod]
@@ -46,21 +46,6 @@ namespace ZeroMev.Test
             Assert.AreEqual(zb.MevBlock.BlockNumber, blockNumber);
         }
 
-        public void TestExportBlocksToCsv()
-        {
-            using (StreamWriter sw = new StreamWriter(@"E:\block_vs_tx_stdev.csv"))
-            {
-                sw.WriteLine("BlockNumber,TxCount,BlockTimeAvg,BlockTimeStdevSecs,TxArrivalMeanStdevSecs");
-                for (int bi = 13634387; bi >= 13358564; bi -= 200)
-                {
-                    DebugZMView(sw, bi);
-                    //DB.DebugBuildAPIBlock(bi);
-                    //DB.DebugReadExtractorBlocks(bi, 2);
-                }
-            }
-            return;
-        }
-
         public static void DebugZMView(StreamWriter sw, long blockNumber)
         {
             var blocks = DB.ReadExtractorBlocks(blockNumber);
@@ -72,20 +57,6 @@ namespace ZeroMev.Test
             }
             ZMView zv = new ZMView(blockNumber);
             zv.SetZMBlock(zb);
-
-            //Console.WriteLine(blockNumber + "," + zb.TxMeanStdev);
-            //return;
-
-            /*
-            Console.WriteLine(blockNumber);
-            foreach (PoP pop in zb.PoPs)
-                Console.Write(pop.Name + ",");
-            Console.WriteLine();
-
-            foreach (PoP pop in zb.PoPs)
-                Console.Write(pop.BlockTime + ",");
-            Console.WriteLine();
-            */
 
             sw.WriteLine($"{blockNumber},{zv.TxCount},{zv.BlockTimeAvg},{zv.BlockTimeRangeStdev.TotalSeconds},{(zv.TxCount == 0 ? string.Empty : zv.TxMeanStdev.TotalSeconds)}");
 
@@ -141,35 +112,6 @@ namespace ZeroMev.Test
                     Console.WriteLine(Time.DurationStr(tx.ArrivalTime, b.BlockTime));
             }
             Console.WriteLine("");
-        }
-
-        public static async void ExtractorCentralizationReport()
-        {
-            const string sql = "SELECT sandwiches.block_number, blocks.block_timestamp, sandwicher_address AS address, 'S' as mev_type FROM sandwiches, blocks WHERE sandwiches.block_number = blocks.block_number "+
-            "UNION SELECT arbitrages.block_number, blocks.block_timestamp, account_address AS address, 'A' as mev_type FROM arbitrages, blocks WHERE arbitrages.block_number = blocks.block_number " +
-            "UNION SELECT liquidations.block_number, blocks.block_timestamp, liquidator_user AS address, 'L' as mev_type FROM liquidations, blocks WHERE liquidations.block_number = blocks.block_number " +
-            "ORDER BY block_number ASC;";
-
-            using (NpgsqlConnection conn = new NpgsqlConnection(Config.Settings.MevDB))
-            {
-                conn.Open();
-                using (var cmd = new NpgsqlCommand(sql, conn))
-                {
-                    cmd.Prepare();
-                    var dr = await cmd.ExecuteReaderAsync();
-
-                    ZMDecimal? nextBlockNumber = null;
-                    while (dr.Read())
-                    {
-                        var block = (ZMDecimal)dr["block_number"];
-                        if (nextBlockNumber == null || block > nextBlockNumber)
-                        {
-                            nextBlockNumber = block + 7200;
-                        }
-                    }
-                }
-                conn.Close();
-            }
         }
     }
 }
