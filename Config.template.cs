@@ -27,6 +27,6 @@
         public long? ImportZmBlocksFrom { get; set; }
         public long? ImportZmBlocksTo { get; set; }
         public int? BlockBufferSize { get; set; }
-        public bool FastImport { get; set
+        public bool FastImport { get; set; }
     }
 }

@@ -48,7 +48,9 @@ namespace ZeroMev.ExtractorService
         DateTime _nextPurge = DateTime.Now.ToUniversalTime().Date.AddDays(1);
         HttpClient _http = new HttpClient();
 
-        public bool HadConnectionException { get; private set; }
+        public bool HadConnectionException { get; set; }
+        public DateTime? LastBlockTime { get; private set; }
+        public DateTime? LastTransactionTime { get; private set; }
 
         public class BlockTxTimes
         {
@@ -164,6 +166,7 @@ namespace ZeroMev.ExtractorService
         {
             // record new pending txs as they arrive
             DateTime timestamp = DateTime.Now.ToUniversalTime();
+            this.LastTransactionTime = timestamp;
             var tt = new TxTimeHash();
             tt.TxHash = txh;
             tt.ArrivalTime = timestamp;
@@ -178,6 +181,7 @@ namespace ZeroMev.ExtractorService
             long blockNumber = (long)(BigInteger)block.Number;
             _lastBlock = blockNumber;
             DateTime timestamp = DateTime.Now.ToUniversalTime();
+            this.LastBlockTime = timestamp;
 
             // get block txs
             Task<BlockWithTransactions> blockTxsReq = null;

@@ -22,9 +22,9 @@ namespace ZeroMev.SharedServer
     {
         public const string JsonEthGetBlockReceiptsByNumber = "{\"id\":1,\"jsonrpc\":\"2.0\",\"method\":\"eth_getBlockReceipts\",\"params\":[\"{0}\"]}";
 
-        public static async Task<GetBlockReceiptsByNumber?> GetBlockReceiptsByNumber(HttpClient http, string blockNumberHexOrInt)
+        public static async Task<GetBlockReceiptsByNumber?> GetBlockReceiptsByNumber(HttpClient http, string blockNumberHexOrHash)
         {
-            string jsonReq = JsonEthGetBlockReceiptsByNumber.Replace("{0}", blockNumberHexOrInt);
+            string jsonReq = JsonEthGetBlockReceiptsByNumber.Replace("{0}", blockNumberHexOrHash);
             var httpContent = new StringContent(jsonReq, System.Text.Encoding.UTF8, "application/json");
 
             var getBlockTask = await http.PostAsync(Config.Settings.EthereumRPC, httpContent);
@@ -32,9 +32,9 @@ namespace ZeroMev.SharedServer
             return System.Text.Json.JsonSerializer.Deserialize<GetBlockReceiptsByNumber>(result);
         }
 
-        public static async Task<BitArray?> GetBlockTransactionStatus(HttpClient http, string blockNumberHexOrInt)
+        public static async Task<BitArray?> GetBlockTransactionStatus(HttpClient http, string blockNumberHexOrHash)
         {
-            var r = await GetBlockReceiptsByNumber(http, blockNumberHexOrInt);
+            var r = await GetBlockReceiptsByNumber(http, blockNumberHexOrHash);
             if (r == null || r.Result == null) return null;
 
             BitArray? status = new BitArray(r.Result.Count);
@@ -43,10 +43,10 @@ namespace ZeroMev.SharedServer
             return status;
         }
 
-        public static async Task<GetBlockWithTransactionStatusResult> GetBlockWithTransactionStatus(HttpClient http, string blockNumberHexOrInt)
+        public static async Task<GetBlockWithTransactionStatusResult> GetBlockWithTransactionStatus(HttpClient http, string blockNumberHexOrHash)
         {
-            var blockTask = API.GetBlockByNumber(http, blockNumberHexOrInt);
-            var txStatus = await GetBlockTransactionStatus(http, blockNumberHexOrInt);
+            var blockTask = API.GetBlockByNumber(http, blockNumberHexOrHash);
+            var txStatus = await GetBlockTransactionStatus(http, blockNumberHexOrHash);
             var block = await blockTask;
             return new GetBlockWithTransactionStatusResult { TxStatus = txStatus, Addresses = AddressesStringFromBlock(block) };
         }

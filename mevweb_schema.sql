@@ -17,3 +17,7 @@ ALTER TABLE ONLY public.latest_mev_block
 
 ALTER TABLE ONLY public.mev_block
     ADD CONSTRAINT mev_block_new_pkey PRIMARY KEY (block_number);
+
+COPY public.latest_mev_block (block_number, updated_at) FROM stdin;
+0	1990-01-01 00:00:00
+\.

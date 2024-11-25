@@ -54,3 +54,7 @@ COPY extractor (extractor_index, code, description) FROM stdin;
 3	EU	EU (Germany)
 4	AS	Asia (Singapore)
 \.
+
+COPY public.latest_mev_block (block_number, updated_at) FROM stdin;
+0	1990-01-01 00:00:00
+\.

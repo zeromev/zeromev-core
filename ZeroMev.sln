@@ -17,8 +17,13 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ZeroMev.Test", "ZeroMev\Tes
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{00A5D208-7114-4CB1-A27A-8CD35EAE0EEB}"
 	ProjectSection(SolutionItems) = preProject
+		appsettings.template.json = appsettings.template.json
 		build.sh = build.sh
 		Dockerfile = Dockerfile
+		extractor_schema.sql = extractor_schema.sql
+		mevinspect_schema.sql = mevinspect_schema.sql
+		mevweb_schema.sql = mevweb_schema.sql
+		zmapi_schema.sql = zmapi_schema.sql
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ZeroMev.ClassifierService", "ZeroMev\ClassifierService\ZeroMev.ClassifierService.csproj", "{18F9FEA4-EF4C-4B3B-A6A6-8DC04663907F}"

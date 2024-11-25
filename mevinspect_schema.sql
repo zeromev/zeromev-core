@@ -1,5 +1,19 @@
 \c mev_inspect
 
+CREATE TABLE public.mev_block
+(
+    block_number bigint NOT NULL,
+    mev_data bytea,
+    CONSTRAINT mev_block_new_pkey PRIMARY KEY (block_number)
+);
+
+CREATE TABLE public.latest_mev_block
+(
+    block_number bigint NOT NULL,
+    updated_at timestamp without time zone DEFAULT now(),
+    CONSTRAINT latest_mev_block_pkey PRIMARY KEY (block_number)
+);
+
 CREATE TABLE public.zm_blocks
 (
     block_number numeric NOT NULL,
@@ -43,3 +57,7 @@ CREATE TABLE public.zm_tokens
     coingecko character varying(256) COLLATE pg_catalog."default",
     CONSTRAINT zm_tokens_pkey PRIMARY KEY (address)
 );
+
+COPY public.zm_latest_block_update (block_number, updated_at) FROM stdin;
+0	1990-01-01 00:00:00
+\.

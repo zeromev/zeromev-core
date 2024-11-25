@@ -1107,7 +1107,7 @@ namespace ZeroMev.ClassifierService
                 if (zmb == null)
                 {
                     // attempt to get and write arrivals on the fly
-                    blockStatus = APIEnhanced.GetBlockWithTransactionStatus(_http, blockNumber.ToString()).Result;
+                    blockStatus = APIEnhanced.GetBlockWithTransactionStatus(_http, Num.LongToHex(blockNumber)).Result;
                     if (blockStatus != null && blockStatus.TxStatus != null)
                     {
                         // filter out invalid tx length extractor rows and calculate arrival times

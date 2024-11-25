@@ -11,6 +11,7 @@ using ZeroMev.Shared;
 using ZeroMev.SharedServer;
 using ZeroMev.MevEFC;
 using EFCore.BulkExtensions;
+using System.Xml.Linq;
 
 namespace ZeroMev.ClassifierService
 {
@@ -376,7 +377,7 @@ namespace ZeroMev.ClassifierService
                         var tasks = new Task<GetBlockWithTransactionStatusResult?>[ZmBlocksImportThreadCount];
                         int i = 0;
                         for (long b = bFirst; b < bLast; b++)
-                            tasks[i++] = APIEnhanced.GetBlockWithTransactionStatus(_http, b.ToString());
+                            tasks[i++] = APIEnhanced.GetBlockWithTransactionStatus(_http, Num.LongToHex(b));
 
                         // combine results with extractor blocks
                         i = 0;
@@ -400,27 +401,14 @@ namespace ZeroMev.ClassifierService
                                 }
                             }
 
-                            if (b >= API.EarliestZMBlock)
+                            DateTime? blockTime = null;
+                            byte[]? txDataComp = null;
+                            if (b >= API.EarliestZMBlock && zb != null && zv != null && zb.UniquePoPCount() != 0)
                             {
-                                // if we are expecting a block but don't have one, don't write anything
-                                if (zb != null && zv != null && zb.UniquePoPCount() >= 2)
-                                {
-                                    using (var db = new zeromevContext())
-                                    {
-                                        if (zb != null && zv != null && zv.PoPs != null && zv.PoPs.Count != 0)
-                                        {
-                                            // write the count to the db (useful for later bulk reprocessing/restarts)
-                                            var txDataComp = Binary.Compress(Binary.WriteFirstSeenTxData(zv));
-                                            writeZmBlocks.Add(new ZmBlock() { BlockNumber = b, BlockTime = zv.BlockTimeAvg, TransactionCount = r.TxStatus.Count, TxData = txDataComp, TxStatus = r.TxStatus, TxAddresses = APIEnhanced.AddressesToBytes(r.Addresses) });
-                                        }
-                                    }
-                                }
+                                blockTime = zv.BlockTimeAvg;
+                                txDataComp = Binary.Compress(Binary.WriteFirstSeenTxData(zv));
                             }
-                            else
-                            {
-                                // if this block is before the earliest zm block, write txStatus data without arrival times
-                                writeZmBlocks.Add(new ZmBlock() { BlockNumber = b, BlockTime = null, TransactionCount = r.TxStatus.Count, TxData = null, TxStatus = r.TxStatus, TxAddresses = APIEnhanced.AddressesToBytes(r.Addresses) });
-                            }
+                            writeZmBlocks.Add(new ZmBlock() { BlockNumber = b, BlockTime = blockTime, TransactionCount = r.TxStatus.Count, TxData = txDataComp, TxStatus = r.TxStatus, TxAddresses = APIEnhanced.AddressesToBytes(r.Addresses) });
                         }
                     }
 

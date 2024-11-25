@@ -13,6 +13,7 @@ namespace ZeroMev.ExtractorService
     {
         readonly ILogger<Worker> _logger;
         Extract _extract;
+        TimeSpan _timeout = new TimeSpan(0, 0, 25);
 
         public Worker(ILogger<Worker> logger)
         {
@@ -29,6 +30,20 @@ namespace ZeroMev.ExtractorService
             while (!stoppingToken.IsCancellationRequested)
             {
                 await Task.Delay(1000, stoppingToken);
+
+                // flag to reconnect after a new pending transaction timeout
+                if (_extract.LastTransactionTime != null && (DateTime.Now - _extract.LastTransactionTime) > _timeout)
+                {
+                    _logger.LogInformation("transaction timeout - requesting reconnect");
+                    _extract.HadConnectionException = true;
+                }
+
+                // flag to reconnect after a new block timeout
+                if (_extract.LastBlockTime != null && (DateTime.Now - _extract.LastBlockTime) > _timeout)
+                {
+                    _logger.LogInformation("block timeout - requesting reconnect");
+                    _extract.HadConnectionException = true;
+                }
 
                 // if there have been connectivity issues, retry connection with a fresh extractor
                 if (_extract.HadConnectionException)
