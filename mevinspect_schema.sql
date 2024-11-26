@@ -61,3 +61,7 @@ CREATE TABLE public.zm_tokens
 COPY public.zm_latest_block_update (block_number, updated_at) FROM stdin;
 0	1990-01-01 00:00:00
 \.
+
+COPY public.latest_mev_block (block_number, updated_at) FROM stdin;
+0	1990-01-01 00:00:00
+\.

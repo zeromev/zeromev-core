@@ -291,11 +291,7 @@ namespace ZeroMev.ClassifierService
                     sw.Stop();
                     Console.WriteLine($"run in {sw.ElapsedMilliseconds} ms");
 
-#if (DEBUG)
                     await bp.Save(true, lastZmBlock);
-#else
-                    await bp.Save(false, lastZmBlock);
-#endif
                     await bp.SaveApi(lastZmBlock);
                     if (stoppingToken.IsCancellationRequested)
                         return false;
