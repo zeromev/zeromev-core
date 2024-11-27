@@ -608,4 +608,10 @@ Use the backfill command to extract as much data as possible in mev-inspect-py. 
     "ImportZmBlocksTo": to_block_number,
 ```
 
-Once completed, remove these lines and restart the classifier.
+If you are confident that no existing data will be overwritten, setting FastImport will speed database inserts by bypassing conflict checking:
+
+```
+"FastImport": true
+```
+
+Once completed, reset these lines and restart the classifier.
