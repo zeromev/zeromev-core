@@ -23,6 +23,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		extractor_schema.sql = extractor_schema.sql
 		mevinspect_schema.sql = mevinspect_schema.sql
 		mevweb_schema.sql = mevweb_schema.sql
+		README.md = README.md
 		zmapi_schema.sql = zmapi_schema.sql
 	EndProjectSection
 EndProject

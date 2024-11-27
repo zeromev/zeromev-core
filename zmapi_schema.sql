@@ -128,6 +128,7 @@ CREATE INDEX idx_address_to ON public.zm_mev_transaction USING btree (address_to
 
 CREATE INDEX idx_protocol ON public.zm_mev_transaction USING btree (protocol);
 
+CREATE ROLE web_anon nologin;
 REVOKE USAGE ON SCHEMA public FROM PUBLIC;
 GRANT ALL ON SCHEMA public TO PUBLIC;
 GRANT USAGE ON SCHEMA public TO web_anon;
