@@ -6,14 +6,7 @@ This guide describes how to install and run all components of the [zeromev](http
 
 The core zeromev codebase is written in [.NET 8](https://learn.microsoft.com/en-us/dotnet/) (see ZeroMev.sln) with additional node.js scripts for the Zeromev API, [postgres](https://www.postgresql.org/) for storage and [postgrest](https://docs.postgrest.org/en/v12/) for the API.
 
-## databases
-
-| db name | description |
-| -------- | -------- |
-| mev_inspect| the flashbots [mev-inspect-py](https://github.com/flashbots/mev-inspect-py) db, with additional zeromev tables maintained by the classifier. |
-| extractor | eth block and transaction timing data populated by one or more nodes/extractor services.|
-| mevweb | MEV data source for the website, served by the internal REST API (see Server project).
-| zmapi | MEV transaction summary data for the zeromev API.|
+To be able to compile and run these projects, you must follow the guide to create the necessary config files.
 
 ## components
 
@@ -23,6 +16,15 @@ The core zeromev codebase is written in [.NET 8](https://learn.microsoft.com/en-
 | classifier | creates and exports MEV summary data for use by both the website and the API. Runs as a service.                                                   | archive node, mev_inspect db, extractor db, mevweb db, zmapi db. |
 | client     | zeromev.org website written in .NET 8 Blazor.                                                                                                      | internal REST API (see Server project).                   |
 | server     | data source for the website (see Client). REST API for internal use only (api.zeromev.org/zmhealth), not the public Zeromev API (data.zeromev.org) | mevweb db, extractor db                        |
+
+## databases
+
+| db name | description |
+| -------- | -------- |
+| mev_inspect| the flashbots [mev-inspect-py](https://github.com/flashbots/mev-inspect-py) db, with additional zeromev tables maintained by the classifier. |
+| extractor | eth block and transaction timing data populated by one or more nodes/extractor services.|
+| mevweb | MEV data source for the website, served by the internal REST API (see Server project).
+| zmapi | MEV transaction summary data for the zeromev API.|
 
 # install
 
@@ -42,13 +44,22 @@ You will also need:
 
 ## prepare
 
-Create a zeromev user and switch to it:
+Create a new zeromev user and set the password:
 
 ```
 sudo useradd -m -s /bin/bash zeromev
 sudo passwd zeromev
+```
+
+Add zeromev to the sudo group
+```
 sudo usermod -aG sudo zeromev
-su - zeromev
+```
+
+Exit the current session, and login again as the zeromev user:
+```
+exit
+ssh zeromev@your.server.ip.address
 ```
 
 Make sure [git is installed](https://github.com/git-guides/install-git), then clone the zeromev respository:
@@ -57,12 +68,21 @@ Make sure [git is installed](https://github.com/git-guides/install-git), then cl
 git clone https://github.com/zeromev/zeromev
 ```
 
-Install postgres locally and set a password:
+Install postgres locally:
 ```
 sudo apt install postgresql postgresql-contrib
+```
+
+Set a postgres password:
+
+```
 sudo -u postgres psql
 \password
-postgres
+```
+
+Exit postgres:
+
+```
 \q
 ```
 
@@ -312,11 +332,11 @@ Configure whether to collect data from the [Flashbots Block API](https://blocks.
 
 Flashbots [mev-inspect-py](https://github.com/flashbots/mev-inspect-py) is used to extract swap and MEV data.
 
-Our [fork](https://github.com/pmcgoohan/mev-inspect-py) allows it to access an external postgres database, as well as fixing some versioning problems, so let's use this.
+We have released a [fork](https://github.com/pmcgoohan/mev-inspect-py) which allows it to access an external postgres database, as well as fixing some versioning problems, so let's use this.
 
 ### install
 
-Follow the mev-inspect-py [install section](https://github.com/pmcgoohan/mev-inspect-py/blob/main/README.md#install) in this fork to run it in a local instance of kubernetes (https://github.com/pmcgoohan/mev-inspect-py).
+Follow the mev-inspect-py [install section](https://github.com/pmcgoohan/mev-inspect-py/blob/main/README.md#install) in the fork to install and run it in a local instance of kubernetes (https://github.com/pmcgoohan/mev-inspect-py).
 
 Ensure your postgres password is set correctly to the postgres instance in your environment variables:
 
