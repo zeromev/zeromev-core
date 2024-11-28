@@ -1,3 +1,5 @@
+CREATE DATABASE mev_inspect;
+
 \c mev_inspect
 
 CREATE TABLE public.mev_block

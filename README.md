@@ -44,6 +44,12 @@ You will also need:
 
 ## prepare
 
+Ensure the server is up to date:
+
+```
+sudo apt-get update -y && sudo apt dist-upgrade -y
+```
+
 Create a new zeromev user and set the password:
 
 ```
@@ -127,6 +133,11 @@ Create the zmapi database to hold MEV transaction summary data for the zeromev A
 sudo -u postgres psql -f zmapi_schema.sql
 ```
 
+Then create the mev-inspect db and add zeromev specific tables:
+```
+sudo -u postgres psql -f mevinspect_schema.sql
+```
+
 ## configure
 
 Let's configure a template settings file, which we can then copy to each component as we go.
@@ -135,7 +146,7 @@ Let's configure a template settings file, which we can then copy to each compone
 nano appsettings.template.json
 ```
 
-Update these settings with your ethereum full node RPC and websocket addresses (including the port if needed):
+Update these settings with your ethereum full node RPC and websocket addresses (you can use Infura endpoints for the purposes of this guide):
 
 ```
     "EthereumRPC": "http://your_ethereum_full_node_rpc_url",
@@ -160,12 +171,7 @@ Configure the postgres password for each of the databases you just created, so t
     "DB": "Host=localhost;Database=extractor;Username=postgres;Password=your_postgres_password;Timeout=5;Command Timeout=7",
     "MevWebDB": "Host=localhost;Database=mevweb;Username=postgres;Password=your_postgres_password;Timeout=5;Command Timeout=5",
     "MevApiDB": "Host=localhost;Database=zmapi;Username=postgres;Password=your_postgres_password;Timeout=600;Command Timeout=600",
-```
-
-There is also a Flashbots mev_inspect database which we will create later. Choose the password you will use for this now, and set it here:
-
-```
-    "MevDB": "Host=localhost;Database=mev_inspect;Username=postgres;Password=your_mev_inspect_postgres_password;Timeout=600;Command Timeout=600",
+    "MevDB": "Host=localhost;Database=mev_inspect;Username=postgres;Password=your_mev_inspect_postgres_password;Timeout=600;Command Timeout=600",    
 ```
 
 Exit and save.
@@ -238,7 +244,7 @@ Create a service file:
 sudo nano /etc/systemd/system/extractor.service
 ```
 
-Paste the following into the file:
+Paste the following into the file to create the extractor service:
 
 ```
 [Unit]
@@ -322,10 +328,10 @@ Set the frequency with which pending transactions that haven't made it into a bl
     "PurgeAfterDays": 14,
 ```
 
-Configure whether to collect data from the [Flashbots Block API](https://blocks.flashbots.net/). This information is used by the zeromev website, so is generally set true.
+Configure whether to collect data from the [Flashbots Block API](https://blocks.flashbots.net/). This API has now been decomissioned by Flashbots, so is generally set false.
 
 ```
-    "DoExtractFlashbots": true,
+    "DoExtractFlashbots": false,
 ```
     
 ## install mev-inspect-py
@@ -334,7 +340,38 @@ Flashbots [mev-inspect-py](https://github.com/flashbots/mev-inspect-py) is used 
 
 We have released a [fork](https://github.com/pmcgoohan/mev-inspect-py) which allows it to access an external postgres database, as well as fixing some versioning problems, so let's use this.
 
+### allow access to db
+
+First we need to allow connectivity to postgres from mev-inspect-py:
+
+Find the postgres configuration directory:
+
+```
+sudo -u postgres psql -c 'show hba_file'
+```
+
+Enter this directory, and edit `pg_hba.conf` adding this to the end and updating `your_server_ip_address`:
+
+```
+host    all             all             your_server_ip_address/32            md5
+host    all             all             172.18.0.0/24                md5
+```
+
+Save, then edit `postgresql.conf` and modify the listen_addresses line:
+
+```
+listen_addresses = '*' # find listen_address in file and replace localhost with *
+```
+
+Save, then restart postgres:
+
+```
+sudo systemctl restart postgresql
+```
+
 ### install
+
+Exit the zeromev user session and install mev-inspect-py and it's components as **root user** to avoid permissioning problems.
 
 Follow the mev-inspect-py [install section](https://github.com/pmcgoohan/mev-inspect-py/blob/main/README.md#install) in the fork to install and run it in a local instance of kubernetes (https://github.com/pmcgoohan/mev-inspect-py).
 
@@ -343,10 +380,10 @@ Ensure your postgres password is set correctly to the postgres instance in your 
 ```
 export POSTGRES_USER=postgres
 export POSTGRES_PASSWORD=your_postgres_password
-export POSTGRES_HOST=localhost
+export POSTGRES_HOST=your_server_ip_address
 ```
 
-Ensure you create the mev_inspect db, as described at the end of this section:
+Once you have run `tilt up`, ensure you create the mev_inspect db, as described at the end of this section:
 
 ```
 ./mev exec alembic upgrade head
@@ -366,6 +403,15 @@ Check it's running:
 ./mev listener tail
 ```
 
+You'll see something like this if it is:
+```
+INFO:mev_inspect.inspect_block:Block: 21288484 -- Total traces: 867
+INFO:mev_inspect.inspect_block:Block: 21288484 -- Total transactions: 172
+INFO:mev_inspect.inspect_block:Block: 21288484 -- Returned 866 classified traces
+INFO:mev_inspect.inspect_block:Block: 21288484 -- Found 304 transfers
+INFO:mev_inspect.inspect_block:Block: 21288484 -- Found 35 swaps
+```
+
 Now we have the extractor service and mev-inspect-py running, we can move onto the classifier which uses data from both.
 
 ### backfill
@@ -382,14 +428,9 @@ Although not vital for this guide, it's a good idea to backfill at least 2 weeks
 
 The classifier takes data from a variety of sources, and creates and exports MEV summary data for use by both the website and the [zeromev API](https://data.zeromev.org/docs/).
 
-### prepare mev-inspect db
-
-First add zeromev specific tables to the mev-inspect db:
-```
-sudo -u postgres psql -f mevinspect_schema.sql
-```
-
 ### configure the classifier
+
+Enter the zeromev user session.
 
 Enter the code directory for the classifier:
 
@@ -397,10 +438,17 @@ Enter the code directory for the classifier:
 cd ~/zeromev/ZeroMev/ClassifierService
 ```
 
-Create a new settings file from our settings template:
+Create a new settings file from our settings template, and edit it:
 
 ```
 cp ../../appsettings.template.json appsettings.json
+nano appsettings.json
+```
+
+Modify the classifier settings to connect to the Ethereum archive node, rather than the full node:
+
+```
+    "EthereumRPC": "your_archive_node_url",
 ```
 
 ### import swap tokens
@@ -461,7 +509,7 @@ sudo psql -U postgres -h localhost -d mev_inspect -c "UPDATE public.zm_latest_bl
 
 ### create service
 
-Build the project if you haven't already (required after any appsettings change in this directory):
+Build the project (required after any appsettings change in this directory):
 
 ```
 dotnet build ZeroMev.ClassifierService.csproj -c Release
@@ -517,7 +565,7 @@ And follow it's logs:
 journalctl -u classifier -f
 ```
 
-The classifier warms up by building a cache of rates. How far back it does this before the next block is set by `BlockBufferSize` in appsettings.config.
+The classifier warms up by building a cache of swap rates (if sufficient mev-inspect data is available). How far back it caches before the current block is set by `BlockBufferSize` in appsettings.config.
 
 This example shows the system that last classified block 21268860 warming up it's cache to that point, before backfilling data to the latest mev-inspect block 21269169.
 
@@ -593,7 +641,7 @@ Self-sign a development HTTPS certificate:
 dotnet dev-certs https --trust
 ```
 
-Run the site on all available IP addresses (or change 0.0.0.0 to a specific ip address):
+To run the site on all available IP addresses on port 5001 (or change 0.0.0.0 to a specific ip address):
 
 ```
 dotnet run --project ZeroMev.Server.csproj --configuration Release --urls "https://0.0.0.0:5001"
@@ -601,7 +649,9 @@ dotnet run --project ZeroMev.Server.csproj --configuration Release --urls "https
 
 ## install API
 
-To install the Zeromev API, follow the instructions in this repository:
+Install the Zeromev API with the **root** user.
+
+Clone this repository, and follow the instructions in the readme:
 
 ```
 https://github.com/zeromev/zeromev-api
@@ -631,7 +681,7 @@ Use the backfill command to extract as much data as possible in mev-inspect-py. 
 If you are confident that no existing data will be overwritten, setting FastImport will speed database inserts by bypassing conflict checking:
 
 ```
-"FastImport": true
+    "FastImport": true
 ```
 
 Once completed, reset these lines and restart the classifier.
