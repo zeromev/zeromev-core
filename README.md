@@ -1,12 +1,12 @@
 # zeromev
 
-This guide describes how to install and run all components of the [zeromev](https://info.zeromev.org) system, including the extractor, classifier, web server and client, API, and their dependencies.
+This guide describes how to install and run all components of the [zeromev](https://info.zeromev.org) frontrunning explorer and system, including the extractor, classifier, web server, web client and API.
 
 # overview
 
 The core zeromev codebase is written in [.NET 8](https://learn.microsoft.com/en-us/dotnet/) (see ZeroMev.sln) with additional node.js scripts for the Zeromev API, [postgres](https://www.postgresql.org/) for storage and [postgrest](https://docs.postgrest.org/en/v12/) for the API.
 
-To be able to compile and run these projects, you must follow the guide to create the necessary config files.
+To be able to compile and run these projects, follow the [install](#install) section below from beginning to end.
 
 ## components
 
@@ -30,12 +30,12 @@ To be able to compile and run these projects, you must follow the guide to creat
 
 For this guide, we will install and run all zeromev components on a single fresh Ubuntu 22.04+ server. 
 
-A typical production setup using multiple servers is described later.
+A [production](#production) setup using multiple servers is described later.
 
 ## requirements
 
 Your server will need access to:
-- a full archive node (eg: [Erigon](https://erigon.gitbook.io/erigon)) 
+- a full archive node with traces (eg: [Erigon](https://erigon.gitbook.io/erigon)) 
 - at least one full node (eg: [Geth](https://geth.ethereum.org/), [Infura](https://www.infura.io/)).
 
 You will also need:
@@ -57,7 +57,7 @@ sudo useradd -m -s /bin/bash zeromev
 sudo passwd zeromev
 ```
 
-Add zeromev to the sudo group
+Add zeromev to the sudo group:
 ```
 sudo usermod -aG sudo zeromev
 ```
@@ -171,7 +171,7 @@ Configure the postgres password for each of the databases you just created, so t
     "DB": "Host=localhost;Database=extractor;Username=postgres;Password=your_postgres_password;Timeout=5;Command Timeout=7",
     "MevWebDB": "Host=localhost;Database=mevweb;Username=postgres;Password=your_postgres_password;Timeout=5;Command Timeout=5",
     "MevApiDB": "Host=localhost;Database=zmapi;Username=postgres;Password=your_postgres_password;Timeout=600;Command Timeout=600",
-    "MevDB": "Host=localhost;Database=mev_inspect;Username=postgres;Password=your_mev_inspect_postgres_password;Timeout=600;Command Timeout=600",    
+    "MevDB": "Host=localhost;Database=mev_inspect;Username=postgres;Password=your_postgres_password;Timeout=600;Command Timeout=600",    
 ```
 
 Exit and save.
@@ -383,7 +383,7 @@ export POSTGRES_PASSWORD=your_postgres_password
 export POSTGRES_HOST=your_server_ip_address
 ```
 
-Once you have run `tilt up`, ensure you create the mev_inspect db, as described at the end of this section:
+Once you have run `tilt up`, ensure you populate the mev_inspect db, as described at the end of this section:
 
 ```
 ./mev exec alembic upgrade head
