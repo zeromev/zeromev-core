@@ -287,13 +287,10 @@ If everything is working, you will see new logs for every block as it arrives at
 
 ```
 Nov 13 14:36:13 zeromev-guide extractor[831718]: extractor_block update 249 rows in 274 ms 0 remaining
-Nov 13 14:36:18 zeromev-guide extractor[831718]: flashbots_block update in 18 ms
 Nov 13 14:36:25 zeromev-guide extractor[831718]: ZeroMev.ExtractorService.Worker[0] new block 21179408 size 176 arrivals 1120 pending 695
 Nov 13 14:36:25 zeromev-guide extractor[831718]: extractor_block update 176 rows in 5 ms 0 remaining
-Nov 13 14:36:30 zeromev-guide extractor[831718]: flashbots_block update in 11 ms
 Nov 13 14:36:36 zeromev-guide extractor[831718]: ZeroMev.ExtractorService.Worker[0] new block 21179409 size 122 arrivals 1516 pending 969
 Nov 13 14:36:36 zeromev-guide extractor[831718]: extractor_block update 122 rows in 3 ms 0 remaining
-Nov 13 14:36:41 zeromev-guide extractor[831718]: flashbots_block update in 13 ms
 Nov 13 14:36:49 zeromev-guide extractor[831718]: ZeroMev.ExtractorService.Worker[0] new block 21179410 size 196 arrivals 1940 pending 1197
 Nov 13 14:36:49 zeromev-guide extractor[831718]: extractor_block update 196 rows in 12 ms 0 remaining
 ```
