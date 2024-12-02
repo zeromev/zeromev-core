@@ -340,7 +340,7 @@ Configure whether to collect data from the [Flashbots Block API](https://blocks.
 
 Flashbots [mev-inspect-py](https://github.com/flashbots/mev-inspect-py) is used to extract swap and MEV data.
 
-We have released a [fork](https://github.com/pmcgoohan/mev-inspect-py) which allows it to access an external postgres database, as well as fixing some versioning problems, so let's use this.
+We have released a [fork](https://github.com/zeromev/mev-inspect-py) which allows it to access an external postgres database, as well as fixing some versioning problems, so let's use this.
 
 ### allow access to db
 
@@ -375,7 +375,7 @@ sudo systemctl restart postgresql
 
 Exit the zeromev user session and install mev-inspect-py and it's components as **root user** to avoid permissioning problems.
 
-Follow the mev-inspect-py [install section](https://github.com/pmcgoohan/mev-inspect-py/blob/main/README.md#install) in the fork to install and run it in a local instance of kubernetes (https://github.com/pmcgoohan/mev-inspect-py).
+Follow the mev-inspect-py [install section](https://github.com/zeromev/mev-inspect-py/blob/main/README.md#install) in the fork to install and run it in a local instance of kubernetes (https://github.com/zeromev/mev-inspect-py).
 
 Ensure your postgres password is set correctly to the postgres instance in your environment variables:
 
