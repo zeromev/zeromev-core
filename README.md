@@ -1,6 +1,6 @@
 # zeromev
 
-This guide describes how to install and run all components of the [zeromev](https://info.zeromev.org) frontrunning explorer and system, including the extractor, classifier, web server, web client and API.
+This guide describes how to install and run all components of the [zeromev](https://info.zeromev.org) frontrunning explorer and MEV analysis system, including the extractor, classifier, web server, web client and API.
 
 # overview
 
