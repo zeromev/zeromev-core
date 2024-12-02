@@ -339,35 +339,6 @@ Flashbots [mev-inspect-py](https://github.com/flashbots/mev-inspect-py) is used 
 
 We have released a [fork](https://github.com/zeromev/mev-inspect-py) which allows it to access an external postgres database, as well as fixing some versioning problems, so let's use this.
 
-### allow access to db
-
-First we need to allow connectivity to postgres from mev-inspect-py:
-
-Find the postgres configuration directory:
-
-```
-sudo -u postgres psql -c 'show hba_file'
-```
-
-Enter this directory, and edit `pg_hba.conf` adding this to the end and updating `your_server_ip_address`:
-
-```
-host    all             all             your_server_ip_address/32            md5
-host    all             all             172.18.0.0/24                md5
-```
-
-Save, then edit `postgresql.conf` and modify the listen_addresses line:
-
-```
-listen_addresses = '*' # find listen_address in file and replace localhost with *
-```
-
-Save, then restart postgres:
-
-```
-sudo systemctl restart postgresql
-```
-
 ### install
 
 Exit the zeromev user session and install mev-inspect-py and it's components as **root user** to avoid permissioning problems.
