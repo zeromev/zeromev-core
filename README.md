@@ -255,8 +255,8 @@ After=network.target postgresql.service
 Requires=postgresql.service
 
 [Service]
-WorkingDirectory=/home/zeromev/zeromev/ZeroMev/ExtractorService/bin/Release/net8.0
-ExecStart=/usr/bin/dotnet /home/zeromev/zeromev/ZeroMev/ExtractorService/bin/Release/net8.0/ZeroMev.ExtractorService.dll
+WorkingDirectory=/home/zeromev/zeromev-core/ZeroMev/ExtractorService/bin/Release/net8.0
+ExecStart=/usr/bin/dotnet /home/zeromev/zeromev-core/ZeroMev/ExtractorService/bin/Release/net8.0/ZeroMev.ExtractorService.dll
 Restart=on-failure
 RestartSec=10
 KillSignal=SIGINT
@@ -532,8 +532,8 @@ After=network.target postgresql.service
 Requires=postgresql.service
 
 [Service]
-WorkingDirectory=/home/zeromev/zeromev/ZeroMev/ClassifierService/bin/Release/net8.0
-ExecStart=/usr/bin/dotnet /home/zeromev/zeromev/ZeroMev/ClassifierService/bin/Release/net8.0/ZeroMev.ClassifierService.dll
+WorkingDirectory=/home/zeromev/zeromev-core/ZeroMev/ClassifierService/bin/Release/net8.0
+ExecStart=/usr/bin/dotnet /home/zeromev/zeromev-core/ZeroMev/ClassifierService/bin/Release/net8.0/ZeroMev.ClassifierService.dll
 Restart=on-failure
 RestartSec=10
 KillSignal=SIGINT
@@ -625,7 +625,7 @@ info: Microsoft.Hosting.Lifetime[0]
 info: Microsoft.Hosting.Lifetime[0]
       Hosting environment: Development
 info: Microsoft.Hosting.Lifetime[0]
-      Content root path: /home/zeromev/zeromev/ZeroMev/Server
+      Content root path: /home/zeromev/zeromev-core/ZeroMev/Server
 ```
 
 To test the site:
