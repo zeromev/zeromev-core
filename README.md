@@ -71,7 +71,7 @@ ssh zeromev@your.server.ip.address
 Make sure [git is installed](https://github.com/git-guides/install-git), then clone the zeromev respository:
 
 ```
-git clone https://github.com/zeromev/zeromev
+git clone https://github.com/zeromev/zeromev-core
 ```
 
 Install postgres locally:
@@ -115,7 +115,7 @@ sudo apt-get install -y dotnet-sdk-8.0
 Enter the main zeromev git folder:
 
 ```
-cd ~/zeromev/
+cd ~/zeromev-core/
 ```
 
 Create the extractor database to hold transaction and block timing data:
@@ -140,7 +140,9 @@ sudo -u postgres psql -f mevinspect_schema.sql
 
 ## configure
 
-Let's configure a template settings file, which we can then copy to each component as we go.
+Configuration files are needed by each component in order to run. 
+
+Let's configure a template settings file, which we can then copy to each component as we go (as an appsettings.json file).
 
 ```
 nano appsettings.template.json
@@ -181,7 +183,7 @@ The web client is a bit different and has hardcoded settings. This speeds things
 So to set web client defaults, enter the code directory for the shared library.
 
 ```
-cd ~/zeromev/ZeroMev/Shared
+cd ~/zeromev-core/ZeroMev/Shared
 ```
 
 Then create a new config code file from the template, and edit:
@@ -206,7 +208,7 @@ Exit and save.
 Enter the code directory for the extractor service.
 
 ```
-cd ~/zeromev/ZeroMev/ExtractorService
+cd ~/zeromev-core/ZeroMev/ExtractorService
 ```
 
 Create a new settings file from our template, and edit:
@@ -435,7 +437,7 @@ Enter the zeromev user session.
 Enter the code directory for the classifier:
 
 ```
-cd ~/zeromev/ZeroMev/ClassifierService
+cd ~/zeromev-core/ZeroMev/ClassifierService
 ```
 
 Create a new settings file from our settings template, and edit it:
@@ -470,7 +472,7 @@ dotnet build ZeroMev.ClassifierService.csproj -c Release
 Make sure your Ethplorer API key is configured and valid, and run the classifier from the command line in import mode:
 
 ```
-dotnet ~/zeromev/ZeroMev/ClassifierService/bin/Release/net8.0/ZeroMev.ClassifierService.dll import_tokens
+dotnet ~/zeromev-core/ZeroMev/ClassifierService/bin/Release/net8.0/ZeroMev.ClassifierService.dll import_tokens
 ```
 
 This will take a while, especially if the database is large.
@@ -597,7 +599,7 @@ Exit the log with CTRL+C.
 To install the [zeromev.org](https://zeromev.org) [frontrunning explorer](https://youtu.be/zkrrZZj_Oic?si=_CF3hX_Kjk8i5ZIg) locally, enter the web server code directory:
 
 ```
-cd ~/zeromev/ZeroMev/Server
+cd ~/zeromev-core/ZeroMev/Server
 ```
 
 Create a new settings file from the settings template:
